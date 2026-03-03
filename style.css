@@ -17,6 +17,7 @@ body {
     width: 100%;
     margin-top: 10px;
     padding: 8px;
+    cursor: pointer;
 }
 
 .main {
@@ -26,11 +27,14 @@ body {
 
 .tabs button {
     margin-right: 5px;
+    padding: 5px 10px;
+    cursor: pointer;
 }
 
 input {
     width: 60%;
     padding: 8px;
+    margin-top: 10px;
 }
 
 textarea {
@@ -45,6 +49,7 @@ textarea {
 .tools button {
     margin-right: 5px;
     margin-top: 10px;
+    cursor: pointer;
 }
 
 .loading {
@@ -55,6 +60,13 @@ textarea {
 
 .tool-section {
     margin-top: 30px;
+    padding: 15px;
+    background: #111827;
+    border-radius: 8px;
+}
+
+.tool-section h2 {
+    margin-bottom: 15px;
 }
 
 .tool-grid {
@@ -69,6 +81,18 @@ textarea {
     text-align: center;
     text-decoration: none;
     color: #00ffcc;
+    border-radius: 6px;
+}
+
+.tool-grid a:hover {
+    background: #00ffcc;
+    color: #000;
+}
+
+#mitre-panel label {
+    display: block;
+    margin-bottom: 5px;
+    cursor: pointer;
 }
 
 .dark {
