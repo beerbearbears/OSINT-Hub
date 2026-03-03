@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OSINT-Hub</title>
+    <title>OSINT-Hub SOC Toolkit</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="sidebar">
-    <h2>🔎 OSINT-Hub</h2>
+    <h2>🔎 OSINT-Hub SOC Toolkit</h2>
     <button onclick="toggleDark()">🌙 Toggle</button>
     <button onclick="clearAll()">🗑 Clear</button>
 </div>
 
 <div class="main">
-    <h1>OSINT-Hub</h1>
+    <h1>OSINT-Hub SOC Toolkit</h1>
 
     <div class="tabs">
         <button onclick="setType('ip')">IP</button>
@@ -59,6 +59,9 @@
             <a id="ipinfo" target="_blank">IPInfo</a>
             <a id="threatminer" target="_blank">ThreatMiner</a>
             <a id="urlscan" target="_blank">urlscan.io</a>
+            <a id="ibmxf" target="_blank">IBM X‑Force</a>
+            <a id="talos" target="_blank">Cisco Talos</a>
+            <a id="alienotx" target="_blank">AlienVault OTX</a>
         </div>
     </div>
 
@@ -71,6 +74,9 @@
             <a id="censys" target="_blank">Censys</a>
             <a id="shodan" target="_blank">Shodan</a>
             <a id="netlas" target="_blank">Netlas</a>
+            <a id="maclookup" target="_blank">MAC Vendor Lookup</a>
+            <a id="uaParser" target="_blank">User‑Agent Parser</a>
+            <a id="blockchain" target="_blank">Blockchain Explorer</a>
         </div>
     </div>
 
@@ -104,6 +110,15 @@
             <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
             <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
             <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
+        </div>
+    </div>
+
+    <!-- DECODE -->
+    <div class="tool-section">
+        <h2>🔐 Data Decode</h2>
+        <div class="tool-grid">
+            <a id="cyberchef" target="_blank">CyberChef Decode</a>
+            <a id="cvelookup" target="_blank">CVE Lookup</a>
         </div>
     </div>
 
