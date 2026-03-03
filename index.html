@@ -2,30 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>OSINT-Hub SOC Toolkit</title>
+    <title>Centralized OSINT</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="sidebar">
-    <h2>🔎 OSINT-Hub SOC Toolkit</h2>
-    <button onclick="toggleDark()">🌙 Toggle</button>
+    <h2>🔎 Centralized OSINT</h2>
+    <button onclick="toggleDark()">🌙 Toggle Dark</button>
     <button onclick="clearAll()">🗑 Clear</button>
 </div>
 
 <div class="main">
-    <h1>OSINT-Hub SOC Toolkit</h1>
+    <h1>Centralized OSINT</h1>
 
-    <div class="tabs">
-        <button onclick="setType('ip')">IP</button>
-        <button onclick="setType('domain')">Domain</button>
-        <button onclick="setType('email')">Email</button>
-        <button onclick="setType('username')">Username</button>
-    </div>
-
-    <input type="text" id="input" placeholder="Enter indicator...">
+    <input type="text" id="input" placeholder="Enter IP / Domain / Email / Username / Hash">
     <button onclick="search()">Search</button>
-
     <div class="tools">
         <button onclick="defang()">Defang</button>
         <button onclick="refang()">Refang</button>
@@ -36,22 +28,9 @@
     <div id="loading" class="loading">Loading...</div>
     <textarea id="output" placeholder="Results / Extracted IOCs"></textarea>
 
-    <!-- PHISHING -->
-    <div class="tool-section">
-        <h2>🎣 Phishing Analysis</h2>
-        <div class="tool-grid">
-            <a id="phishtank" target="_blank">PhishTank</a>
-            <a id="phishtool" target="_blank">PhishTool</a>
-            <a id="dnstwister" target="_blank">DNSTwister</a>
-            <a id="scamsearch" target="_blank">ScamSearch</a>
-            <a id="checkphish" target="_blank">CheckPhish</a>
-            <a id="openphish" target="_blank">OpenPhish</a>
-        </div>
-    </div>
-
-    <!-- THREAT & REPUTATION -->
-    <div class="tool-section">
-        <h2>🛡 Threat & Reputation</h2>
+    <!-- TOOL SECTIONS -->
+    <div class="tool-section" data-type="ip">
+        <h2>🛡 Threat & Reputation (IP)</h2>
         <div class="tool-grid">
             <a id="virustotal" target="_blank">VirusTotal</a>
             <a id="abuseipdb" target="_blank">AbuseIPDB</a>
@@ -65,39 +44,38 @@
         </div>
     </div>
 
-    <!-- DNS & INFRA -->
-    <div class="tool-section">
-        <h2>🌐 DNS & Infrastructure</h2>
+    <div class="tool-section" data-type="domain">
+        <h2>🌐 Domain & DNS</h2>
         <div class="tool-grid">
             <a id="passivedns" target="_blank">Passive DNS</a>
             <a id="securitytrails" target="_blank">SecurityTrails</a>
             <a id="censys" target="_blank">Censys</a>
             <a id="shodan" target="_blank">Shodan</a>
             <a id="netlas" target="_blank">Netlas</a>
-            <a id="maclookup" target="_blank">MAC Vendor Lookup</a>
-            <a id="uaParser" target="_blank">User‑Agent Parser</a>
-            <a id="blockchain" target="_blank">Blockchain Explorer</a>
         </div>
     </div>
 
-    <!-- EMAIL & USERNAME -->
-    <div class="tool-section">
-        <h2>📧 Email & Username</h2>
+    <div class="tool-section" data-type="email">
+        <h2>📧 Email & Breach</h2>
         <div class="tool-grid">
             <a id="hunter" target="_blank">Hunter.io</a>
             <a id="haveibeenpwned" target="_blank">HIBP</a>
+        </div>
+    </div>
+
+    <div class="tool-section" data-type="username">
+        <h2>👤 Username Lookup</h2>
+        <div class="tool-grid">
             <a id="namechk" target="_blank">Namechk</a>
             <a id="whatsmyname" target="_blank">WhatsMyName</a>
         </div>
     </div>
 
-    <!-- ARCHIVE & LEAK -->
-    <div class="tool-section">
-        <h2>🗂 Archive & Leak</h2>
+    <div class="tool-section" data-type="hash">
+        <h2>🔒 Hash Lookup</h2>
         <div class="tool-grid">
-            <a id="intelx" target="_blank">IntelligenceX</a>
-            <a id="leakix" target="_blank">LeakIX</a>
-            <a id="wayback" target="_blank">Wayback</a>
+            <a id="virustotalhash" target="_blank">VirusTotal Hash</a>
+            <a id="threatminerhash" target="_blank">ThreatMiner Hash</a>
         </div>
     </div>
 
@@ -110,15 +88,6 @@
             <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
             <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
             <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
-        </div>
-    </div>
-
-    <!-- DECODE -->
-    <div class="tool-section">
-        <h2>🔐 Data Decode</h2>
-        <div class="tool-grid">
-            <a id="cyberchef" target="_blank">CyberChef Decode</a>
-            <a id="cvelookup" target="_blank">CVE Lookup</a>
         </div>
     </div>
 
