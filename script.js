@@ -31,6 +31,9 @@ function updateAllLinks(q) {
     ipinfo.href = "https://ipinfo.io/" + q;
     threatminer.href = "https://www.threatminer.org/search.php?q=" + q;
     urlscan.href = "https://urlscan.io/search/#" + q;
+    ibmxf.href = "https://exchange.xforce.ibmcloud.com/lookup/" + q;
+    talos.href = "https://talosintelligence.com/reputation_center/lookup?search=" + q;
+    alienotx.href = "https://otx.alienvault.com/indicator/?q=" + q;
 
     // DNS & INFRA
     passivedns.href = "https://www.circl.lu/services/passive-dns/?q=" + q;
@@ -38,6 +41,9 @@ function updateAllLinks(q) {
     censys.href = "https://search.censys.io/search?q=" + q;
     shodan.href = "https://www.shodan.io/search?query=" + q;
     netlas.href = "https://netlas.io/search?query=" + q;
+    maclookup.href = "https://macvendors.com/query/" + q;
+    uaParser.href = "https://useragentstring.com/?uas=" + q;
+    blockchain.href = "https://www.blockchain.com/explorer?search=" + q;
 
     // EMAIL / USER
     hunter.href = "https://hunter.io/search?q=" + q;
@@ -49,6 +55,10 @@ function updateAllLinks(q) {
     intelx.href = "https://intelx.io/search?query=" + q;
     leakix.href = "https://leakix.net/search?q=" + q;
     wayback.href = "https://web.archive.org/cite/" + q;
+
+    // DECODE
+    cyberchef.href = "https://gchq.github.io/CyberChef/#recipe=From_Base64('A','…')";
+    cvelookup.href = "https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=" + q;
 }
 
 // IOC Utilities
