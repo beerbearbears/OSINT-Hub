@@ -8,75 +8,85 @@ function search() {
     let value = document.getElementById("input").value;
     let loading = document.getElementById("loading");
 
+    if (!value) return;
+
     loading.style.display = "block";
 
     setTimeout(() => {
         loading.style.display = "none";
         document.getElementById("output").value = "Query: " + value;
-        updatePhishingLinks(value);
+        updateAllLinks(value);
     }, 800);
 }
 
-function updatePhishingLinks(query) {
-    document.getElementById("phishtank").href =
-        "https://www.phishtank.com/search.php?query=" + encodeURIComponent(query);
+function updateAllLinks(q) {
 
-    document.getElementById("phishtool").href =
-        "https://www.phishtool.com/search/?query=" + encodeURIComponent(query);
+    // PHISHING
+    phishtank.href = "https://www.phishtank.com/search.php?query=" + q;
+    phishtool.href = "https://www.phishtool.com/search/?query=" + q;
+    dnstwister.href = "https://dnstwister.report/search?domain=" + q;
+    scamsearch.href = "https://scamsearch.io/search?query=" + q;
+    checkphish.href = "https://checkphish.bolster.ai/search?query=" + q;
+    openphish.href = "https://openphish.com/search/?query=" + q;
 
-    document.getElementById("dnstwister").href =
-        "https://dnstwister.report/search?domain=" + encodeURIComponent(query);
+    // THREAT
+    virustotal.href = "https://www.virustotal.com/gui/search/" + q;
+    abuseipdb.href = "https://www.abuseipdb.com/check/" + q;
+    spur.href = "https://spur.us/context/" + q;
+    ipinfo.href = "https://ipinfo.io/" + q;
+    threatminer.href = "https://www.threatminer.org/search.php?q=" + q;
+    urlscan.href = "https://urlscan.io/search/#" + q;
 
-    document.getElementById("scamsearch").href =
-        "https://scamsearch.io/search?query=" + encodeURIComponent(query);
+    // DNS
+    passivedns.href = "https://www.circl.lu/services/passive-dns/?q=" + q;
+    securitytrails.href = "https://securitytrails.com/list/apex_domain/" + q;
+    censys.href = "https://search.censys.io/search?q=" + q;
+    shodan.href = "https://www.shodan.io/search?query=" + q;
+    netlas.href = "https://netlas.io/search?query=" + q;
 
-    document.getElementById("checkphish").href =
-        "https://checkphish.bolster.ai/search?query=" + encodeURIComponent(query);
+    // EMAIL / USER
+    hunter.href = "https://hunter.io/search?q=" + q;
+    haveibeenpwned.href = "https://haveibeenpwned.com/unifiedsearch/" + q;
+    namechk.href = "https://namechk.com/" + q;
+    whatsmyname.href = "https://whatsmyname.app/?q=" + q;
 
-    document.getElementById("openphish").href =
-        "https://openphish.com/search/?query=" + encodeURIComponent(query);
+    // ARCHIVE
+    intelx.href = "https://intelx.io/search?query=" + q;
+    leakix.href = "https://leakix.net/search?q=" + q;
+    wayback.href = "https://web.archive.org/cite/" + q;
 }
 
 function defang() {
-    let val = document.getElementById("input").value;
-    let defanged = val.replace(/\./g, "[.]").replace(/http/g, "hxxp");
-    document.getElementById("output").value = defanged;
+    let val = input.value;
+    output.value = val.replace(/\./g, "[.]").replace(/http/g, "hxxp");
 }
 
 function refang() {
-    let val = document.getElementById("output").value;
-    let refanged = val.replace(/\[\.\]/g, ".").replace(/hxxp/g, "http");
-    document.getElementById("output").value = refanged;
+    let val = output.value;
+    output.value = val.replace(/\[\.\]/g, ".").replace(/hxxp/g, "http");
 }
 
 function extractIOCs() {
-    let text = document.getElementById("input").value;
+    let text = input.value;
 
-    let ipRegex = /\b\d{1,3}(?:\.\d{1,3}){3}\b/g;
-    let domainRegex = /\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g;
-    let emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
+    let ip = text.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
+    let domain = text.match(/\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || [];
+    let email = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g) || [];
 
-    let ips = text.match(ipRegex) || [];
-    let domains = text.match(domainRegex) || [];
-    let emails = text.match(emailRegex) || [];
-
-    let result = "IPs:\n" + ips.join("\n") +
-        "\n\nDomains:\n" + domains.join("\n") +
-        "\n\nEmails:\n" + emails.join("\n");
-
-    document.getElementById("output").value = result;
+    output.value =
+        "IPs:\n" + ip.join("\n") +
+        "\n\nDomains:\n" + domain.join("\n") +
+        "\n\nEmails:\n" + email.join("\n");
 }
 
 function copyOutput() {
-    let output = document.getElementById("output");
     output.select();
     document.execCommand("copy");
-    alert("Copied!");
 }
 
 function clearAll() {
-    document.getElementById("input").value = "";
-    document.getElementById("output").value = "";
+    input.value = "";
+    output.value = "";
 }
 
 function toggleDark() {
