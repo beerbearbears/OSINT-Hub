@@ -11,19 +11,20 @@ document.addEventListener("DOMContentLoaded", () => {
     v = v.replace(/\[\.\]/g, ".").replace(/\(\.\)/g, ".");
     v = v.trim();
 
-    // keep emails intact
+    // CVE as-is
+    if (/^CVE-\d{4}-\d{4,}$/i.test(v)) return v.toUpperCase();
+    // Email as-is
     if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return v;
 
-    // strip protocol
+    // strip protocol/path
     v = v.replace(/^[a-z]+:\/\//i, "");
-    // strip path/query/fragment
     v = v.split("/")[0].split("?")[0].split("#")[0];
     v = v.replace(/\.$/, "");
-
     return v.trim();
   }
 
   function detectType(v) {
+    if (/^CVE-\d{4}-\d{4,}$/i.test(v)) return "cve";
     if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return "email";
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(v)) return "ip";
     if (/^[a-fA-F0-9]{32}$/.test(v) || /^[a-fA-F0-9]{40}$/.test(v) || /^[a-fA-F0-9]{64}$/.test(v)) return "hash";
@@ -42,18 +43,30 @@ document.addEventListener("DOMContentLoaded", () => {
     ip: {
       virustotal: (q) => `https://www.virustotal.com/gui/ip-address/${q}/detection`,
       abuseipdb: (q) => `https://www.abuseipdb.com/check/${q}`,
-      spur: (q) => `https://spur.us/context/${q}`,
-      ipinfo: (q) => `https://ipinfo.io/${q}`,
-      threatminer: (q) => `https://www.threatminer.org/host.php?q=${q}`,
-      urlscan: (q) => `https://urlscan.io/ip/${q}`,
-      ibmxf: (q) => `https://exchange.xforce.ibmcloud.com/ip/${q}`,
       talos: (q) => `https://talosintelligence.com/reputation_center/lookup?search=${encodeURIComponent(q)}`,
+      ibmxf: (q) => `https://exchange.xforce.ibmcloud.com/ip/${q}`,
       alienotx: (q) => `https://otx.alienvault.com/indicator/ip/${q}`,
-      scamalytics: (q) => `https://scamalytics.com/ip/${q}`,
 
-      // ✅ NEW: IP-only
+      anyrun_ip: (q) => `https://intelligence.any.run/analysis/lookup#${encodeURIComponent(JSON.stringify({ query: q, dateRange: 180 }))}`,
+
+      mxtoolbox_ip: (q) => `https://mxtoolbox.com/SuperTool.aspx?action=blacklist:${q}`,
+      blacklistchecker_ip: (q) => `https://blacklistchecker.com/check?input=${encodeURIComponent(q)}`,
+      cleantalk_ip: (q) => `https://cleantalk.org/blacklists/${q}`,
+
+      shodan_ip: (q) => `https://www.shodan.io/host/${q}`,
       censys_ip: (q) => `https://search.censys.io/hosts/${q}`,
       greynoise: (q) => `https://viz.greynoise.io/ip/${q}`,
+
+      iplocation: (q) => `https://iplocation.io/ip/${q}`,
+      ipinfo: (q) => `https://ipinfo.io/${q}`,
+      whatismyipaddress_ip: (q) => `https://whatismyipaddress.com/ip/${q}`,
+      myip_ms: (q) => `https://myip.ms/info/whois/${q}`,
+      ripestat: (q) => `https://stat.ripe.net/resource/${q}?tab=database`,
+
+      spur: (q) => `https://spur.us/context/${q}`,
+      scamalytics: (q) => `https://scamalytics.com/ip/${q}`,
+      threatminer: (q) => `https://www.threatminer.org/host.php?q=${q}`,
+      urlscan: (q) => `https://urlscan.io/ip/${q}`,
     },
 
     domain: {
@@ -87,8 +100,8 @@ document.addEventListener("DOMContentLoaded", () => {
       anyrun_domain: (q) => `https://any.run/search/?q=${encodeURIComponent(q)}`,
       anyrun_safe: (q) => `https://any.run/search/?q=${encodeURIComponent(q)}`,
       phishing_checker: (q) => `https://phishingchecker.org/?q=${encodeURIComponent(q)}`,
-      clickfix: (q) => `https://www.google.com/search?q=${encodeURIComponent("ClickFix " + q)}`,
-      nitter: (q) => `https://nitter.net/search?q=${encodeURIComponent(q)}`,
+      clickfix: (q) => `https://clickfix.carsonww.com/domains?query=${encodeURIComponent(q)}`,
+      nitter: (q) => `https://nitter.net/search?f=tweets&q=${encodeURIComponent(q)}&since=&until=&near=`,
     },
 
     email: {
@@ -111,6 +124,15 @@ document.addEventListener("DOMContentLoaded", () => {
       triage: (q) => `https://tria.ge/s?q=${encodeURIComponent(q)}`,
       joesandbox: (q) => `https://www.google.com/search?q=${encodeURIComponent(`site:joesandbox.com/analysis ${q}`)}`,
       hybrid: (q) => `https://www.hybrid-analysis.com/search?query=${encodeURIComponent(q)}`,
+    },
+
+    cve: {
+      nvd_cve: (q) => `https://nvd.nist.gov/vuln/detail/${q}`,
+      cve_org: (q) => `https://www.cve.org/CVERecord?id=${q}`,
+      cisa_kev: (q) => `https://www.google.com/search?q=${encodeURIComponent(`site:cisa.gov known exploited vulnerabilities ${q}`)}`,
+      exploitdb: (q) => `https://www.exploit-db.com/search?cve=${encodeURIComponent(q)}`,
+      vulners: (q) => `https://vulners.com/search?query=${encodeURIComponent(q)}`,
+      github_poc: (q) => `https://github.com/search?q=${encodeURIComponent(q + " poc exploit")}&type=repositories`,
     },
   };
 
@@ -159,9 +181,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const domains = text.match(/\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || [];
     const emails = text.match(/\b[^@\s]+@[^@\s]+\.[^@\s]+\b/g) || [];
     const hashes = text.match(/\b[A-Fa-f0-9]{32}\b|\b[A-Fa-f0-9]{40}\b|\b[A-Fa-f0-9]{64}\b/g) || [];
+    const cves = text.match(/\bCVE-\d{4}-\d{4,}\b/gi) || [];
 
     output.value =
-      `IPs:\n${ips.join("\n")}\n\nDomains:\n${domains.join("\n")}\n\nEmails:\n${emails.join("\n")}\n\nHashes:\n${hashes.join("\n")}`;
+      `IPs:\n${ips.join("\n")}\n\nDomains:\n${domains.join("\n")}\n\nEmails:\n${emails.join("\n")}\n\nHashes:\n${hashes.join("\n")}\n\nCVEs:\n${cves.map(x => x.toUpperCase()).join("\n")}`;
   }
 
   function copyOutput() {
@@ -203,11 +226,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("clear-all").addEventListener("click", clearAll);
   document.getElementById("toggle-dark").addEventListener("click", toggleTheme);
 
-  // Auto-generate links while typing
   input.addEventListener("input", runSearch);
-
-  // Enter triggers search
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") runSearch();
-  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
 });
