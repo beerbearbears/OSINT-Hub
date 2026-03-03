@@ -9,20 +9,20 @@
 
 <div class="sidebar">
     <h2>🔎 Centralized OSINT</h2>
-    <button onclick="toggleDark()">🌙 Toggle Dark</button>
-    <button onclick="clearAll()">🗑 Clear</button>
+    <button id="toggle-dark">🌙 Toggle Dark</button>
+    <button id="clear-all">🗑 Clear</button>
 </div>
 
 <div class="main">
     <h1>Centralized OSINT</h1>
 
     <input type="text" id="input" placeholder="Enter IP / Domain / Email / Username / Hash">
-    <button onclick="search()">Search</button>
+    <button id="search-btn">Search</button>
     <div class="tools">
-        <button onclick="defang()">Defang</button>
-        <button onclick="refang()">Refang</button>
-        <button onclick="extractIOCs()">Extract IOCs</button>
-        <button onclick="copyOutput()">Copy</button>
+        <button id="defang-btn">Defang</button>
+        <button id="refang-btn">Refang</button>
+        <button id="extract-btn">Extract IOCs</button>
+        <button id="copy-btn">Copy</button>
     </div>
 
     <div id="loading" class="loading">Loading...</div>
