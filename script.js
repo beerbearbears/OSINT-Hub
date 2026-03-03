@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const input = document.getElementById("input");
     const output = document.getElementById("output");
 
-    // Detect IOC type
+    // ---------------- Detect IOC Type ----------------
     function detectType(val) {
         if (/^\d{1,3}(\.\d{1,3}){3}$/.test(val)) return "ip";
         if (/^[a-fA-F0-9]{32,64}$/.test(val)) return "hash";
@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return null;
     }
 
+    // ---------------- Show / Hide Sections ----------------
     function showRelevantTools(type) {
         document.querySelectorAll(".tool-section").forEach(section => {
             if (section.dataset.type === type || !section.dataset.type) section.style.display = "block";
@@ -19,6 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // ---------------- Update All Links ----------------
     function updateAllLinks(q, type) {
         const links = {
             ip: {
@@ -48,10 +50,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 whatsmyname: `https://whatsmyname.app/?q=${q}`
             },
             hash: {
-                virustotalhash: `https://www.virustotal.com/gui/search/${q}`,
-                threatminerhash: `https://www.threatminer.org/search.php?q=${q}`
+                virustotalhash: `https://www.virustotal.com/gui/file/${q}`,
+                threatminerhash: `https://www.threatminer.org/search.php?q=${q}`,
+                anyrun: `https://intelligence.any.run/analysis/lookup#{"query":"${q}","dateRange":180}`,
+                alienhash: `https://otx.alienvault.com/indicator/file/${q}`,
+                taloshash: `https://talosintelligence.com/talos_file_reputation?s=${q}`,
+                ibmhash: `https://exchange.xforce.ibmcloud.com/malware/${q}`,
+                triage: `https://tria.ge/s?q=${q}`,
+                joesandbox: `https://www.joesandbox.com/analysis/search?q=${q}`,
+                hybrid: `https://hybrid-analysis.com/sample/${q}`
             }
         };
+
         if (!links[type]) return;
         for (let id in links[type]) {
             const el = document.getElementById(id);
@@ -59,6 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // ---------------- Button Functions ----------------
     function search() {
         const val = input.value.trim();
         if (!val) return;
@@ -72,18 +83,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function defang() { output.value = input.value.replace(/\./g, "[.]").replace(/http/g, "hxxp"); }
     function refang() { output.value = output.value.replace(/\[\.\]/g, ".").replace(/hxxp/g, "http"); }
+
     function extractIOCs() {
         const text = input.value;
         const ips = text.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
         const domains = text.match(/\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || [];
         const emails = text.match(/\b[^@\s]+@[^@\s]+\.[^@\s]+\b/g) || [];
-        output.value = `IPs:\n${ips.join("\n")}\n\nDomains:\n${domains.join("\n")}\n\nEmails:\n${emails.join("\n")}`;
+        const hashes = text.match(/\b[A-Fa-f0-9]{32,64}\b/g) || [];
+
+        output.value =
+            `IPs:\n${ips.join("\n")}\n\nDomains:\n${domains.join("\n")}\n\nEmails:\n${emails.join("\n")}\n\nHashes:\n${hashes.join("\n")}`;
     }
+
     function copyOutput() { output.select(); document.execCommand("copy"); }
-    function clearAll() { input.value=""; output.value=""; document.querySelectorAll(".tool-section").forEach(s=>s.style.display="block"); }
+    function clearAll() {
+        input.value = "";
+        output.value = "";
+        document.querySelectorAll(".tool-section").forEach(s => s.style.display = "block");
+    }
     function toggleDark() { document.body.classList.toggle("dark"); }
 
-    // Button event listeners
+    // ---------------- Event Listeners ----------------
     document.getElementById("search-btn").addEventListener("click", search);
     document.getElementById("defang-btn").addEventListener("click", defang);
     document.getElementById("refang-btn").addEventListener("click", refang);
