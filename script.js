@@ -3,30 +3,27 @@ document.addEventListener("DOMContentLoaded", () => {
   const output = document.getElementById("output");
   const status = document.getElementById("status");
 
-  // Normalize IOC input (supports hxxp, [.] and full URLs)
   function normalize(raw) {
     let v = (raw || "").trim();
     if (!v) return "";
 
     v = v.replace(/^hxxps:\/\//i, "https://").replace(/^hxxp:\/\//i, "http://");
     v = v.replace(/\[\.\]/g, ".").replace(/\(\.\)/g, ".");
-    v = v.replace(/^\s+|\s+$/g, "");
+    v = v.trim();
 
-    // If email, keep as-is
+    // keep emails intact
     if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return v;
 
-    // Strip protocol
+    // strip protocol
     v = v.replace(/^[a-z]+:\/\//i, "");
-    // Remove path/query/fragment
+    // strip path/query/fragment
     v = v.split("/")[0].split("?")[0].split("#")[0];
-    // Remove trailing dot
     v = v.replace(/\.$/, "");
 
     return v.trim();
   }
 
   function detectType(v) {
-    // Order matters
     if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return "email";
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(v)) return "ip";
     if (/^[a-fA-F0-9]{32}$/.test(v) || /^[a-fA-F0-9]{40}$/.test(v) || /^[a-fA-F0-9]{64}$/.test(v)) return "hash";
@@ -45,7 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ip: {
       virustotal: (q) => `https://www.virustotal.com/gui/ip-address/${q}/detection`,
       abuseipdb: (q) => `https://www.abuseipdb.com/check/${q}`,
-      spur: (q) => `https://spur.us/context/${q}`, // ✅ FIXED
+      spur: (q) => `https://spur.us/context/${q}`,
       ipinfo: (q) => `https://ipinfo.io/${q}`,
       threatminer: (q) => `https://www.threatminer.org/host.php?q=${q}`,
       urlscan: (q) => `https://urlscan.io/ip/${q}`,
@@ -53,6 +50,10 @@ document.addEventListener("DOMContentLoaded", () => {
       talos: (q) => `https://talosintelligence.com/reputation_center/lookup?search=${encodeURIComponent(q)}`,
       alienotx: (q) => `https://otx.alienvault.com/indicator/ip/${q}`,
       scamalytics: (q) => `https://scamalytics.com/ip/${q}`,
+
+      // ✅ NEW: IP-only
+      censys_ip: (q) => `https://search.censys.io/hosts/${q}`,
+      greynoise: (q) => `https://viz.greynoise.io/ip/${q}`,
     },
 
     domain: {
@@ -102,24 +103,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     hash: {
       virustotalhash: (q) => `https://www.virustotal.com/gui/file/${q}/detection`,
-      threatminerhash: (q) => `https://www.threatminer.org/sample.php?q=${q}`, // ✅ FIXED
+      threatminerhash: (q) => `https://www.threatminer.org/sample.php?q=${q}`,
       anyrun: (q) => `https://any.run/search/?q=${encodeURIComponent(q)}`,
       alienhash: (q) => `https://otx.alienvault.com/indicator/file/${q}`,
       taloshash: (q) => `https://talosintelligence.com/talos_file_reputation?s=${q}`,
       ibmhash: (q) => `https://exchange.xforce.ibmcloud.com/malware/${q}`,
       triage: (q) => `https://tria.ge/s?q=${encodeURIComponent(q)}`,
-      joesandbox: (q) => `https://www.google.com/search?q=${encodeURIComponent(`site:joesandbox.com/analysis ${q}`)}`, // ✅ FIXED
+      joesandbox: (q) => `https://www.google.com/search?q=${encodeURIComponent(`site:joesandbox.com/analysis ${q}`)}`,
       hybrid: (q) => `https://www.hybrid-analysis.com/search?query=${encodeURIComponent(q)}`,
     },
   };
 
   function updateAllLinks(q, type) {
     if (!links[type]) return;
-
     Object.keys(links[type]).forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
-
       el.href = links[type][id](q);
       el.target = "_blank";
       el.rel = "noopener";
@@ -127,9 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function runSearch() {
-    const raw = input.value;
-    const norm = normalize(raw);
-
+    const norm = normalize(input.value);
     if (!norm) {
       status.textContent = "Status: waiting…";
       return;
@@ -143,7 +140,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showRelevantTools(type);
     updateAllLinks(norm, type);
-
     status.textContent = `Status: Detected ${type.toUpperCase()} → ${norm}`;
     output.value = `${type.toUpperCase()} Query: ${norm}`;
   }
@@ -181,7 +177,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function toggleTheme() {
-    // simple invert-like theme
     document.body.classList.toggle("light");
     if (document.body.classList.contains("light")) {
       document.documentElement.style.setProperty("--bg", "#f1f5f9");
@@ -200,7 +195,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Events
   document.getElementById("search-btn").addEventListener("click", runSearch);
   document.getElementById("defang-btn").addEventListener("click", defang);
   document.getElementById("refang-btn").addEventListener("click", refang);
@@ -209,10 +203,10 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("clear-all").addEventListener("click", clearAll);
   document.getElementById("toggle-dark").addEventListener("click", toggleTheme);
 
-  // Optional: auto-generate links while typing
+  // Auto-generate links while typing
   input.addEventListener("input", runSearch);
 
-  // Enter = search
+  // Enter triggers search
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") runSearch();
   });
