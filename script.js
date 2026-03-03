@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const output = document.getElementById("output");
   const status = document.getElementById("status");
 
-  // Landing pages used when input is blank OR type not detected
+  // Landing pages when input is empty
   const defaultLinks = {
     // IP
     virustotal: "https://www.virustotal.com/",
@@ -79,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
     taloshash: "https://talosintelligence.com/",
     ibmhash: "https://exchange.xforce.ibmcloud.com/",
     triage: "https://tria.ge/",
-    joesandbox: "https://www.joesandbox.com/",
+    joesandbox: "https://www.joesandbox.com/analysis/search",
     hybrid: "https://www.hybrid-analysis.com/",
 
     // CVE
@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Call once so links work even if input is empty
+  // Make links clickable even when input is empty
   setDefaultHrefs();
 
   function normalize(raw) {
@@ -168,7 +168,6 @@ document.addEventListener("DOMContentLoaded", () => {
       threatminer: (q) => `https://www.threatminer.org/host.php?q=${q}`,
       urlscan: (q) => `https://urlscan.io/ip/${q}`,
 
-      // ✅ NEW: ViewDNS (uses your exact format)
       viewdns_iphistory: (q) => `https://viewdns.info/iphistory/?domain=${encodeURIComponent(q)}`
     },
 
@@ -213,15 +212,15 @@ document.addEventListener("DOMContentLoaded", () => {
     },
 
     username: {
-      namechk: (q) => `https://namechk.com/`,
-      whatsmyname: (q) => `https://whatsmyname.app/`
+      namechk: () => `https://namechk.com/`,
+      whatsmyname: () => `https://whatsmyname.app/`
     },
 
     hash: {
       virustotalhash: (q) => `https://www.virustotal.com/gui/file/${q}/detection`,
       threatminerhash: (q) => `https://www.threatminer.org/sample.php?q=${q}`,
 
-      // ✅ FIX: AnyRun hash uses Intelligence lookup (no 404)
+      // AnyRun hash fixed (no 404)
       anyrun: (q) =>
         `https://intelligence.any.run/analysis/lookup#${encodeURIComponent(JSON.stringify({ query: q, dateRange: 180 }))}`,
 
@@ -230,8 +229,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ibmhash: (q) => `https://exchange.xforce.ibmcloud.com/malware/${q}`,
       triage: (q) => `https://tria.ge/s?q=${encodeURIComponent(q)}`,
 
-      // ✅ FIX: JoeSandbox link = broader site search (better hit rate)
-      joesandbox: (q) => `https://www.google.com/search?q=${encodeURIComponent(`site:joesandbox.com ${q}`)}`,
+      // ✅ FIXED EXACT FORMAT YOU WANT
+      joesandbox: (q) => `https://www.joesandbox.com/analysis/search?q=${encodeURIComponent(q)}`,
 
       hybrid: (q) => `https://www.hybrid-analysis.com/search?query=${encodeURIComponent(q)}`
     },
@@ -260,7 +259,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function runSearch() {
     const norm = normalize(input.value);
 
-    // If blank: keep landing pages; show all sections
     if (!norm) {
       status.textContent = "Status: waiting… (links open landing pages)";
       output.value = "";
@@ -271,7 +269,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const type = detectType(norm);
     if (!type) {
-      status.textContent = `Status: Could not detect IOC type → ${norm} (links remain landing pages)`;
+      status.textContent = `Status: Could not detect IOC type → ${norm} (links open landing pages)`;
       output.value = "";
       document.querySelectorAll(".tool-section").forEach(s => (s.style.display = "block"));
       setDefaultHrefs();
@@ -345,10 +343,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("clear-all").addEventListener("click", clearAll);
   document.getElementById("toggle-dark").addEventListener("click", toggleTheme);
 
-  // Live update while typing + Enter key
   input.addEventListener("input", runSearch);
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
 
-  // Initial state
   runSearch();
 });
