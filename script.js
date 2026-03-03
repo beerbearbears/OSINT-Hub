@@ -17,7 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    const links = {}; // Your links object goes here
+    const links = {}; // Add your links object
 
     function updateAllLinks(q, type) {
         if (!links[type]) return;
@@ -60,7 +60,5 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("copy-btn").addEventListener("click", copyOutput);
     document.getElementById("clear-all").addEventListener("click", clearAll);
     document.getElementById("toggle-dark").addEventListener("click", toggleDark);
-
-    // Press Enter to search
-    input.addEventListener("keypress", e => { if (e.key === "Enter") search(); });
+    input.addEventListener("keypress", e => { if(e.key === "Enter") search(); });
 });
