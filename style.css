@@ -124,3 +124,10 @@ textarea#output {
   font-size: 13px;
 }
 .tool-grid a:hover { background: #253554; }
+
+.hint{
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
