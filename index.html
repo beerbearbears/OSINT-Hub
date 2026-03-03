@@ -1,60 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>OSINT-Hub</title>
-  <link rel="stylesheet" href="style.css">
+    <title>OSINT-Hub</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="dark">
+<body>
 
-  <div class="sidebar">
-    <h2>OSINT-Hub</h2>
-    <button onclick="setTab('ip')">IP</button>
-    <button onclick="setTab('domain')">Domain</button>
-    <button onclick="setTab('email')">Email</button>
-    <button onclick="setTab('username')">Username</button>
-    <hr>
-    <button onclick="toggleDark()">Toggle Theme</button>
-  </div>
+<div class="sidebar">
+    <h2>🔎 OSINT-Hub</h2>
+    <button onclick="toggleDark()">🌙 Toggle</button>
+    <button onclick="clearAll()">🗑 Clear</button>
+</div>
 
-  <div class="main">
+<div class="main">
+
     <h1>OSINT-Hub</h1>
 
-    <!-- Indicator Search -->
-    <div class="search-box">
-      <input type="text" id="iocInput" placeholder="Enter Indicator">
-      <button onclick="generateLinks()">Analyze</button>
-      <button onclick="clearAll()">Clear</button>
+    <div class="tabs">
+        <button onclick="setType('ip')">IP</button>
+        <button onclick="setType('domain')">Domain</button>
+        <button onclick="setType('email')">Email</button>
+        <button onclick="setType('username')">Username</button>
     </div>
 
-    <div id="loader" class="loader hidden"></div>
-    <div id="results"></div>
+    <input type="text" id="input" placeholder="Enter indicator...">
+    <button onclick="search()">Search</button>
 
-    <hr>
-
-    <!-- Defang Section -->
-    <h2>Defang / Refang Tool</h2>
-
-    <div class="search-box">
-      <input type="text" id="defangInput" placeholder="Enter URL or IP">
-      <button onclick="defang()">Defang</button>
-      <button onclick="refang()">Refang</button>
+    <div class="tools">
+        <button onclick="defang()">Defang</button>
+        <button onclick="refang()">Refang</button>
+        <button onclick="extractIOCs()">Extract IOCs</button>
+        <button onclick="copyOutput()">Copy</button>
     </div>
 
-    <div id="defangResult"></div>
+    <div id="loading" class="loading">Loading...</div>
 
-    <hr>
+    <textarea id="output" placeholder="Results / Extracted IOCs"></textarea>
 
-    <!-- IOC Extractor -->
-    <h2>Raw Log IOC Extractor</h2>
+    <div class="tool-section">
+        <h2>🎣 Phishing Analysis</h2>
+        <div class="tool-grid">
+            <a id="phishtank" target="_blank">PhishTank</a>
+            <a id="phishtool" target="_blank">PhishTool</a>
+            <a id="dnstwister" target="_blank">DNSTwister</a>
+            <a id="scamsearch" target="_blank">ScamSearch</a>
+            <a id="checkphish" target="_blank">CheckPhish</a>
+            <a id="openphish" target="_blank">OpenPhish</a>
+        </div>
+    </div>
 
-    <textarea id="logInput" placeholder="Paste raw logs here..." rows="6"></textarea>
-    <br><br>
-    <button onclick="extractIOCs()">Extract IOCs</button>
-
-    <div id="extractedResults"></div>
-
-  </div>
+</div>
 
 <script src="script.js"></script>
 </body>
