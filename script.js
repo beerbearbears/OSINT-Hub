@@ -1,15 +1,11 @@
 let currentType = "ip";
 
-function setType(type) {
-    currentType = type;
-}
+function setType(type) { currentType = type; }
 
 function search() {
     let value = document.getElementById("input").value;
-    let loading = document.getElementById("loading");
-
     if (!value) return;
-
+    let loading = document.getElementById("loading");
     loading.style.display = "block";
 
     setTimeout(() => {
@@ -20,7 +16,6 @@ function search() {
 }
 
 function updateAllLinks(q) {
-
     // PHISHING
     phishtank.href = "https://www.phishtank.com/search.php?query=" + q;
     phishtool.href = "https://www.phishtool.com/search/?query=" + q;
@@ -29,7 +24,7 @@ function updateAllLinks(q) {
     checkphish.href = "https://checkphish.bolster.ai/search?query=" + q;
     openphish.href = "https://openphish.com/search/?query=" + q;
 
-    // THREAT
+    // THREAT & REPUTATION
     virustotal.href = "https://www.virustotal.com/gui/search/" + q;
     abuseipdb.href = "https://www.abuseipdb.com/check/" + q;
     spur.href = "https://spur.us/context/" + q;
@@ -37,7 +32,7 @@ function updateAllLinks(q) {
     threatminer.href = "https://www.threatminer.org/search.php?q=" + q;
     urlscan.href = "https://urlscan.io/search/#" + q;
 
-    // DNS
+    // DNS & INFRA
     passivedns.href = "https://www.circl.lu/services/passive-dns/?q=" + q;
     securitytrails.href = "https://securitytrails.com/list/apex_domain/" + q;
     censys.href = "https://search.censys.io/search?q=" + q;
@@ -56,6 +51,7 @@ function updateAllLinks(q) {
     wayback.href = "https://web.archive.org/cite/" + q;
 }
 
+// IOC Utilities
 function defang() {
     let val = input.value;
     output.value = val.replace(/\./g, "[.]").replace(/http/g, "hxxp");
@@ -68,27 +64,13 @@ function refang() {
 
 function extractIOCs() {
     let text = input.value;
-
     let ip = text.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
     let domain = text.match(/\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || [];
     let email = text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g) || [];
-
-    output.value =
-        "IPs:\n" + ip.join("\n") +
-        "\n\nDomains:\n" + domain.join("\n") +
-        "\n\nEmails:\n" + email.join("\n");
+    output.value = "IPs:\n" + ip.join("\n") + "\n\nDomains:\n" + domain.join("\n") + "\n\nEmails:\n" + email.join("\n");
 }
 
-function copyOutput() {
-    output.select();
-    document.execCommand("copy");
-}
-
-function clearAll() {
-    input.value = "";
-    output.value = "";
-}
-
-function toggleDark() {
-    document.body.classList.toggle("dark");
-}
+// Copy & Clear
+function copyOutput() { output.select(); document.execCommand("copy"); }
+function clearAll() { input.value = ""; output.value = ""; }
+function toggleDark() { document.body.classList.toggle("dark"); }
