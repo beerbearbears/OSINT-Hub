@@ -40,7 +40,6 @@ button {
   color: #001018;
   border-radius: 10px;
 }
-
 button:hover { background: var(--accent2); }
 
 .main {
@@ -124,10 +123,6 @@ textarea#output {
   text-decoration: none;
   font-size: 13px;
 }
-
 .tool-grid a:hover { background: #253554; }
 
-#mitre-panel label {
-  display: block;
-  margin: 6px 0;
-}
+#mitre-panel label { display: block; margin: 6px 0; }
