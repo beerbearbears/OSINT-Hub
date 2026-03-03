@@ -18,7 +18,7 @@
     <h1>Romel Centralized OSINT</h1>
 
     <div class="input-section">
-      <input id="input" type="text" placeholder="Enter IP / Domain / Email / Username / Hash / CVE (supports https://, hxxp, [.] etc)" />
+      <input id="input" type="text" placeholder="Enter IP / Domain / Email / Username / Hash / CVE OR paste full Email Headers" />
       <button id="search-btn" type="button">Search</button>
     </div>
 
@@ -31,7 +31,7 @@
 
     <div id="status" class="status">Status: waiting…</div>
 
-    <textarea id="output" placeholder="Results / Extracted IOCs"></textarea>
+    <textarea id="output" placeholder="Results / Extracted IOCs / Paste Headers here"></textarea>
 
     <!-- IP -->
     <section class="tool-section" data-type="ip">
@@ -113,6 +113,21 @@
         <a id="hunter" target="_blank" rel="noopener">Hunter.io</a>
         <a id="haveibeenpwned" target="_blank" rel="noopener">HIBP</a>
       </div>
+    </section>
+
+    <!-- ✅ NEW: Email Header Analysis Toolkit -->
+    <section class="tool-section" data-type="header">
+      <h2>🧾 Email Header Analysis Toolkit</h2>
+      <div class="tool-grid">
+        <a id="mha" target="_blank" rel="noopener">Microsoft Message Header Analyzer</a>
+        <a id="google_messageheader" target="_blank" rel="noopener">Google Admin Toolbox – Messageheader</a>
+        <a id="mxtoolbox_headers" target="_blank" rel="noopener">MXToolbox – Email Header Analyzer</a>
+        <a id="whatismyip_trace_email" target="_blank" rel="noopener">WhatIsMyIPAddress – Trace Email</a>
+        <a id="dnschecker_header" target="_blank" rel="noopener">DNSChecker – Email Header Analyzer</a>
+      </div>
+      <p class="hint">
+        Tip: Paste the full header into the input box. This toolkit auto-opens for headers containing “Received:”, “Authentication-Results:”, “DKIM-Signature:”, etc.
+      </p>
     </section>
 
     <!-- Username -->
