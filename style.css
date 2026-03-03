@@ -9,6 +9,8 @@
   --border: #334155;
 }
 
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
   font-family: Arial, sans-serif;
@@ -17,10 +19,6 @@ body {
   background: var(--bg);
   color: var(--text);
 }
-
-/* Make sure nothing blocks clicks */
-* { box-sizing: border-box; }
-.sidebar, .main, button, a, input, textarea { pointer-events: auto; }
 
 .sidebar {
   width: 240px;
@@ -42,6 +40,7 @@ button {
   color: #001018;
   border-radius: 10px;
 }
+
 button:hover { background: var(--accent2); }
 
 .main {
@@ -70,7 +69,6 @@ input {
   background: var(--panel);
   color: var(--text);
 }
-input:focus { outline: 2px solid rgba(56,189,248,.25); }
 
 .tools {
   display: flex;
@@ -126,19 +124,10 @@ textarea#output {
   text-decoration: none;
   font-size: 13px;
 }
+
 .tool-grid a:hover { background: #253554; }
 
 #mitre-panel label {
   display: block;
   margin: 6px 0;
-  color: var(--text);
-}
-
-body.light {
-  --bg: #f1f5f9;
-  --panel: #ffffff;
-  --panel2: #e2e8f0;
-  --text: #111827;
-  --muted: #4b5563;
-  --border: #cbd5e1;
 }
