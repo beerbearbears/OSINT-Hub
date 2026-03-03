@@ -1,5 +1,7 @@
 let currentTab = "ip";
 
+/* ---------------- TAB & THEME ---------------- */
+
 function setTab(tab) {
   currentTab = tab;
   document.getElementById("results").innerHTML = "";
@@ -15,10 +17,14 @@ function clearAll() {
   document.getElementById("results").innerHTML = "";
 }
 
+/* ---------------- UTIL ---------------- */
+
 function copyText(text) {
   navigator.clipboard.writeText(text);
   alert("Copied: " + text);
 }
+
+/* ---------------- OSINT GENERATOR ---------------- */
 
 function generateLinks() {
   const input = document.getElementById("iocInput").value.trim();
@@ -72,4 +78,91 @@ function generateLinks() {
 
     resultsDiv.appendChild(card);
   }, 600);
+}
+
+/* ---------------- DEFANG / REFANG ---------------- */
+
+function defang() {
+  const input = document.getElementById("defangInput").value.trim();
+  if (!input) return;
+
+  let output = input
+    .replace(/http/gi, "hxxp")
+    .replace(/\./g, "[.]");
+
+  showDefangResult(output);
+}
+
+function refang() {
+  const input = document.getElementById("defangInput").value.trim();
+  if (!input) return;
+
+  let output = input
+    .replace(/hxxp/gi, "http")
+    .replace(/\[\.\]/g, ".");
+
+  showDefangResult(output);
+}
+
+function showDefangResult(result) {
+  const container = document.getElementById("defangResult");
+  container.innerHTML = `
+    <div class="card">
+      <strong>Result:</strong>
+      <p>${result}</p>
+      <button onclick="copyText('${result}')">Copy</button>
+    </div>
+  `;
+}
+
+/* ---------------- IOC EXTRACTOR ---------------- */
+
+function extractIOCs() {
+  const text = document.getElementById("logInput").value;
+  const output = document.getElementById("extractedResults");
+  output.innerHTML = "";
+
+  if (!text) return;
+
+  const patterns = {
+    ip: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
+    domain: /\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b/g,
+    email: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+    md5: /\b[a-fA-F0-9]{32}\b/g,
+    sha1: /\b[a-fA-F0-9]{40}\b/g,
+    sha256: /\b[a-fA-F0-9]{64}\b/g,
+    url: /https?:\/\/[^\s]+/g
+  };
+
+  let found = [];
+
+  for (let key in patterns) {
+    const matches = text.match(patterns[key]);
+    if (matches) {
+      matches.forEach(m => {
+        found.push({ type: key, value: m });
+      });
+    }
+  }
+
+  const unique = [...new Map(found.map(item => [item.value, item])).values()];
+
+  if (unique.length === 0) {
+    output.innerHTML = "<div class='card'>No IOCs Found</div>";
+    return;
+  }
+
+  unique.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `
+      <strong>${item.type.toUpperCase()}</strong><br>
+      ${item.value}
+      <br>
+      <button onclick="copyText('${item.value}')">Copy</button>
+      <button onclick="document.getElementById('iocInput').value='${item.value}'; generateLinks();">Investigate</button>
+      <button onclick="document.getElementById('defangInput').value='${item.value}'; defang();">Defang</button>
+    `;
+    output.appendChild(div);
+  });
 }
