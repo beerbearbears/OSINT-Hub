@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>OSINT-Hub</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -33,7 +34,6 @@
     </div>
 
     <div id="loading" class="loading">Loading...</div>
-
     <textarea id="output" placeholder="Results / Extracted IOCs"></textarea>
 
     <!-- PHISHING -->
@@ -55,7 +55,7 @@
         <div class="tool-grid">
             <a id="virustotal" target="_blank">VirusTotal</a>
             <a id="abuseipdb" target="_blank">AbuseIPDB</a>
-            <a id="spur" target="_blank">Spur (VPN Check)</a>
+            <a id="spur" target="_blank">Spur VPN Check</a>
             <a id="ipinfo" target="_blank">IPInfo</a>
             <a id="threatminer" target="_blank">ThreatMiner</a>
             <a id="urlscan" target="_blank">urlscan.io</a>
@@ -92,6 +92,18 @@
             <a id="intelx" target="_blank">IntelligenceX</a>
             <a id="leakix" target="_blank">LeakIX</a>
             <a id="wayback" target="_blank">Wayback</a>
+        </div>
+    </div>
+
+    <!-- MITRE ATT&CK PANEL -->
+    <div class="tool-section">
+        <h2>🧩 MITRE ATT&CK Tagging</h2>
+        <div id="mitre-panel">
+            <label><input type="checkbox" value="T1071"> T1071 – Application Layer Protocol</label>
+            <label><input type="checkbox" value="T1566"> T1566 – Phishing</label>
+            <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
+            <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
+            <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
         </div>
     </div>
 
