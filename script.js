@@ -13,15 +13,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function showRelevantTools(type) {
         document.querySelectorAll(".tool-section").forEach(section => {
-            if (section.dataset.type === type || !section.dataset.type) section.style.display = "block";
-            else section.style.display = "none";
+            section.style.display = (section.dataset.type === type || !section.dataset.type) ? "block" : "none";
         });
     }
 
-    const links = {
-        // IP, domain, email, username, hash links here
-        // (As I wrote earlier with all updated domain tools included)
-    };
+    const links = {}; // Your links object goes here
 
     function updateAllLinks(q, type) {
         if (!links[type]) return;
@@ -43,7 +39,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function defang() { output.value = input.value.replace(/\./g, "[.]").replace(/http/g, "hxxp"); }
     function refang() { output.value = output.value.replace(/\[\.\]/g, ".").replace(/hxxp/g, "http"); }
-
     function extractIOCs() {
         const text = input.value;
         const ips = text.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
@@ -65,4 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("copy-btn").addEventListener("click", copyOutput);
     document.getElementById("clear-all").addEventListener("click", clearAll);
     document.getElementById("toggle-dark").addEventListener("click", toggleDark);
+
+    // Press Enter to search
+    input.addEventListener("keypress", e => { if (e.key === "Enter") search(); });
 });
