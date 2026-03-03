@@ -1,64 +1,75 @@
+let currentTab = "ip";
+
+function setTab(tab) {
+  currentTab = tab;
+  document.getElementById("results").innerHTML = "";
+}
+
+function toggleDark() {
+  document.body.classList.toggle("dark");
+  document.body.classList.toggle("light");
+}
+
+function clearAll() {
+  document.getElementById("iocInput").value = "";
+  document.getElementById("results").innerHTML = "";
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text);
+  alert("Copied: " + text);
+}
+
 function generateLinks() {
   const input = document.getElementById("iocInput").value.trim();
   const resultsDiv = document.getElementById("results");
-  resultsDiv.innerHTML = "";
+  const loader = document.getElementById("loader");
 
   if (!input) return;
 
-  const card = document.createElement("div");
-  card.className = "card";
+  resultsDiv.innerHTML = "";
+  loader.classList.remove("hidden");
 
-  card.innerHTML = `
-    <h3>OSINT Links for: ${input}</h3>
+  setTimeout(() => {
+    loader.classList.add("hidden");
 
-    <strong>Network / IP</strong>
-    <a href="https://www.virustotal.com/gui/search/${input}" target="_blank">VirusTotal</a>
-    <a href="https://www.abuseipdb.com/check/${input}" target="_blank">AbuseIPDB</a>
-    <a href="https://www.greynoise.io/viz/ip/${input}" target="_blank">GreyNoise</a>
-    <a href="https://www.shodan.io/search?query=${input}" target="_blank">Shodan</a>
+    const card = document.createElement("div");
+    card.className = "card";
 
-    <strong>Domain</strong>
-    <a href="https://who.is/whois/${input}" target="_blank">Whois</a>
-    <a href="https://securitytrails.com/domain/${input}/dns" target="_blank">SecurityTrails</a>
+    let links = "";
 
-    <strong>Email</strong>
-    <a href="https://haveibeenpwned.com/account/${input}" target="_blank">HaveIBeenPwned</a>
+    if (currentTab === "ip") {
+      links = `
+        <a href="https://www.virustotal.com/gui/ip-address/${input}" target="_blank" rel="noopener noreferrer">VirusTotal</a>
+        <a href="https://www.abuseipdb.com/check/${input}" target="_blank" rel="noopener noreferrer">AbuseIPDB</a>
+      `;
+    }
 
-    <strong>Username</strong>
-    <a href="https://whatsmyname.app/" target="_blank">WhatsMyName</a>
-  `;
+    if (currentTab === "domain") {
+      links = `
+        <a href="https://who.is/whois/${input}" target="_blank" rel="noopener noreferrer">Whois</a>
+        <a href="https://securitytrails.com/domain/${input}/dns" target="_blank" rel="noopener noreferrer">SecurityTrails</a>
+      `;
+    }
 
-  resultsDiv.appendChild(card);
-}
+    if (currentTab === "email") {
+      links = `
+        <a href="https://haveibeenpwned.com/account/${input}" target="_blank" rel="noopener noreferrer">HaveIBeenPwned</a>
+      `;
+    }
 
-function extractIOCs() {
-  const logText = document.getElementById("logInput").value;
-  const output = document.getElementById("extracted");
-  output.innerHTML = "";
+    if (currentTab === "username") {
+      links = `
+        <a href="https://whatsmyname.app/" target="_blank" rel="noopener noreferrer">WhatsMyName</a>
+      `;
+    }
 
-  const ipRegex = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
-  const domainRegex = /\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b/g;
-  const hashRegex = /\b[A-Fa-f0-9]{32,64}\b/g;
+    card.innerHTML = `
+      <h3>${currentTab.toUpperCase()} OSINT for: ${input}</h3>
+      <button onclick="copyText('${input}')">Copy Indicator</button>
+      ${links}
+    `;
 
-  const ips = logText.match(ipRegex) || [];
-  const domains = logText.match(domainRegex) || [];
-  const hashes = logText.match(hashRegex) || [];
-
-  const unique = [...new Set([...ips, ...domains, ...hashes])];
-
-  if (unique.length === 0) {
-    output.innerHTML = "<div class='card'>No IOCs Found</div>";
-    return;
-  }
-
-  unique.forEach(ioc => {
-    const link = document.createElement("a");
-    link.href = "#";
-    link.textContent = ioc;
-    link.onclick = () => {
-      document.getElementById("iocInput").value = ioc;
-      generateLinks();
-    };
-    output.appendChild(link);
-  });
+    resultsDiv.appendChild(card);
+  }, 600);
 }
