@@ -1,101 +1,192 @@
+/* ---------------- Body & Layout ---------------- */
 body {
+    font-family: 'Arial', sans-serif;
     margin: 0;
-    font-family: Arial;
-    background: #0f172a;
-    color: white;
+    padding: 0;
+    background-color: #0f172a;
+    color: #e2e8f0;
     display: flex;
+    min-height: 100vh;
 }
 
+/* ---------------- Sidebar ---------------- */
 .sidebar {
     width: 200px;
-    background: #111827;
+    background-color: #1e293b;
     padding: 20px;
-    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.sidebar h2 {
+    color: #38bdf8;
+    margin-bottom: 20px;
 }
 
 .sidebar button {
-    width: 100%;
-    margin-top: 10px;
-    padding: 8px;
+    background-color: #38bdf8;
+    border: none;
+    color: #0f172a;
+    padding: 10px;
+    font-weight: bold;
     cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.3s;
 }
 
+.sidebar button:hover {
+    background-color: #0ea5e9;
+}
+
+/* ---------------- Main Section ---------------- */
 .main {
     flex: 1;
-    padding: 20px;
+    padding: 30px;
+    overflow-y: auto;
 }
 
-.tabs button {
-    margin-right: 5px;
-    padding: 5px 10px;
-    cursor: pointer;
+.main h1 {
+    text-align: center;
+    color: #38bdf8;
+    margin-bottom: 20px;
 }
 
-input {
+.main input {
     width: 60%;
-    padding: 8px;
-    margin-top: 10px;
-}
-
-textarea {
-    width: 100%;
-    height: 150px;
-    margin-top: 15px;
-    background: #1e293b;
-    color: white;
     padding: 10px;
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    border-radius: 4px;
+    margin-right: 10px;
 }
 
-.tools button {
-    margin-right: 5px;
-    margin-top: 10px;
+.main button {
+    padding: 10px 15px;
+    background-color: #38bdf8;
+    border: none;
+    border-radius: 6px;
+    color: #0f172a;
+    font-weight: bold;
     cursor: pointer;
+    transition: background 0.3s;
+}
+
+.main button:hover {
+    background-color: #0ea5e9;
+}
+
+.tools {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .loading {
     display: none;
     margin-top: 10px;
-    color: #00ffcc;
+    text-align: center;
+    font-weight: bold;
+    color: #38bdf8;
 }
 
+textarea#output {
+    width: 100%;
+    height: 150px;
+    background-color: #1e293b;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    margin-top: 15px;
+    padding: 10px;
+    resize: vertical;
+}
+
+/* ---------------- Tool Sections ---------------- */
 .tool-section {
-    margin-top: 30px;
-    padding: 15px;
-    background: #111827;
-    border-radius: 8px;
+    margin-top: 25px;
+    display: none; /* JS shows relevant section */
 }
 
 .tool-section h2 {
-    margin-bottom: 15px;
+    color: #22d3ee;
+    margin-bottom: 10px;
 }
 
 .tool-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
 }
 
 .tool-grid a {
-    background: #1f2937;
-    padding: 8px;
-    text-align: center;
+    display: block;
+    padding: 8px 10px;
+    background-color: #1e293b;
+    border-left: 4px solid #38bdf8;
+    color: #22d3ee;
     text-decoration: none;
-    color: #00ffcc;
-    border-radius: 6px;
+    border-radius: 4px;
+    transition: background 0.3s, border-left 0.3s;
 }
 
 .tool-grid a:hover {
-    background: #00ffcc;
-    color: #000;
+    background-color: #334155;
+    border-left: 4px solid #0ea5e9;
+}
+
+/* ---------------- MITRE Panel ---------------- */
+#mitre-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 10px;
 }
 
 #mitre-panel label {
-    display: block;
-    margin-bottom: 5px;
+    background-color: #1e293b;
+    padding: 8px 12px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
     cursor: pointer;
+    transition: background 0.3s;
 }
 
-.dark {
-    background: white;
-    color: black;
+#mitre-panel input[type="checkbox"] {
+    transform: scale(1.2);
+}
+
+#mitre-panel label:hover {
+    background-color: #334155;
+}
+
+/* ---------------- Dark Mode ---------------- */
+body.dark {
+    background-color: #0f111a;
+    color: #e2e8f0;
+}
+
+body.dark .sidebar {
+    background-color: #111827;
+}
+
+body.dark .main input,
+body.dark textarea,
+body.dark .tool-grid a,
+body.dark #mitre-panel label {
+    background-color: #1f2937;
+    color: #e2e8f0;
+}
+
+body.dark button {
+    background-color: #0ea5e9;
+    color: #0f172a;
+}
+
+body.dark button:hover {
+    background-color: #38bdf8;
 }
