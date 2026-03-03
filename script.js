@@ -1,350 +1,187 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const input = document.getElementById("input");
-  const output = document.getElementById("output");
-  const status = document.getElementById("status");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Romel Centralized OSINT</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
 
-  // Landing pages when input is empty
-  const defaultLinks = {
-    // IP
-    virustotal: "https://www.virustotal.com/",
-    abuseipdb: "https://www.abuseipdb.com/",
-    talos: "https://talosintelligence.com/",
-    ibmxf: "https://exchange.xforce.ibmcloud.com/",
-    alienotx: "https://otx.alienvault.com/",
-    anyrun_ip: "https://intelligence.any.run/",
-    mxtoolbox_ip: "https://mxtoolbox.com/",
-    blacklistchecker_ip: "https://blacklistchecker.com/",
-    cleantalk_ip: "https://cleantalk.org/blacklists",
-    shodan_ip: "https://www.shodan.io/",
-    censys_ip: "https://search.censys.io/",
-    greynoise: "https://viz.greynoise.io/",
-    iplocation: "https://iplocation.io/",
-    ipinfo: "https://ipinfo.io/",
-    whatismyipaddress_ip: "https://whatismyipaddress.com/",
-    myip_ms: "https://myip.ms/",
-    ripestat: "https://stat.ripe.net/",
-    spur: "https://spur.us/",
-    scamalytics: "https://scamalytics.com/",
-    threatminer: "https://www.threatminer.org/",
-    urlscan: "https://urlscan.io/",
-    viewdns_iphistory: "https://viewdns.info/",
+  <aside class="sidebar">
+    <h2>🔎 OSINT</h2>
+    <button id="toggle-dark" type="button">🌙 Toggle Theme</button>
+    <button id="clear-all" type="button">🗑 Clear</button>
+  </aside>
 
-    // Domain
-    passivedns: "https://www.passivedns.io/",
-    securitytrails: "https://securitytrails.com/",
-    censys: "https://censys.io/",
-    shodan: "https://www.shodan.io/",
-    netlas: "https://netlas.io/",
-    virustotal_domain: "https://www.virustotal.com/",
-    talos_domain: "https://talosintelligence.com/",
-    ibmxf_domain: "https://exchange.xforce.ibmcloud.com/",
-    alienotx_domain: "https://otx.alienvault.com/",
-    urlscan_domain: "https://urlscan.io/",
-    mxtoolbox: "https://mxtoolbox.com/",
-    blacklistchecker: "https://www.blacklistchecker.com/",
-    cleantalk_bl: "https://cleantalk.org/blacklists",
-    cleantalk_malware: "https://cleantalk.org/malware",
-    sucuri: "https://sitecheck.sucuri.net/",
-    urlvoid: "https://www.urlvoid.com/",
-    urlhaus: "https://urlhaus.abuse.ch/",
-    whois_domaintools: "https://whois.domaintools.com/",
-    dnSlytics: "https://dnslytics.com/",
-    netcraft: "https://www.netcraft.com/",
-    webcheck: "https://webcheck.spiderlabs.io/",
-    hudsonrock_info: "https://intel.hudsonrock.com/",
-    hudsonrock_urls: "https://intel.hudsonrock.com/",
-    socradar: "https://www.socradar.io/",
-    wayback: "https://web.archive.org/",
-    wayback_save: "https://web.archive.org/",
-    browserling: "https://www.browserling.com/",
-    anyrun_domain: "https://any.run/",
-    anyrun_safe: "https://any.run/",
-    phishing_checker: "https://phishingchecker.org/",
-    clickfix: "https://clickfix.carsonww.com/",
-    nitter: "https://nitter.net/",
+  <main class="main">
+    <h1>Romel Centralized OSINT</h1>
 
-    // Email
-    hunter: "https://hunter.io/",
-    haveibeenpwned: "https://haveibeenpwned.com/",
+    <div class="input-section">
+      <input id="input" type="text" placeholder="Enter IP / Domain / Email / Username / Hash / CVE OR paste full Email Headers" />
+      <button id="search-btn" type="button">Search</button>
+    </div>
 
-    // Username
-    namechk: "https://namechk.com/",
-    whatsmyname: "https://whatsmyname.app/",
+    <div class="tools">
+      <button id="defang-btn" type="button">Defang</button>
+      <button id="refang-btn" type="button">Refang</button>
+      <button id="extract-btn" type="button">Extract IOCs</button>
+      <button id="copy-btn" type="button">Copy</button>
+    </div>
 
-    // Hash
-    virustotalhash: "https://www.virustotal.com/",
-    threatminerhash: "https://www.threatminer.org/",
-    anyrun: "https://intelligence.any.run/",
-    alienhash: "https://otx.alienvault.com/",
-    taloshash: "https://talosintelligence.com/",
-    ibmhash: "https://exchange.xforce.ibmcloud.com/",
-    triage: "https://tria.ge/",
-    joesandbox: "https://www.joesandbox.com/analysis/search",
-    hybrid: "https://www.hybrid-analysis.com/",
+    <div id="status" class="status">Status: waiting…</div>
 
-    // CVE
-    nvd_cve: "https://nvd.nist.gov/",
-    cve_org: "https://www.cve.org/",
-    cisa_kev: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
-    exploitdb: "https://www.exploit-db.com/",
-    vulners: "https://vulners.com/",
-    github_poc: "https://github.com/search"
-  };
+    <textarea id="output" placeholder="Results / Extracted IOCs / Paste Headers here"></textarea>
 
-  function setDefaultHrefs() {
-    Object.entries(defaultLinks).forEach(([id, href]) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.href = href;
-        el.target = "_blank";
-        el.rel = "noopener";
-      }
-    });
-  }
+    <!-- IP -->
+    <section class="tool-section" data-type="ip">
+      <h2>🛡 Threat & Reputation (IP)</h2>
+      <div class="tool-grid">
+        <a id="virustotal" target="_blank" rel="noopener">VirusTotal</a>
+        <a id="abuseipdb" target="_blank" rel="noopener">AbuseIPDB</a>
+        <a id="talos" target="_blank" rel="noopener">Talos</a>
+        <a id="ibmxf" target="_blank" rel="noopener">IBM X-Force</a>
+        <a id="alienotx" target="_blank" rel="noopener">AlienVault OTX</a>
 
-  // Make links clickable even when input is empty
-  setDefaultHrefs();
+        <a id="anyrun_ip" target="_blank" rel="noopener">AnyRun (Lookup)</a>
+        <a id="mxtoolbox_ip" target="_blank" rel="noopener">MXToolBox (Blacklist)</a>
+        <a id="blacklistchecker_ip" target="_blank" rel="noopener">Blacklist Checker</a>
+        <a id="cleantalk_ip" target="_blank" rel="noopener">CleanTalk (Blacklist)</a>
 
-  function normalize(raw) {
-    let v = (raw || "").trim();
-    if (!v) return "";
+        <a id="shodan_ip" target="_blank" rel="noopener">Shodan</a>
+        <a id="censys_ip" target="_blank" rel="noopener">Censys</a>
+        <a id="greynoise" target="_blank" rel="noopener">GreyNoise</a>
 
-    v = v.replace(/^hxxps:\/\//i, "https://").replace(/^hxxp:\/\//i, "http://");
-    v = v.replace(/\[\.\]/g, ".").replace(/\(\.\)/g, ".");
-    v = v.trim();
+        <a id="iplocation" target="_blank" rel="noopener">IPLocation</a>
+        <a id="ipinfo" target="_blank" rel="noopener">IPInfo</a>
+        <a id="whatismyipaddress_ip" target="_blank" rel="noopener">WhatIsMyIPAddress</a>
+        <a id="myip_ms" target="_blank" rel="noopener">MyIP (myip.ms)</a>
+        <a id="ripestat" target="_blank" rel="noopener">RIPEstat (Database)</a>
 
-    if (/^CVE-\d{4}-\d{4,}$/i.test(v)) return v.toUpperCase();
-    if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return v;
+        <a id="spur" target="_blank" rel="noopener">SPUR (detect VPNs)</a>
+        <a id="scamalytics" target="_blank" rel="noopener">Scamalytics</a>
+        <a id="threatminer" target="_blank" rel="noopener">ThreatMiner</a>
+        <a id="urlscan" target="_blank" rel="noopener">urlscan.io</a>
 
-    v = v.replace(/^[a-z]+:\/\//i, "");
-    v = v.split("/")[0].split("?")[0].split("#")[0];
-    v = v.replace(/\.$/, "");
-    return v.trim();
-  }
+        <a id="viewdns_iphistory" target="_blank" rel="noopener">ViewDNS IP History</a>
+      </div>
+    </section>
 
-  function detectType(v) {
-    if (/^CVE-\d{4}-\d{4,}$/i.test(v)) return "cve";
-    if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return "email";
-    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(v)) return "ip";
-    if (/^[a-fA-F0-9]{32}$/.test(v) || /^[a-fA-F0-9]{40}$/.test(v) || /^[a-fA-F0-9]{64}$/.test(v)) return "hash";
-    if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v)) return "domain";
-    if (/^[a-zA-Z0-9_-]{3,}$/.test(v)) return "username";
-    return null;
-  }
+    <!-- Domain -->
+    <section class="tool-section" data-type="domain">
+      <h2>🌐 Domain & DNS</h2>
+      <div class="tool-grid">
+        <a id="passivedns" target="_blank" rel="noopener">Passive DNS</a>
+        <a id="securitytrails" target="_blank" rel="noopener">SecurityTrails</a>
+        <a id="censys" target="_blank" rel="noopener">Censys</a>
+        <a id="shodan" target="_blank" rel="noopener">Shodan</a>
+        <a id="netlas" target="_blank" rel="noopener">Netlas</a>
+        <a id="virustotal_domain" target="_blank" rel="noopener">VirusTotal</a>
+        <a id="talos_domain" target="_blank" rel="noopener">Talos</a>
+        <a id="ibmxf_domain" target="_blank" rel="noopener">IBM X-Force</a>
+        <a id="alienotx_domain" target="_blank" rel="noopener">AlienVault OTX</a>
+        <a id="urlscan_domain" target="_blank" rel="noopener">URLScan</a>
+        <a id="mxtoolbox" target="_blank" rel="noopener">MXToolBox Blacklist</a>
+        <a id="blacklistchecker" target="_blank" rel="noopener">Blacklist Checker</a>
+        <a id="cleantalk_bl" target="_blank" rel="noopener">CleanTalk Blacklist</a>
+        <a id="cleantalk_malware" target="_blank" rel="noopener">CleanTalk Malware</a>
+        <a id="sucuri" target="_blank" rel="noopener">SUCURI Malware</a>
+        <a id="urlvoid" target="_blank" rel="noopener">URLVoid</a>
+        <a id="urlhaus" target="_blank" rel="noopener">URLHaus</a>
+        <a id="whois_domaintools" target="_blank" rel="noopener">Whois DomainTools</a>
+        <a id="dnSlytics" target="_blank" rel="noopener">DNSlytics</a>
+        <a id="netcraft" target="_blank" rel="noopener">Netcraft</a>
+        <a id="webcheck" target="_blank" rel="noopener">Web Check</a>
+        <a id="hudsonrock_info" target="_blank" rel="noopener">HudsonRock Infostealer</a>
+        <a id="hudsonrock_urls" target="_blank" rel="noopener">HudsonRock URL Discovery</a>
+        <a id="socradar" target="_blank" rel="noopener">SOCRadar Dark Web</a>
+        <a id="wayback" target="_blank" rel="noopener">Wayback Machine</a>
+        <a id="wayback_save" target="_blank" rel="noopener">Wayback Save</a>
+        <a id="browserling" target="_blank" rel="noopener">Browserling</a>
+        <a id="anyrun_domain" target="_blank" rel="noopener">AnyRun Search</a>
+        <a id="anyrun_safe" target="_blank" rel="noopener">AnyRun Safe</a>
+        <a id="phishing_checker" target="_blank" rel="noopener">Phishing Checker</a>
+        <a id="clickfix" target="_blank" rel="noopener">ClickFix Hunter</a>
+        <a id="nitter" target="_blank" rel="noopener">Nitter Tweets</a>
+      </div>
+    </section>
 
-  function showRelevantTools(type) {
-    document.querySelectorAll(".tool-section").forEach(section => {
-      section.style.display = (section.dataset.type === type || !section.dataset.type) ? "block" : "none";
-    });
-  }
+    <!-- Email -->
+    <section class="tool-section" data-type="email">
+      <h2>📧 Email & Breach</h2>
+      <div class="tool-grid">
+        <a id="hunter" target="_blank" rel="noopener">Hunter.io</a>
+        <a id="haveibeenpwned" target="_blank" rel="noopener">HIBP</a>
+      </div>
+    </section>
 
-  const links = {
-    ip: {
-      virustotal: (q) => `https://www.virustotal.com/gui/ip-address/${q}/detection`,
-      abuseipdb: (q) => `https://www.abuseipdb.com/check/${q}`,
-      talos: (q) => `https://talosintelligence.com/reputation_center/lookup?search=${encodeURIComponent(q)}`,
-      ibmxf: (q) => `https://exchange.xforce.ibmcloud.com/ip/${q}`,
-      alienotx: (q) => `https://otx.alienvault.com/indicator/ip/${q}`,
+    <!-- ✅ NEW: Email Header Analysis Toolkit -->
+    <section class="tool-section" data-type="header">
+      <h2>🧾 Email Header Analysis Toolkit</h2>
+      <div class="tool-grid">
+        <a id="mha" target="_blank" rel="noopener">Microsoft Message Header Analyzer</a>
+        <a id="google_messageheader" target="_blank" rel="noopener">Google Admin Toolbox – Messageheader</a>
+        <a id="mxtoolbox_headers" target="_blank" rel="noopener">MXToolbox – Email Header Analyzer</a>
+        <a id="whatismyip_trace_email" target="_blank" rel="noopener">WhatIsMyIPAddress – Trace Email</a>
+        <a id="dnschecker_header" target="_blank" rel="noopener">DNSChecker – Email Header Analyzer</a>
+      </div>
+      <p class="hint">
+        Tip: Paste the full header into the input box. This toolkit auto-opens for headers containing “Received:”, “Authentication-Results:”, “DKIM-Signature:”, etc.
+      </p>
+    </section>
 
-      anyrun_ip: (q) =>
-        `https://intelligence.any.run/analysis/lookup#${encodeURIComponent(JSON.stringify({ query: q, dateRange: 180 }))}`,
+    <!-- Username -->
+    <section class="tool-section" data-type="username">
+      <h2>👤 Username Lookup</h2>
+      <div class="tool-grid">
+        <a id="namechk" target="_blank" rel="noopener">Namechk</a>
+        <a id="whatsmyname" target="_blank" rel="noopener">WhatsMyName</a>
+      </div>
+    </section>
 
-      mxtoolbox_ip: (q) => `https://mxtoolbox.com/SuperTool.aspx?action=blacklist:${q}`,
-      blacklistchecker_ip: (q) => `https://blacklistchecker.com/check?input=${encodeURIComponent(q)}`,
-      cleantalk_ip: (q) => `https://cleantalk.org/blacklists/${q}`,
+    <!-- Hash -->
+    <section class="tool-section" data-type="hash">
+      <h2>🔒 Hash Lookup</h2>
+      <div class="tool-grid">
+        <a id="virustotalhash" target="_blank" rel="noopener">VirusTotal</a>
+        <a id="threatminerhash" target="_blank" rel="noopener">ThreatMiner</a>
+        <a id="anyrun" target="_blank" rel="noopener">ANY.RUN Intelligence Lookup</a>
+        <a id="alienhash" target="_blank" rel="noopener">AlienVault OTX</a>
+        <a id="taloshash" target="_blank" rel="noopener">Talos File Reputation</a>
+        <a id="ibmhash" target="_blank" rel="noopener">IBM X-Force Malware</a>
+        <a id="triage" target="_blank" rel="noopener">Triage</a>
+        <a id="joesandbox" target="_blank" rel="noopener">Joe Sandbox (Search)</a>
+        <a id="hybrid" target="_blank" rel="noopener">Hybrid Analysis</a>
+      </div>
+    </section>
 
-      shodan_ip: (q) => `https://www.shodan.io/host/${q}`,
-      censys_ip: (q) => `https://search.censys.io/hosts/${q}`,
-      greynoise: (q) => `https://viz.greynoise.io/ip/${q}`,
+    <!-- CVE -->
+    <section class="tool-section" data-type="cve">
+      <h2>🧷 CVE Lookup</h2>
+      <div class="tool-grid">
+        <a id="nvd_cve" target="_blank" rel="noopener">NVD (NIST)</a>
+        <a id="cve_org" target="_blank" rel="noopener">CVE.org Record</a>
+        <a id="cisa_kev" target="_blank" rel="noopener">CISA KEV (Search)</a>
+        <a id="exploitdb" target="_blank" rel="noopener">Exploit-DB</a>
+        <a id="vulners" target="_blank" rel="noopener">Vulners</a>
+        <a id="github_poc" target="_blank" rel="noopener">GitHub PoC Search</a>
+      </div>
+    </section>
 
-      iplocation: (q) => `https://iplocation.io/ip/${q}`,
-      ipinfo: (q) => `https://ipinfo.io/${q}`,
-      whatismyipaddress_ip: (q) => `https://whatismyipaddress.com/ip/${q}`,
-      myip_ms: (q) => `https://myip.ms/info/whois/${q}`,
-      ripestat: (q) => `https://stat.ripe.net/resource/${q}?tab=database`,
+    <!-- MITRE -->
+    <section class="tool-section">
+      <h2>🧩 MITRE ATT&CK Tagging</h2>
+      <div id="mitre-panel">
+        <label><input type="checkbox" value="T1071"> T1071 – Application Layer Protocol</label>
+        <label><input type="checkbox" value="T1566"> T1566 – Phishing</label>
+        <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
+        <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
+        <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
+      </div>
+    </section>
 
-      spur: (q) => `https://spur.us/context/${q}`,
-      scamalytics: (q) => `https://scamalytics.com/ip/${q}`,
-      threatminer: (q) => `https://www.threatminer.org/host.php?q=${q}`,
-      urlscan: (q) => `https://urlscan.io/ip/${q}`,
+  </main>
 
-      viewdns_iphistory: (q) => `https://viewdns.info/iphistory/?domain=${encodeURIComponent(q)}`
-    },
-
-    domain: {
-      passivedns: (q) => `https://www.passivedns.io/?q=${encodeURIComponent(q)}`,
-      securitytrails: (q) => `https://securitytrails.com/domain/${q}`,
-      censys: (q) => `https://censys.io/domain/${q}`,
-      shodan: (q) => `https://www.shodan.io/search?query=${encodeURIComponent(q)}`,
-      netlas: (q) => `https://netlas.io/search?query=${encodeURIComponent(q)}`,
-      virustotal_domain: (q) => `https://www.virustotal.com/gui/domain/${q}/detection`,
-      talos_domain: (q) => `https://talosintelligence.com/reputation_center/lookup?search=${encodeURIComponent(q)}`,
-      ibmxf_domain: (q) => `https://exchange.xforce.ibmcloud.com/url/${q}`,
-      alienotx_domain: (q) => `https://otx.alienvault.com/indicator/domain/${q}`,
-      urlscan_domain: (q) => `https://urlscan.io/domain/${q}`,
-      mxtoolbox: (q) => `https://mxtoolbox.com/SuperTool.aspx?action=blacklist:${q}`,
-      blacklistchecker: (q) => `https://www.blacklistchecker.com/check?query=${encodeURIComponent(q)}`,
-      cleantalk_bl: (q) => `https://cleantalk.org/blacklists/${q}`,
-      cleantalk_malware: (q) => `https://cleantalk.org/malware/${q}`,
-      sucuri: (q) => `https://sitecheck.sucuri.net/results/${q}`,
-      urlvoid: (q) => `https://www.urlvoid.com/scan/${q}`,
-      urlhaus: (q) => `https://urlhaus.abuse.ch/browse.php?search=${encodeURIComponent(q)}`,
-      whois_domaintools: (q) => `https://whois.domaintools.com/${q}`,
-      dnSlytics: (q) => `https://dnslytics.com/domain/${q}`,
-      netcraft: (q) => `https://searchdns.netcraft.com/?host=${encodeURIComponent(q)}`,
-      webcheck: (q) => `https://webcheck.spiderlabs.io/${q}`,
-      hudsonrock_info: (q) => `https://intel.hudsonrock.com/?q=${encodeURIComponent(q)}`,
-      hudsonrock_urls: (q) => `https://intel.hudsonrock.com/?q=${encodeURIComponent(q)}`,
-      socradar: (q) => `https://www.socradar.io/labs/dark-web-search/?query=${encodeURIComponent(q)}`,
-      wayback: (q) => `https://web.archive.org/web/*/${q}`,
-      wayback_save: (q) => `https://web.archive.org/save/${q}`,
-      browserling: (q) => `https://www.browserling.com/browse/${q}`,
-      anyrun_domain: (q) => `https://any.run/search/?q=${encodeURIComponent(q)}`,
-      anyrun_safe: (q) => `https://any.run/search/?q=${encodeURIComponent(q)}`,
-      phishing_checker: (q) => `https://phishingchecker.org/?q=${encodeURIComponent(q)}`,
-      clickfix: (q) => `https://clickfix.carsonww.com/domains?query=${encodeURIComponent(q)}`,
-      nitter: (q) => `https://nitter.net/search?f=tweets&q=${encodeURIComponent(q)}&since=&until=&near=`,
-    },
-
-    email: {
-      hunter: (q) => `https://hunter.io/search/${encodeURIComponent(q)}`,
-      haveibeenpwned: (q) => `https://haveibeenpwned.com/account/${encodeURIComponent(q)}`
-    },
-
-    username: {
-      namechk: () => `https://namechk.com/`,
-      whatsmyname: () => `https://whatsmyname.app/`
-    },
-
-    hash: {
-      virustotalhash: (q) => `https://www.virustotal.com/gui/file/${q}/detection`,
-      threatminerhash: (q) => `https://www.threatminer.org/sample.php?q=${q}`,
-
-      // AnyRun hash fixed (no 404)
-      anyrun: (q) =>
-        `https://intelligence.any.run/analysis/lookup#${encodeURIComponent(JSON.stringify({ query: q, dateRange: 180 }))}`,
-
-      alienhash: (q) => `https://otx.alienvault.com/indicator/file/${q}`,
-      taloshash: (q) => `https://talosintelligence.com/talos_file_reputation?s=${q}`,
-      ibmhash: (q) => `https://exchange.xforce.ibmcloud.com/malware/${q}`,
-      triage: (q) => `https://tria.ge/s?q=${encodeURIComponent(q)}`,
-
-      // ✅ FIXED EXACT FORMAT YOU WANT
-      joesandbox: (q) => `https://www.joesandbox.com/analysis/search?q=${encodeURIComponent(q)}`,
-
-      hybrid: (q) => `https://www.hybrid-analysis.com/search?query=${encodeURIComponent(q)}`
-    },
-
-    cve: {
-      nvd_cve: (q) => `https://nvd.nist.gov/vuln/detail/${q}`,
-      cve_org: (q) => `https://www.cve.org/CVERecord?id=${q}`,
-      cisa_kev: (q) => `https://www.google.com/search?q=${encodeURIComponent(`site:cisa.gov known exploited vulnerabilities ${q}`)}`,
-      exploitdb: (q) => `https://www.exploit-db.com/search?cve=${encodeURIComponent(q)}`,
-      vulners: (q) => `https://vulners.com/search?query=${encodeURIComponent(q)}`,
-      github_poc: (q) => `https://github.com/search?q=${encodeURIComponent(q + " poc exploit")}&type=repositories`
-    }
-  };
-
-  function updateAllLinks(q, type) {
-    if (!links[type]) return;
-    Object.keys(links[type]).forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.href = links[type][id](q);
-      el.target = "_blank";
-      el.rel = "noopener";
-    });
-  }
-
-  function runSearch() {
-    const norm = normalize(input.value);
-
-    if (!norm) {
-      status.textContent = "Status: waiting… (links open landing pages)";
-      output.value = "";
-      document.querySelectorAll(".tool-section").forEach(s => (s.style.display = "block"));
-      setDefaultHrefs();
-      return;
-    }
-
-    const type = detectType(norm);
-    if (!type) {
-      status.textContent = `Status: Could not detect IOC type → ${norm} (links open landing pages)`;
-      output.value = "";
-      document.querySelectorAll(".tool-section").forEach(s => (s.style.display = "block"));
-      setDefaultHrefs();
-      return;
-    }
-
-    showRelevantTools(type);
-    updateAllLinks(norm, type);
-    status.textContent = `Status: Detected ${type.toUpperCase()} → ${norm}`;
-    output.value = `${type.toUpperCase()} Query: ${norm}`;
-  }
-
-  function defang() {
-    const v = input.value || "";
-    output.value = v.replace(/\./g, "[.]").replace(/http/gi, "hxxp");
-  }
-
-  function refang() {
-    output.value = (output.value || "").replace(/\[\.\]/g, ".").replace(/hxxp/gi, "http");
-  }
-
-  function extractIOCs() {
-    const text = input.value || "";
-    const ips = text.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
-    const domains = text.match(/\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || [];
-    const emails = text.match(/\b[^@\s]+@[^@\s]+\.[^@\s]+\b/g) || [];
-    const hashes = text.match(/\b[A-Fa-f0-9]{32}\b|\b[A-Fa-f0-9]{40}\b|\b[A-Fa-f0-9]{64}\b/g) || [];
-    const cves = text.match(/\bCVE-\d{4}-\d{4,}\b/gi) || [];
-
-    output.value =
-      `IPs:\n${ips.join("\n")}\n\nDomains:\n${domains.join("\n")}\n\nEmails:\n${emails.join("\n")}\n\nHashes:\n${hashes.join("\n")}\n\nCVEs:\n${cves.map(x => x.toUpperCase()).join("\n")}`;
-  }
-
-  function copyOutput() {
-    output.select();
-    document.execCommand("copy");
-  }
-
-  function clearAll() {
-    input.value = "";
-    output.value = "";
-    status.textContent = "Status: waiting… (links open landing pages)";
-    document.querySelectorAll(".tool-section").forEach(s => (s.style.display = "block"));
-    setDefaultHrefs();
-  }
-
-  function toggleTheme() {
-    document.body.classList.toggle("light");
-    if (document.body.classList.contains("light")) {
-      document.documentElement.style.setProperty("--bg", "#f1f5f9");
-      document.documentElement.style.setProperty("--panel", "#ffffff");
-      document.documentElement.style.setProperty("--panel2", "#e2e8f0");
-      document.documentElement.style.setProperty("--text", "#111827");
-      document.documentElement.style.setProperty("--muted", "#4b5563");
-      document.documentElement.style.setProperty("--border", "#cbd5e1");
-    } else {
-      document.documentElement.style.setProperty("--bg", "#0f172a");
-      document.documentElement.style.setProperty("--panel", "#111c33");
-      document.documentElement.style.setProperty("--panel2", "#1e293b");
-      document.documentElement.style.setProperty("--text", "#e2e8f0");
-      document.documentElement.style.setProperty("--muted", "#94a3b8");
-      document.documentElement.style.setProperty("--border", "#334155");
-    }
-  }
-
-  document.getElementById("search-btn").addEventListener("click", runSearch);
-  document.getElementById("defang-btn").addEventListener("click", defang);
-  document.getElementById("refang-btn").addEventListener("click", refang);
-  document.getElementById("extract-btn").addEventListener("click", extractIOCs);
-  document.getElementById("copy-btn").addEventListener("click", copyOutput);
-  document.getElementById("clear-all").addEventListener("click", clearAll);
-  document.getElementById("toggle-dark").addEventListener("click", toggleTheme);
-
-  input.addEventListener("input", runSearch);
-  input.addEventListener("keydown", (e) => { if (e.key === "Enter") runSearch(); });
-
-  runSearch();
-});
+  <script src="script.js"></script>
+</body>
+</html>
