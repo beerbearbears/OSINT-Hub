@@ -1,62 +1,32 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Romel Centralized OSINT</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-<div class="sidebar">
-  <h2>🔎 OSINT</h2>
-  <button id="toggle-dark">Toggle Theme</button>
-  <button id="clear-all">Clear</button>
-</div>
-
-<div class="main">
-  <h1>Romel Centralized OSINT</h1>
-
-  <input id="input" placeholder="Enter IP / Domain / Email / Hash / CVE or paste Email Headers">
-  <button id="search-btn">Search</button>
-
-  <textarea id="output" placeholder="Results"></textarea>
-
-  <!-- IP -->
-  <div class="tool-section" data-type="ip">
-    <h2>IP Intelligence</h2>
-    <div class="tool-grid">
-      <a id="vt_ip" target="_blank">VirusTotal</a>
-      <a id="abuse" target="_blank">AbuseIPDB</a>
-      <a id="shodan" target="_blank">Shodan</a>
-      <a id="censys" target="_blank">Censys</a>
-      <a id="greynoise" target="_blank">GreyNoise</a>
-      <a id="viewdns" target="_blank">ViewDNS IP History</a>
-    </div>
-  </div>
-
-  <!-- HASH -->
-  <div class="tool-section" data-type="hash">
-    <h2>Hash Intelligence</h2>
-    <div class="tool-grid">
-      <a id="vt_hash" target="_blank">VirusTotal</a>
-      <a id="anyrun" target="_blank">ANY.RUN</a>
-      <a id="triage" target="_blank">Triage</a>
-      <a id="joesandbox" target="_blank">JoeSandbox</a>
-    </div>
-  </div>
-
-  <!-- EMAIL HEADER -->
-  <div class="tool-section" data-type="header">
-    <h2>Email Header Toolkit</h2>
-    <div class="tool-grid">
-      <a id="mha" target="_blank">Microsoft Header Analyzer</a>
-      <a id="google_header" target="_blank">Google Header Analyzer</a>
-      <a id="mxtool_header" target="_blank">MXToolbox Header</a>
-    </div>
-  </div>
-
-</div>
-
-<script src="script.js"></script>
-</body>
-</html>
+Delivered-To: recipient@example.com
+Received: by 2002:a05:6000:1088:b0:28:d2f4:6784 with SMTP id ...
+    Tue, 03 Mar 2026 01:23:45 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; t=1709457825; cv=none;
+    d=googlemail.com; s=arc-20160816;
+    b=...
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed;
+    d=googlemail.com; s=arc-20160816;
+    h=message-id:subject:to:from:date:mime-version:content-type;
+    bh=...;
+    b=...
+ARC-Authentication-Results: i=1; mx.google.com;
+    dkim=pass header.i=@gmail.com;
+    spf=pass (google.com: domain of sender@gmail.com designates ... as permitted sender) smtp.mailfrom=sender@gmail.com;
+    dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com
+Return-Path: <sender@gmail.com>
+Received: from mail-pj1-f67.google.com (mail-pj1-f67.google.com)
+    by mx.google.com with ESMTPS id ...
+    for <recipient@example.com>
+    Tue, 03 Mar 2026 01:23:45 -0800 (PST)
+Received-SPF: pass (google.com: domain of sender@gmail.com designates ... as permitted sender) client-ip=209.85.216.67;
+Authentication-Results: mx.google.com;
+    dkim=pass header.i=@gmail.com;
+    spf=pass (google.com: domain of sender@gmail.com designates ... as permitted sender) smtp.mailfrom=sender@gmail.com;
+    dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com
+Message-ID: <CA+A8S_jP_1234567890@mail.gmail.com>
+Date: Tue, 03 Mar 2026 04:23:43 -0500
+From: Sender Name <sender@gmail.com>
+To: Recipient Name <recipient@example.com>
+Subject: Meeting Agenda - March
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="0000000000000000000000000000"
