@@ -46,6 +46,54 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("input");
+  const output = document.getElementById("output");
+  const status = document.getElementById("status");
+
+  // 1) Normalize common SOC formats: hxxp, [.] , full URLs with paths, etc.
+  function normalize(raw) {
+    let v = (raw || "").trim();
+
+    // convert hxxp(s) -> http(s)
+    v = v.replace(/^hxxps:\/\//i, "https://").replace(/^hxxp:\/\//i, "http://");
+
+    // refang [.] and (.) patterns
+    v = v.replace(/\[\.\]/g, ".").replace(/\(\.\)/g, ".");
+
+    // remove surrounding brackets/spaces
+    v = v.replace(/^\[|\]$/g, "").trim();
+
+    // if it's a URL, keep only host (and maybe query for some tools we don't need)
+    // remove protocol
+    v = v.replace(/^[a-z]+:\/\//i, "");
+    // cut at first slash
+    v = v.split("/")[0];
+    // cut at first ? or #
+    v = v.split("?")[0].split("#")[0];
+
+    // remove trailing dot
+    v = v.replace(/\.$/, "");
+
+    return v.trim();
+  }
+
+  // 2) Detect IOC type (after normalization)
+  function detectType(val) {
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(val)) return "ip";
+    if (/^[a-fA-F0-9]{32}$/.test(val) || /^[a-fA-F0-9]{40}$/.test(val) || /^[a-fA-F0-9]{64}$/.test(val)) return "hash";
+    if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)) return "email";
+    if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(val)) return "domain";
+    if (/^[a-zA-Z0-9_-]{3,}$/.test(val)) return "username";
+    return null;
+  }
+
+  function showRelevantTools(type) {
+    document.querySelectorAll(".tool-section").forEach(section => {
+      section.style.display = (section.dataset.type === type || !section.dataset.type) ? "block" : "none";
+    });
+  }
+
   // 3) ALL SOURCES mapping (IDs must match your <a id="...">)
   const links = {
     ip: {
