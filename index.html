@@ -1,1 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OSINT Hub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
+  <div class="container">
+    <h1>OSINT HUB</h1>
+
+    <div class="search-box">
+      <input type="text" id="iocInput" placeholder="Enter IP, Domain, Hash, Email">
+      <button onclick="generateLinks()">Analyze</button>
+    </div>
+
+    <div id="results"></div>
+
+    <hr>
+
+    <h2>Paste Logs / Extract IOCs</h2>
+    <textarea id="logInput" placeholder="Paste logs here..."></textarea>
+    <button onclick="extractIOCs()">Extract</button>
+
+    <div id="extracted"></div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
