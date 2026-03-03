@@ -20,6 +20,7 @@
   <div class="main">
     <h1>OSINT-Hub</h1>
 
+    <!-- Indicator Search -->
     <div class="search-box">
       <input type="text" id="iocInput" placeholder="Enter Indicator">
       <button onclick="generateLinks()">Analyze</button>
@@ -28,6 +29,30 @@
 
     <div id="loader" class="loader hidden"></div>
     <div id="results"></div>
+
+    <hr>
+
+    <!-- Defang Section -->
+    <h2>Defang / Refang Tool</h2>
+
+    <div class="search-box">
+      <input type="text" id="defangInput" placeholder="Enter URL or IP">
+      <button onclick="defang()">Defang</button>
+      <button onclick="refang()">Refang</button>
+    </div>
+
+    <div id="defangResult"></div>
+
+    <hr>
+
+    <!-- IOC Extractor -->
+    <h2>Raw Log IOC Extractor</h2>
+
+    <textarea id="logInput" placeholder="Paste raw logs here..." rows="6"></textarea>
+    <br><br>
+    <button onclick="extractIOCs()">Extract IOCs</button>
+
+    <div id="extractedResults"></div>
 
   </div>
 
