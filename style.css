@@ -47,7 +47,7 @@ body {
   margin-bottom: 20px;
 }
 
-input {
+input, textarea {
   flex: 1;
   padding: 10px;
 }
