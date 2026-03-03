@@ -1,49 +1,198 @@
-body {
-  background:#0f172a;
-  color:white;
-  font-family:Arial;
-  display:flex;
-  margin:0;
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Romel Centralized OSINT</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
 
-.sidebar{
-  width:200px;
-  background:#1e293b;
-  padding:20px;
-}
+  <div class="sidebar">
+    <h2>🔎 OSINT</h2>
+    <button id="toggle-dark" type="button">🌙 Toggle Theme</button>
+    <button id="clear-all" type="button">🗑 Clear</button>
+  </div>
 
-.main{
-  flex:1;
-  padding:20px;
-}
+  <div class="main">
+    <h1>Romel Centralized OSINT</h1>
 
-input,textarea{
-  width:100%;
-  padding:8px;
-  margin:8px 0;
-  background:#1e293b;
-  color:white;
-  border:1px solid #334155;
-}
+    <div class="input-row">
+      <input type="text" id="input" placeholder="Enter IP / Domain / Email / Username / Hash / CVE or paste Email Headers / logs" />
+      <button id="search-btn" type="button">Search</button>
+    </div>
 
-button{
-  padding:8px;
-  background:#38bdf8;
-  border:none;
-  margin:5px 0;
-  cursor:pointer;
-}
+    <div class="tools">
+      <button id="defang-btn" type="button">Defang</button>
+      <button id="refang-btn" type="button">Refang</button>
+      <button id="extract-btn" type="button">Extract IOCs</button>
+      <button id="copy-btn" type="button">Copy</button>
+    </div>
 
-.tool-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-  gap:8px;
-}
+    <div id="status" class="status">Status: ready</div>
 
-.tool-grid a{
-  background:#1e293b;
-  padding:8px;
-  text-decoration:none;
-  color:#22d3ee;
-  display:block;
-}
+    <textarea id="output" placeholder="Results / Extracted IOCs"></textarea>
+
+    <!-- ================= IP ================= -->
+    <div class="tool-section" data-type="ip">
+      <h2>🛡 Threat & Reputation (IP)</h2>
+      <div class="tool-grid">
+        <a id="ip_vt" target="_blank" rel="noopener">VirusTotal</a>
+        <a id="ip_abuseipdb" target="_blank" rel="noopener">AbuseIPDB</a>
+        <a id="ip_talos" target="_blank" rel="noopener">Talos</a>
+        <a id="ip_ibmxf" target="_blank" rel="noopener">IBM X-Force</a>
+        <a id="ip_otx" target="_blank" rel="noopener">AlienVault OTX</a>
+
+        <a id="ip_anyrun" target="_blank" rel="noopener">AnyRun (Search)</a>
+        <a id="ip_mxtoolbox" target="_blank" rel="noopener">MXToolBox (Blacklist)</a>
+        <a id="ip_blacklistchecker" target="_blank" rel="noopener">Blacklist Checker</a>
+        <a id="ip_cleantalk" target="_blank" rel="noopener">CleanTalk (Blacklist)</a>
+
+        <a id="ip_shodan" target="_blank" rel="noopener">Shodan</a>
+        <a id="ip_censys" target="_blank" rel="noopener">Censys</a>
+        <a id="ip_greynoise" target="_blank" rel="noopener">GreyNoise</a>
+
+        <a id="ip_iplocation" target="_blank" rel="noopener">IPLocation</a>
+        <a id="ip_ipinfo" target="_blank" rel="noopener">IPinfo</a>
+        <a id="ip_whatismyipaddress" target="_blank" rel="noopener">WhatIsMyIPAddress</a>
+        <a id="ip_myip" target="_blank" rel="noopener">MyIP (myip.ms)</a>
+
+        <a id="ip_spur" target="_blank" rel="noopener">SPUR (detect VPNs)</a>
+        <a id="ip_clickfix" target="_blank" rel="noopener">ClickFix Hunter</a>
+        <a id="ip_ripestat" target="_blank" rel="noopener">RIPEstat (Database)</a>
+        <a id="ip_nitter" target="_blank" rel="noopener">Nitter (Tweets)</a>
+
+        <a id="ip_threatminer" target="_blank" rel="noopener">ThreatMiner</a>
+        <a id="ip_urlscan" target="_blank" rel="noopener">urlscan.io</a>
+        <a id="ip_viewdns" target="_blank" rel="noopener">ViewDNS IP History</a>
+        <a id="ip_scamalytics" target="_blank" rel="noopener">Scamalytics</a>
+      </div>
+    </div>
+
+    <!-- ================= DOMAIN ================= -->
+    <div class="tool-section" data-type="domain">
+      <h2>🌐 Domain & DNS</h2>
+      <div class="tool-grid">
+        <a id="dom_vt" target="_blank" rel="noopener">VirusTotal</a>
+        <a id="dom_talos" target="_blank" rel="noopener">Talos</a>
+        <a id="dom_ibmxf" target="_blank" rel="noopener">IBM X-Force</a>
+        <a id="dom_otx" target="_blank" rel="noopener">AlienVault OTX</a>
+
+        <a id="dom_urlscan" target="_blank" rel="noopener">URLScan</a>
+        <a id="dom_mxtoolbox" target="_blank" rel="noopener">MXToolBox (Blacklist)</a>
+        <a id="dom_blacklistchecker" target="_blank" rel="noopener">Blacklist Checker</a>
+        <a id="dom_cleantalk_bl" target="_blank" rel="noopener">CleanTalk (Blacklist)</a>
+
+        <a id="dom_cleantalk_malware" target="_blank" rel="noopener">CleanTalk (Malware Scan)</a>
+        <a id="dom_sucuri" target="_blank" rel="noopener">SUCURI (Malware Scan)</a>
+        <a id="dom_urlvoid" target="_blank" rel="noopener">URLVoid</a>
+        <a id="dom_urlhaus" target="_blank" rel="noopener">URLHaus</a>
+
+        <a id="dom_whois" target="_blank" rel="noopener">WHOIS</a>
+        <a id="dom_dnslytics" target="_blank" rel="noopener">DNSLytics</a>
+        <a id="dom_netcraft" target="_blank" rel="noopener">Netcraft</a>
+        <a id="dom_webcheck" target="_blank" rel="noopener">Web Check</a>
+
+        <a id="dom_securitytrails" target="_blank" rel="noopener">SecurityTrails - DNS</a>
+        <a id="dom_hudsonrock_info" target="_blank" rel="noopener">HudsonRock Infostealer</a>
+        <a id="dom_hudsonrock_urls" target="_blank" rel="noopener">HudsonRock (URL Discovery)</a>
+        <a id="dom_socradar" target="_blank" rel="noopener">SOCRadar (DarkWebReport)</a>
+
+        <a id="dom_wayback" target="_blank" rel="noopener">Wayback Machine</a>
+        <a id="dom_wayback_save" target="_blank" rel="noopener">Wayback Machine (Save)</a>
+        <a id="dom_browserling" target="_blank" rel="noopener">Browserling</a>
+        <a id="dom_anyrun" target="_blank" rel="noopener">AnyRun (Search)</a>
+
+        <a id="dom_anyrun_safe" target="_blank" rel="noopener">AnyRun (Safe)</a>
+        <a id="dom_phishing_checker" target="_blank" rel="noopener">Phishing Checker</a>
+        <a id="dom_clickfix" target="_blank" rel="noopener">ClickFix Hunter</a>
+        <a id="dom_nitter" target="_blank" rel="noopener">Nitter (Tweets)</a>
+
+        <a id="dom_netlas" target="_blank" rel="noopener">Netlas</a>
+        <a id="dom_censys" target="_blank" rel="noopener">Censys</a>
+        <a id="dom_shodan" target="_blank" rel="noopener">Shodan</a>
+        <a id="dom_dnstools" target="_blank" rel="noopener">WHOIS DomainTools</a>
+      </div>
+    </div>
+
+    <!-- ================= EMAIL ================= -->
+    <div class="tool-section" data-type="email">
+      <h2>📧 Email & Breach</h2>
+      <div class="tool-grid">
+        <a id="em_hunter" target="_blank" rel="noopener">Hunter.io</a>
+        <a id="em_hibp" target="_blank" rel="noopener">HIBP</a>
+      </div>
+    </div>
+
+    <!-- ================= EMAIL HEADERS ================= -->
+    <div class="tool-section" data-type="header">
+      <h2>🧾 Email Header Analysis Toolkit</h2>
+      <div class="tool-grid">
+        <a id="hdr_mha" target="_blank" rel="noopener">Microsoft Header Analyzer</a>
+        <a id="hdr_google" target="_blank" rel="noopener">Google Messageheader</a>
+        <a id="hdr_mxtoolbox" target="_blank" rel="noopener">MXToolbox Header Analyzer</a>
+        <a id="hdr_traceemail" target="_blank" rel="noopener">WhatIsMyIPAddress - Trace Email</a>
+        <a id="hdr_dnschecker" target="_blank" rel="noopener">DNSChecker Header Analyzer</a>
+      </div>
+    </div>
+
+    <!-- ================= USERNAME ================= -->
+    <div class="tool-section" data-type="username">
+      <h2>👤 Username Lookup</h2>
+      <div class="tool-grid">
+        <a id="usr_namechk" target="_blank" rel="noopener">Namechk</a>
+        <a id="usr_whatsmyname" target="_blank" rel="noopener">WhatsMyName</a>
+      </div>
+    </div>
+
+    <!-- ================= HASH ================= -->
+    <div class="tool-section" data-type="hash">
+      <h2>🔒 Hash Lookup</h2>
+      <div class="tool-grid">
+        <a id="h_vt" target="_blank" rel="noopener">VirusTotal</a>
+        <a id="h_hybrid" target="_blank" rel="noopener">Hybrid-Analysis</a>
+        <a id="h_joesandbox" target="_blank" rel="noopener">JOE Sandbox</a>
+        <a id="h_triage" target="_blank" rel="noopener">Triage</a>
+
+        <a id="h_malshare" target="_blank" rel="noopener">MalShare</a>
+        <a id="h_ibmxf" target="_blank" rel="noopener">IBM X-Force</a>
+        <a id="h_talos" target="_blank" rel="noopener">Talos</a>
+        <a id="h_otx" target="_blank" rel="noopener">AlienVault OTX</a>
+
+        <a id="h_anyrun" target="_blank" rel="noopener">AnyRun (Search)</a>
+        <a id="h_threatminer" target="_blank" rel="noopener">ThreatMiner</a>
+        <a id="h_cyberchef" target="_blank" rel="noopener">CyberChef</a>
+        <a id="h_nitter" target="_blank" rel="noopener">Nitter (Tweets)</a>
+      </div>
+    </div>
+
+    <!-- ================= CVE ================= -->
+    <div class="tool-section" data-type="cve">
+      <h2>🧷 CVE Lookup</h2>
+      <div class="tool-grid">
+        <a id="cve_nvd" target="_blank" rel="noopener">NVD (NIST)</a>
+        <a id="cve_cveorg" target="_blank" rel="noopener">CVE.org Record</a>
+        <a id="cve_cisa" target="_blank" rel="noopener">CISA KEV (Search)</a>
+        <a id="cve_exploitdb" target="_blank" rel="noopener">Exploit-DB</a>
+        <a id="cve_vulners" target="_blank" rel="noopener">Vulners</a>
+        <a id="cve_github" target="_blank" rel="noopener">GitHub PoC Search</a>
+      </div>
+    </div>
+
+    <!-- ================= MITRE ================= -->
+    <div class="tool-section">
+      <h2>🧩 MITRE ATT&CK Tagging</h2>
+      <div id="mitre-panel">
+        <label><input type="checkbox" value="T1071"> T1071 – Application Layer Protocol</label>
+        <label><input type="checkbox" value="T1566"> T1566 – Phishing</label>
+        <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
+        <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
+        <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
