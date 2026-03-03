@@ -1,187 +1,62 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Romel Centralized OSINT</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8">
+<title>Romel Centralized OSINT</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <aside class="sidebar">
-    <h2>🔎 OSINT</h2>
-    <button id="toggle-dark" type="button">🌙 Toggle Theme</button>
-    <button id="clear-all" type="button">🗑 Clear</button>
-  </aside>
+<div class="sidebar">
+  <h2>🔎 OSINT</h2>
+  <button id="toggle-dark">Toggle Theme</button>
+  <button id="clear-all">Clear</button>
+</div>
 
-  <main class="main">
-    <h1>Romel Centralized OSINT</h1>
+<div class="main">
+  <h1>Romel Centralized OSINT</h1>
 
-    <div class="input-section">
-      <input id="input" type="text" placeholder="Enter IP / Domain / Email / Username / Hash / CVE OR paste full Email Headers" />
-      <button id="search-btn" type="button">Search</button>
+  <input id="input" placeholder="Enter IP / Domain / Email / Hash / CVE or paste Email Headers">
+  <button id="search-btn">Search</button>
+
+  <textarea id="output" placeholder="Results"></textarea>
+
+  <!-- IP -->
+  <div class="tool-section" data-type="ip">
+    <h2>IP Intelligence</h2>
+    <div class="tool-grid">
+      <a id="vt_ip" target="_blank">VirusTotal</a>
+      <a id="abuse" target="_blank">AbuseIPDB</a>
+      <a id="shodan" target="_blank">Shodan</a>
+      <a id="censys" target="_blank">Censys</a>
+      <a id="greynoise" target="_blank">GreyNoise</a>
+      <a id="viewdns" target="_blank">ViewDNS IP History</a>
     </div>
+  </div>
 
-    <div class="tools">
-      <button id="defang-btn" type="button">Defang</button>
-      <button id="refang-btn" type="button">Refang</button>
-      <button id="extract-btn" type="button">Extract IOCs</button>
-      <button id="copy-btn" type="button">Copy</button>
+  <!-- HASH -->
+  <div class="tool-section" data-type="hash">
+    <h2>Hash Intelligence</h2>
+    <div class="tool-grid">
+      <a id="vt_hash" target="_blank">VirusTotal</a>
+      <a id="anyrun" target="_blank">ANY.RUN</a>
+      <a id="triage" target="_blank">Triage</a>
+      <a id="joesandbox" target="_blank">JoeSandbox</a>
     </div>
+  </div>
 
-    <div id="status" class="status">Status: waiting…</div>
+  <!-- EMAIL HEADER -->
+  <div class="tool-section" data-type="header">
+    <h2>Email Header Toolkit</h2>
+    <div class="tool-grid">
+      <a id="mha" target="_blank">Microsoft Header Analyzer</a>
+      <a id="google_header" target="_blank">Google Header Analyzer</a>
+      <a id="mxtool_header" target="_blank">MXToolbox Header</a>
+    </div>
+  </div>
 
-    <textarea id="output" placeholder="Results / Extracted IOCs / Paste Headers here"></textarea>
+</div>
 
-    <!-- IP -->
-    <section class="tool-section" data-type="ip">
-      <h2>🛡 Threat & Reputation (IP)</h2>
-      <div class="tool-grid">
-        <a id="virustotal" target="_blank" rel="noopener">VirusTotal</a>
-        <a id="abuseipdb" target="_blank" rel="noopener">AbuseIPDB</a>
-        <a id="talos" target="_blank" rel="noopener">Talos</a>
-        <a id="ibmxf" target="_blank" rel="noopener">IBM X-Force</a>
-        <a id="alienotx" target="_blank" rel="noopener">AlienVault OTX</a>
-
-        <a id="anyrun_ip" target="_blank" rel="noopener">AnyRun (Lookup)</a>
-        <a id="mxtoolbox_ip" target="_blank" rel="noopener">MXToolBox (Blacklist)</a>
-        <a id="blacklistchecker_ip" target="_blank" rel="noopener">Blacklist Checker</a>
-        <a id="cleantalk_ip" target="_blank" rel="noopener">CleanTalk (Blacklist)</a>
-
-        <a id="shodan_ip" target="_blank" rel="noopener">Shodan</a>
-        <a id="censys_ip" target="_blank" rel="noopener">Censys</a>
-        <a id="greynoise" target="_blank" rel="noopener">GreyNoise</a>
-
-        <a id="iplocation" target="_blank" rel="noopener">IPLocation</a>
-        <a id="ipinfo" target="_blank" rel="noopener">IPInfo</a>
-        <a id="whatismyipaddress_ip" target="_blank" rel="noopener">WhatIsMyIPAddress</a>
-        <a id="myip_ms" target="_blank" rel="noopener">MyIP (myip.ms)</a>
-        <a id="ripestat" target="_blank" rel="noopener">RIPEstat (Database)</a>
-
-        <a id="spur" target="_blank" rel="noopener">SPUR (detect VPNs)</a>
-        <a id="scamalytics" target="_blank" rel="noopener">Scamalytics</a>
-        <a id="threatminer" target="_blank" rel="noopener">ThreatMiner</a>
-        <a id="urlscan" target="_blank" rel="noopener">urlscan.io</a>
-
-        <a id="viewdns_iphistory" target="_blank" rel="noopener">ViewDNS IP History</a>
-      </div>
-    </section>
-
-    <!-- Domain -->
-    <section class="tool-section" data-type="domain">
-      <h2>🌐 Domain & DNS</h2>
-      <div class="tool-grid">
-        <a id="passivedns" target="_blank" rel="noopener">Passive DNS</a>
-        <a id="securitytrails" target="_blank" rel="noopener">SecurityTrails</a>
-        <a id="censys" target="_blank" rel="noopener">Censys</a>
-        <a id="shodan" target="_blank" rel="noopener">Shodan</a>
-        <a id="netlas" target="_blank" rel="noopener">Netlas</a>
-        <a id="virustotal_domain" target="_blank" rel="noopener">VirusTotal</a>
-        <a id="talos_domain" target="_blank" rel="noopener">Talos</a>
-        <a id="ibmxf_domain" target="_blank" rel="noopener">IBM X-Force</a>
-        <a id="alienotx_domain" target="_blank" rel="noopener">AlienVault OTX</a>
-        <a id="urlscan_domain" target="_blank" rel="noopener">URLScan</a>
-        <a id="mxtoolbox" target="_blank" rel="noopener">MXToolBox Blacklist</a>
-        <a id="blacklistchecker" target="_blank" rel="noopener">Blacklist Checker</a>
-        <a id="cleantalk_bl" target="_blank" rel="noopener">CleanTalk Blacklist</a>
-        <a id="cleantalk_malware" target="_blank" rel="noopener">CleanTalk Malware</a>
-        <a id="sucuri" target="_blank" rel="noopener">SUCURI Malware</a>
-        <a id="urlvoid" target="_blank" rel="noopener">URLVoid</a>
-        <a id="urlhaus" target="_blank" rel="noopener">URLHaus</a>
-        <a id="whois_domaintools" target="_blank" rel="noopener">Whois DomainTools</a>
-        <a id="dnSlytics" target="_blank" rel="noopener">DNSlytics</a>
-        <a id="netcraft" target="_blank" rel="noopener">Netcraft</a>
-        <a id="webcheck" target="_blank" rel="noopener">Web Check</a>
-        <a id="hudsonrock_info" target="_blank" rel="noopener">HudsonRock Infostealer</a>
-        <a id="hudsonrock_urls" target="_blank" rel="noopener">HudsonRock URL Discovery</a>
-        <a id="socradar" target="_blank" rel="noopener">SOCRadar Dark Web</a>
-        <a id="wayback" target="_blank" rel="noopener">Wayback Machine</a>
-        <a id="wayback_save" target="_blank" rel="noopener">Wayback Save</a>
-        <a id="browserling" target="_blank" rel="noopener">Browserling</a>
-        <a id="anyrun_domain" target="_blank" rel="noopener">AnyRun Search</a>
-        <a id="anyrun_safe" target="_blank" rel="noopener">AnyRun Safe</a>
-        <a id="phishing_checker" target="_blank" rel="noopener">Phishing Checker</a>
-        <a id="clickfix" target="_blank" rel="noopener">ClickFix Hunter</a>
-        <a id="nitter" target="_blank" rel="noopener">Nitter Tweets</a>
-      </div>
-    </section>
-
-    <!-- Email -->
-    <section class="tool-section" data-type="email">
-      <h2>📧 Email & Breach</h2>
-      <div class="tool-grid">
-        <a id="hunter" target="_blank" rel="noopener">Hunter.io</a>
-        <a id="haveibeenpwned" target="_blank" rel="noopener">HIBP</a>
-      </div>
-    </section>
-
-    <!-- ✅ NEW: Email Header Analysis Toolkit -->
-    <section class="tool-section" data-type="header">
-      <h2>🧾 Email Header Analysis Toolkit</h2>
-      <div class="tool-grid">
-        <a id="mha" target="_blank" rel="noopener">Microsoft Message Header Analyzer</a>
-        <a id="google_messageheader" target="_blank" rel="noopener">Google Admin Toolbox – Messageheader</a>
-        <a id="mxtoolbox_headers" target="_blank" rel="noopener">MXToolbox – Email Header Analyzer</a>
-        <a id="whatismyip_trace_email" target="_blank" rel="noopener">WhatIsMyIPAddress – Trace Email</a>
-        <a id="dnschecker_header" target="_blank" rel="noopener">DNSChecker – Email Header Analyzer</a>
-      </div>
-      <p class="hint">
-        Tip: Paste the full header into the input box. This toolkit auto-opens for headers containing “Received:”, “Authentication-Results:”, “DKIM-Signature:”, etc.
-      </p>
-    </section>
-
-    <!-- Username -->
-    <section class="tool-section" data-type="username">
-      <h2>👤 Username Lookup</h2>
-      <div class="tool-grid">
-        <a id="namechk" target="_blank" rel="noopener">Namechk</a>
-        <a id="whatsmyname" target="_blank" rel="noopener">WhatsMyName</a>
-      </div>
-    </section>
-
-    <!-- Hash -->
-    <section class="tool-section" data-type="hash">
-      <h2>🔒 Hash Lookup</h2>
-      <div class="tool-grid">
-        <a id="virustotalhash" target="_blank" rel="noopener">VirusTotal</a>
-        <a id="threatminerhash" target="_blank" rel="noopener">ThreatMiner</a>
-        <a id="anyrun" target="_blank" rel="noopener">ANY.RUN Intelligence Lookup</a>
-        <a id="alienhash" target="_blank" rel="noopener">AlienVault OTX</a>
-        <a id="taloshash" target="_blank" rel="noopener">Talos File Reputation</a>
-        <a id="ibmhash" target="_blank" rel="noopener">IBM X-Force Malware</a>
-        <a id="triage" target="_blank" rel="noopener">Triage</a>
-        <a id="joesandbox" target="_blank" rel="noopener">Joe Sandbox (Search)</a>
-        <a id="hybrid" target="_blank" rel="noopener">Hybrid Analysis</a>
-      </div>
-    </section>
-
-    <!-- CVE -->
-    <section class="tool-section" data-type="cve">
-      <h2>🧷 CVE Lookup</h2>
-      <div class="tool-grid">
-        <a id="nvd_cve" target="_blank" rel="noopener">NVD (NIST)</a>
-        <a id="cve_org" target="_blank" rel="noopener">CVE.org Record</a>
-        <a id="cisa_kev" target="_blank" rel="noopener">CISA KEV (Search)</a>
-        <a id="exploitdb" target="_blank" rel="noopener">Exploit-DB</a>
-        <a id="vulners" target="_blank" rel="noopener">Vulners</a>
-        <a id="github_poc" target="_blank" rel="noopener">GitHub PoC Search</a>
-      </div>
-    </section>
-
-    <!-- MITRE -->
-    <section class="tool-section">
-      <h2>🧩 MITRE ATT&CK Tagging</h2>
-      <div id="mitre-panel">
-        <label><input type="checkbox" value="T1071"> T1071 – Application Layer Protocol</label>
-        <label><input type="checkbox" value="T1566"> T1566 – Phishing</label>
-        <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
-        <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
-        <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
-      </div>
-    </section>
-
-  </main>
-
-  <script src="script.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
