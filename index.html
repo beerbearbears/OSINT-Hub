@@ -21,14 +21,14 @@
       <button id="toggle-dark" type="button">🌙 Toggle Theme</button>
       <button id="clear-all" type="button">🗑 Clear</button>
     </div>
-    <!-- removed hint text as requested -->
+    <!-- removed hint text -->
   </div>
 
   <div class="main">
     <div class="header">
       <div>
         <h1>Romel Centralized OSINT</h1>
-        <div class="sub">IP / Domain / Hash / CVE pivots + IOC Extractor + SOC Tools</div>
+        <div class="sub">IP / Domain / Hash / CVE pivots + IOC Extractor + SOC Tooling</div>
       </div>
     </div>
 
@@ -37,7 +37,7 @@
         <input
           id="input"
           type="text"
-          placeholder="Enter IP / Domain / Email / Username / Hash / CVE / Event ID / LOLBIN or paste Email Headers / logs"
+          placeholder="Enter IP / Domain / Email / Username / Hash / CVE / Event ID / Sysmon / Txxxx / paste Headers / logs / cmdline"
         />
         <button id="search-btn" type="button">Search</button>
       </div>
@@ -64,10 +64,48 @@
         <div class="pill">General SOC tools</div>
       </div>
       <div class="tool-grid">
-        <a id="soc_mitre" target="_blank"><div class="title">MITRE ATT&CK (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_mitre"></div></a>
-        <a id="soc_sigma" target="_blank"><div class="title">SigmaHQ Rules (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_sigma"></div></a>
-        <a id="soc_cyberchef" target="_blank"><div class="title">CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="soc_cyberchef"></div></a>
-        <a id="soc_malapi" target="_blank"><div class="title">MalAPI (Windows API) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_malapi"></div></a>
+        <a id="soc_mitre" target="_blank">
+          <div class="title"><span class="ico">🧩</span> MITRE ATT&CK (Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="soc_mitre"></div>
+        </a>
+        <a id="soc_sigma" target="_blank">
+          <div class="title"><span class="ico">📐</span> SigmaHQ Rules (Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="soc_sigma"></div>
+        </a>
+        <a id="soc_cyberchef" target="_blank">
+          <div class="title"><span class="ico">🧬</span> CyberChef <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="soc_cyberchef"></div>
+        </a>
+        <a id="soc_malapi" target="_blank">
+          <div class="title"><span class="ico">🧪</span> MalAPI (Windows API) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="soc_malapi"></div>
+        </a>
+        <a id="soc_intelbase" target="_blank">
+          <div class="title"><span class="ico">🗃️</span> Intelbase <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="soc_intelbase"></div>
+        </a>
+      </div>
+    </div>
+
+    <!-- ===================== SYSmon / Windows Logs ===================== -->
+    <div class="tool-section" data-type="sysmon">
+      <div class="section-head">
+        <h2>🪟 Windows Logs / Sysmon</h2>
+        <div class="pill">Sysmon + log pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="sysmon_mslearn" target="_blank">
+          <div class="title"><span class="ico">📘</span> Microsoft Learn (Sysmon Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="sysmon_mslearn"></div>
+        </a>
+        <a id="sysmon_hackthelogs" target="_blank">
+          <div class="title"><span class="ico">🧾</span> HackTheLogs (Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="sysmon_hackthelogs"></div>
+        </a>
+        <a id="sysmon_splunk" target="_blank">
+          <div class="title"><span class="ico">🔎</span> Splunk Docs (Sysmon Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="sysmon_splunk"></div>
+        </a>
       </div>
     </div>
 
@@ -78,10 +116,138 @@
         <div class="pill">Event pivots</div>
       </div>
       <div class="tool-grid">
-        <a id="ev_uws" target="_blank"><div class="title">UltimateWindowsSecurity (Encyclopedia) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_uws"></div></a>
-        <a id="ev_eventidnet" target="_blank"><div class="title">EventID.net (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_eventidnet"></div></a>
-        <a id="ev_mslearn" target="_blank"><div class="title">Microsoft Learn (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_mslearn"></div></a>
-        <a id="ev_splunk" target="_blank"><div class="title">Splunk Docs (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_splunk"></div></a>
+        <a id="ev_uws" target="_blank">
+          <div class="title"><span class="ico">📖</span> UltimateWindowsSecurity (Encyclopedia) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="ev_uws"></div>
+        </a>
+        <a id="ev_eventidnet" target="_blank">
+          <div class="title"><span class="ico">🧭</span> EventID.net (Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="ev_eventidnet"></div>
+        </a>
+        <a id="ev_mslearn" target="_blank">
+          <div class="title"><span class="ico">📘</span> Microsoft Learn (Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="ev_mslearn"></div>
+        </a>
+        <a id="ev_hackthelogs" target="_blank">
+          <div class="title"><span class="ico">🧾</span> HackTheLogs (Event Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="ev_hackthelogs"></div>
+        </a>
+      </div>
+    </div>
+
+    <!-- ===================== MITRE TECHNIQUE ===================== -->
+    <div class="tool-section" data-type="mitre">
+      <div class="section-head">
+        <h2>🧩 MITRE Technique Detector</h2>
+        <div class="pill">Txxxx pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="mitre_tech" target="_blank">
+          <div class="title"><span class="ico">🧩</span> ATT&CK Technique Page <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="mitre_tech"></div>
+        </a>
+        <a id="mitre_search" target="_blank">
+          <div class="title"><span class="ico">🔍</span> ATT&CK Search <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="mitre_search"></div>
+        </a>
+      </div>
+    </div>
+
+    <!-- ===================== CVE + KEV + EPSS ===================== -->
+    <div class="tool-section" data-type="cveplus">
+      <div class="section-head">
+        <h2>🧷 CVE ↔ KEV / EPSS</h2>
+        <div class="pill">Vuln pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="cvep_nvd" target="_blank">
+          <div class="title"><span class="ico">📌</span> NVD (NIST) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cvep_nvd"></div>
+        </a>
+        <a id="cvep_cisa_kev" target="_blank">
+          <div class="title"><span class="ico">🛡️</span> CISA KEV (Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cvep_cisa_kev"></div>
+        </a>
+        <a id="cvep_epss" target="_blank">
+          <div class="title"><span class="ico">📈</span> FIRST EPSS (Lookup) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cvep_epss"></div>
+        </a>
+        <a id="cvep_github" target="_blank">
+          <div class="title"><span class="ico">🧑‍💻</span> GitHub PoC Search <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cvep_github"></div>
+        </a>
+        <a id="cvep_exploitdb" target="_blank">
+          <div class="title"><span class="ico">💥</span> Exploit-DB Search <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cvep_exploitdb"></div>
+        </a>
+      </div>
+    </div>
+
+    <!-- ===================== EMAIL ARTIFACTS ===================== -->
+    <div class="tool-section" data-type="emailart">
+      <div class="section-head">
+        <h2>📧 Email Artifacts</h2>
+        <div class="pill">Message-ID / DKIM / SPF pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="emart_hdr_mha" target="_blank">
+          <div class="title"><span class="ico">🧾</span> Microsoft Header Analyzer <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="emart_hdr_mha"></div>
+        </a>
+        <a id="emart_google" target="_blank">
+          <div class="title"><span class="ico">📨</span> Google Messageheader <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="emart_google"></div>
+        </a>
+        <a id="emart_msgid_search" target="_blank">
+          <div class="title"><span class="ico">🔍</span> Message-ID Search <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="emart_msgid_search"></div>
+        </a>
+        <a id="emart_dkim_domain" target="_blank">
+          <div class="title"><span class="ico">✍️</span> DKIM Domain Pivot (Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="emart_dkim_domain"></div>
+        </a>
+        <a id="emart_spf_domain" target="_blank">
+          <div class="title"><span class="ico">🧷</span> SPF Domain Pivot (Search) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="emart_spf_domain"></div>
+        </a>
+      </div>
+    </div>
+
+    <!-- ===================== FILE / CMDLINE PIVOTS ===================== -->
+    <div class="tool-section" data-type="cmdline">
+      <div class="section-head">
+        <h2>🧾 File Name / Command Line Pivots</h2>
+        <div class="pill">Sigma / LOLBAS / SPL / ExplainShell</div>
+      </div>
+      <div class="tool-grid">
+        <a id="cmd_sigma" target="_blank">
+          <div class="title"><span class="ico">📐</span> SigmaHQ Search <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cmd_sigma"></div>
+        </a>
+        <a id="cmd_lolbas" target="_blank">
+          <div class="title"><span class="ico">🧰</span> LOLBAS Search <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cmd_lolbas"></div>
+        </a>
+        <a id="cmd_gtfobins" target="_blank">
+          <div class="title"><span class="ico">🧰</span> GTFOBins Search <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cmd_gtfobins"></div>
+        </a>
+        <a id="cmd_splunk" target="_blank">
+          <div class="title"><span class="ico">🔎</span> Splunk Docs Search <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cmd_splunk"></div>
+        </a>
+        <a id="cmd_explainshell" target="_blank">
+          <div class="title"><span class="ico">🧠</span> ExplainShell <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cmd_explainshell"></div>
+        </a>
+        <a id="cmd_ruler" target="_blank">
+          <div class="title"><span class="ico">📡</span> RULER Project (Remote) <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cmd_ruler"></div>
+        </a>
+        <a id="cmd_hackthelogs" target="_blank">
+          <div class="title"><span class="ico">🧾</span> HackTheLogs <span class="lock">🔒</span></div>
+          <div class="meta" data-meta="cmd_hackthelogs"></div>
+        </a>
       </div>
     </div>
 
@@ -92,10 +258,10 @@
         <div class="pill">Binary pivots</div>
       </div>
       <div class="tool-grid">
-        <a id="lb_lolbas" target="_blank"><div class="title">LOLBAS (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas"></div></a>
-        <a id="lb_lolbas_home" target="_blank"><div class="title">LOLBAS (Home) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas_home"></div></a>
-        <a id="lb_gtfobins" target="_blank"><div class="title">GTFOBins (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_gtfobins"></div></a>
-        <a id="lb_hijacklibs" target="_blank"><div class="title">HijackLibs (DLL Search) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_hijacklibs"></div></a>
+        <a id="lb_lolbas" target="_blank"><div class="title"><span class="ico">🧰</span> LOLBAS (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas"></div></a>
+        <a id="lb_lolbas_home" target="_blank"><div class="title"><span class="ico">🏠</span> LOLBAS (Home) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas_home"></div></a>
+        <a id="lb_gtfobins" target="_blank"><div class="title"><span class="ico">🧰</span> GTFOBins (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_gtfobins"></div></a>
+        <a id="lb_hijacklibs" target="_blank"><div class="title"><span class="ico">🧱</span> HijackLibs (DLL Search) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_hijacklibs"></div></a>
       </div>
     </div>
 
@@ -106,16 +272,16 @@
         <div class="pill">IP pivots</div>
       </div>
       <div class="tool-grid">
-        <a id="ip_vt" target="_blank"><div class="title">VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="ip_vt"></div></a>
-        <a id="ip_abuseipdb" target="_blank"><div class="title">AbuseIPDB <span class="lock">🔒</span></div><div class="meta" data-meta="ip_abuseipdb"></div></a>
-        <a id="ip_talos" target="_blank"><div class="title">Talos <span class="lock">🔒</span></div><div class="meta" data-meta="ip_talos"></div></a>
-        <a id="ip_ibmxf" target="_blank"><div class="title">IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ibmxf"></div></a>
-        <a id="ip_otx" target="_blank"><div class="title">AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="ip_otx"></div></a>
-        <a id="ip_shodan" target="_blank"><div class="title">Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="ip_shodan"></div></a>
-        <a id="ip_censys" target="_blank"><div class="title">Censys <span class="lock">🔒</span></div><div class="meta" data-meta="ip_censys"></div></a>
-        <a id="ip_greynoise" target="_blank"><div class="title">GreyNoise <span class="lock">🔒</span></div><div class="meta" data-meta="ip_greynoise"></div></a>
-        <a id="ip_ipinfo" target="_blank"><div class="title">IPinfo <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ipinfo"></div></a>
-        <a id="ip_urlscan" target="_blank"><div class="title">urlscan.io <span class="lock">🔒</span></div><div class="meta" data-meta="ip_urlscan"></div></a>
+        <a id="ip_vt" target="_blank"><div class="title"><span class="ico">🧫</span> VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="ip_vt"></div></a>
+        <a id="ip_abuseipdb" target="_blank"><div class="title"><span class="ico">🚫</span> AbuseIPDB <span class="lock">🔒</span></div><div class="meta" data-meta="ip_abuseipdb"></div></a>
+        <a id="ip_talos" target="_blank"><div class="title"><span class="ico">🕵️</span> Talos <span class="lock">🔒</span></div><div class="meta" data-meta="ip_talos"></div></a>
+        <a id="ip_ibmxf" target="_blank"><div class="title"><span class="ico">🧠</span> IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ibmxf"></div></a>
+        <a id="ip_otx" target="_blank"><div class="title"><span class="ico">👽</span> AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="ip_otx"></div></a>
+        <a id="ip_shodan" target="_blank"><div class="title"><span class="ico">🌊</span> Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="ip_shodan"></div></a>
+        <a id="ip_censys" target="_blank"><div class="title"><span class="ico">🔭</span> Censys <span class="lock">🔒</span></div><div class="meta" data-meta="ip_censys"></div></a>
+        <a id="ip_greynoise" target="_blank"><div class="title"><span class="ico">🌫️</span> GreyNoise <span class="lock">🔒</span></div><div class="meta" data-meta="ip_greynoise"></div></a>
+        <a id="ip_ipinfo" target="_blank"><div class="title"><span class="ico">📍</span> IPinfo <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ipinfo"></div></a>
+        <a id="ip_urlscan" target="_blank"><div class="title"><span class="ico">🧪</span> urlscan.io <span class="lock">🔒</span></div><div class="meta" data-meta="ip_urlscan"></div></a>
       </div>
     </div>
 
@@ -126,13 +292,13 @@
         <div class="pill">Domain pivots</div>
       </div>
       <div class="tool-grid">
-        <a id="dom_vt" target="_blank"><div class="title">VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="dom_vt"></div></a>
-        <a id="dom_talos" target="_blank"><div class="title">Talos <span class="lock">🔒</span></div><div class="meta" data-meta="dom_talos"></div></a>
-        <a id="dom_ibmxf" target="_blank"><div class="title">IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="dom_ibmxf"></div></a>
-        <a id="dom_otx" target="_blank"><div class="title">AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="dom_otx"></div></a>
-        <a id="dom_urlscan" target="_blank"><div class="title">URLScan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlscan"></div></a>
-        <a id="dom_whois" target="_blank"><div class="title">WHOIS <span class="lock">🔒</span></div><div class="meta" data-meta="dom_whois"></div></a>
-        <a id="dom_dnstools" target="_blank"><div class="title">WHOIS DomainTools <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnstools"></div></a>
+        <a id="dom_vt" target="_blank"><div class="title"><span class="ico">🧫</span> VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="dom_vt"></div></a>
+        <a id="dom_talos" target="_blank"><div class="title"><span class="ico">🕵️</span> Talos <span class="lock">🔒</span></div><div class="meta" data-meta="dom_talos"></div></a>
+        <a id="dom_ibmxf" target="_blank"><div class="title"><span class="ico">🧠</span> IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="dom_ibmxf"></div></a>
+        <a id="dom_otx" target="_blank"><div class="title"><span class="ico">👽</span> AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="dom_otx"></div></a>
+        <a id="dom_urlscan" target="_blank"><div class="title"><span class="ico">🧪</span> URLScan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlscan"></div></a>
+        <a id="dom_whois" target="_blank"><div class="title"><span class="ico">📇</span> WHOIS <span class="lock">🔒</span></div><div class="meta" data-meta="dom_whois"></div></a>
+        <a id="dom_dnstools" target="_blank"><div class="title"><span class="ico">🧾</span> WHOIS DomainTools <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnstools"></div></a>
       </div>
     </div>
 
@@ -143,8 +309,8 @@
         <div class="pill">Email pivots</div>
       </div>
       <div class="tool-grid">
-        <a id="em_hunter" target="_blank"><div class="title">Hunter.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_hunter"></div></a>
-        <a id="em_hibp" target="_blank"><div class="title">HIBP <span class="lock">🔒</span></div><div class="meta" data-meta="em_hibp"></div></a>
+        <a id="em_hunter" target="_blank"><div class="title"><span class="ico">🕵️</span> Hunter.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_hunter"></div></a>
+        <a id="em_hibp" target="_blank"><div class="title"><span class="ico">🧾</span> HIBP <span class="lock">🔒</span></div><div class="meta" data-meta="em_hibp"></div></a>
       </div>
     </div>
 
@@ -155,10 +321,10 @@
         <div class="pill">Paste-based tools</div>
       </div>
       <div class="tool-grid">
-        <a id="hdr_mha" target="_blank"><div class="title">Microsoft Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mha"></div></a>
-        <a id="hdr_google" target="_blank"><div class="title">Google Messageheader <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_google"></div></a>
-        <a id="hdr_mxtoolbox" target="_blank"><div class="title">MXToolbox Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mxtoolbox"></div></a>
-        <a id="hdr_traceemail" target="_blank"><div class="title">Trace Email <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_traceemail"></div></a>
+        <a id="hdr_mha" target="_blank"><div class="title"><span class="ico">🧾</span> Microsoft Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mha"></div></a>
+        <a id="hdr_google" target="_blank"><div class="title"><span class="ico">📨</span> Google Messageheader <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_google"></div></a>
+        <a id="hdr_mxtoolbox" target="_blank"><div class="title"><span class="ico">🧰</span> MXToolbox Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mxtoolbox"></div></a>
+        <a id="hdr_traceemail" target="_blank"><div class="title"><span class="ico">🧭</span> Trace Email <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_traceemail"></div></a>
       </div>
     </div>
 
@@ -169,8 +335,8 @@
         <div class="pill">Account pivots</div>
       </div>
       <div class="tool-grid">
-        <a id="usr_namechk" target="_blank"><div class="title">Namechk <span class="lock">🔒</span></div><div class="meta" data-meta="usr_namechk"></div></a>
-        <a id="usr_whatsmyname" target="_blank"><div class="title">WhatsMyName <span class="lock">🔒</span></div><div class="meta" data-meta="usr_whatsmyname"></div></a>
+        <a id="usr_namechk" target="_blank"><div class="title"><span class="ico">🧾</span> Namechk <span class="lock">🔒</span></div><div class="meta" data-meta="usr_namechk"></div></a>
+        <a id="usr_whatsmyname" target="_blank"><div class="title"><span class="ico">🕵️</span> WhatsMyName <span class="lock">🔒</span></div><div class="meta" data-meta="usr_whatsmyname"></div></a>
       </div>
     </div>
 
@@ -181,10 +347,10 @@
         <div class="pill">File pivots</div>
       </div>
       <div class="tool-grid">
-        <a id="h_vt" target="_blank"><div class="title">VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="h_vt"></div></a>
-        <a id="h_hybrid" target="_blank"><div class="title">Hybrid-Analysis <span class="lock">🔒</span></div><div class="meta" data-meta="h_hybrid"></div></a>
-        <a id="h_triage" target="_blank"><div class="title">Triage <span class="lock">🔒</span></div><div class="meta" data-meta="h_triage"></div></a>
-        <a id="h_otx" target="_blank"><div class="title">AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="h_otx"></div></a>
+        <a id="h_vt" target="_blank"><div class="title"><span class="ico">🧫</span> VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="h_vt"></div></a>
+        <a id="h_hybrid" target="_blank"><div class="title"><span class="ico">🧪</span> Hybrid-Analysis <span class="lock">🔒</span></div><div class="meta" data-meta="h_hybrid"></div></a>
+        <a id="h_triage" target="_blank"><div class="title"><span class="ico">🔬</span> Triage <span class="lock">🔒</span></div><div class="meta" data-meta="h_triage"></div></a>
+        <a id="h_otx" target="_blank"><div class="title"><span class="ico">👽</span> AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="h_otx"></div></a>
       </div>
     </div>
 
@@ -195,237 +361,14 @@
         <div class="pill">Vulnerability pivots</div>
       </div>
       <div class="tool-grid">
-        <a id="cve_nvd" target="_blank"><div class="title">NVD (NIST) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_nvd"></div></a>
-        <a id="cve_cveorg" target="_blank"><div class="title">CVE.org Record <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cveorg"></div></a>
-        <a id="cve_exploitdb" target="_blank"><div class="title">Exploit-DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_exploitdb"></div></a>
-        <a id="cve_github" target="_blank"><div class="title">GitHub PoC Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_github"></div></a>
+        <a id="cve_nvd" target="_blank"><div class="title"><span class="ico">📌</span> NVD (NIST) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_nvd"></div></a>
+        <a id="cve_cveorg" target="_blank"><div class="title"><span class="ico">🧷</span> CVE.org Record <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cveorg"></div></a>
+        <a id="cve_exploitdb" target="_blank"><div class="title"><span class="ico">💥</span> Exploit-DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_exploitdb"></div></a>
+        <a id="cve_github" target="_blank"><div class="title"><span class="ico">🧑‍💻</span> GitHub PoC Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_github"></div></a>
       </div>
     </div>
 
-    <!-- ===================== MITRE ===================== -->
-    <div class="tool-section">
-      <div class="section-head">
-        <h2>🧩 MITRE ATT&CK Tagging</h2>
-        <div class="pill">Optional tags</div>
-      </div>
-      <div id="mitre-panel">
-        <label><input type="checkbox" value="T1071"> T1071 – Application Layer Protocol</label>
-        <label><input type="checkbox" value="T1566"> T1566 – Phishing</label>
-        <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
-        <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
-        <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
-      </div>
-    </div>
-
-  </div>
-
-  <script src="script.js"></script>
-</body>
-</html><!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Romel Centralized OSINT</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-
-  <div class="sidebar">
-    <div class="brand">
-      <div class="logo">🔎</div>
-      <div>
-        <h2>OSINT</h2>
-        <p>Romel Centralized Toolkit</p>
-      </div>
-    </div>
-
-    <div class="actions">
-      <button id="toggle-dark" type="button">🌙 Toggle Theme</button>
-      <button id="clear-all" type="button">🗑 Clear</button>
-    </div>
-    <!-- removed hint text as requested -->
-  </div>
-
-  <div class="main">
-    <div class="header">
-      <div>
-        <h1>Romel Centralized OSINT</h1>
-        <div class="sub">IP / Domain / Hash / CVE pivots + IOC Extractor + SOC Tools</div>
-      </div>
-    </div>
-
-    <div class="input-panel">
-      <div class="input-row">
-        <input
-          id="input"
-          type="text"
-          placeholder="Enter IP / Domain / Email / Username / Hash / CVE / Event ID / LOLBIN or paste Email Headers / logs"
-        />
-        <button id="search-btn" type="button">Search</button>
-      </div>
-
-      <div class="tools">
-        <button id="defang-btn" type="button">Defang</button>
-        <button id="refang-btn" type="button">Refang</button>
-        <button id="extract-btn" type="button">Extract IOCs</button>
-        <button id="copy-btn" type="button">Copy</button>
-      </div>
-
-      <div id="status" class="status">
-        <span>Status: ready (landing page)</span>
-        <span class="badge">OSINT</span>
-      </div>
-
-      <textarea id="output" placeholder="Results / Paste logs here for IOC extraction"></textarea>
-    </div>
-
-    <!-- ===================== SOC QUICK PIVOTS ===================== -->
-    <div class="tool-section" data-type="soc">
-      <div class="section-head">
-        <h2>🧪 SOC Quick Pivots</h2>
-        <div class="pill">General SOC tools</div>
-      </div>
-      <div class="tool-grid">
-        <a id="soc_mitre" target="_blank"><div class="title">MITRE ATT&CK (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_mitre"></div></a>
-        <a id="soc_sigma" target="_blank"><div class="title">SigmaHQ Rules (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_sigma"></div></a>
-        <a id="soc_cyberchef" target="_blank"><div class="title">CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="soc_cyberchef"></div></a>
-        <a id="soc_malapi" target="_blank"><div class="title">MalAPI (Windows API) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_malapi"></div></a>
-      </div>
-    </div>
-
-    <!-- ===================== EVENT ID ===================== -->
-    <div class="tool-section" data-type="eventid">
-      <div class="section-head">
-        <h2>🧾 Windows Event ID Lookup</h2>
-        <div class="pill">Event pivots</div>
-      </div>
-      <div class="tool-grid">
-        <a id="ev_uws" target="_blank"><div class="title">UltimateWindowsSecurity (Encyclopedia) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_uws"></div></a>
-        <a id="ev_eventidnet" target="_blank"><div class="title">EventID.net (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_eventidnet"></div></a>
-        <a id="ev_mslearn" target="_blank"><div class="title">Microsoft Learn (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_mslearn"></div></a>
-        <a id="ev_splunk" target="_blank"><div class="title">Splunk Docs (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_splunk"></div></a>
-      </div>
-    </div>
-
-    <!-- ===================== LOLBINS ===================== -->
-    <div class="tool-section" data-type="lolbin">
-      <div class="section-head">
-        <h2>🧰 LOLBINS / Living-off-the-land</h2>
-        <div class="pill">Binary pivots</div>
-      </div>
-      <div class="tool-grid">
-        <a id="lb_lolbas" target="_blank"><div class="title">LOLBAS (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas"></div></a>
-        <a id="lb_lolbas_home" target="_blank"><div class="title">LOLBAS (Home) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas_home"></div></a>
-        <a id="lb_gtfobins" target="_blank"><div class="title">GTFOBins (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_gtfobins"></div></a>
-        <a id="lb_hijacklibs" target="_blank"><div class="title">HijackLibs (DLL Search) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_hijacklibs"></div></a>
-      </div>
-    </div>
-
-    <!-- ===================== IP ===================== -->
-    <div class="tool-section" data-type="ip">
-      <div class="section-head">
-        <h2>🛡 Threat & Reputation (IP)</h2>
-        <div class="pill">IP pivots</div>
-      </div>
-      <div class="tool-grid">
-        <a id="ip_vt" target="_blank"><div class="title">VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="ip_vt"></div></a>
-        <a id="ip_abuseipdb" target="_blank"><div class="title">AbuseIPDB <span class="lock">🔒</span></div><div class="meta" data-meta="ip_abuseipdb"></div></a>
-        <a id="ip_talos" target="_blank"><div class="title">Talos <span class="lock">🔒</span></div><div class="meta" data-meta="ip_talos"></div></a>
-        <a id="ip_ibmxf" target="_blank"><div class="title">IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ibmxf"></div></a>
-        <a id="ip_otx" target="_blank"><div class="title">AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="ip_otx"></div></a>
-        <a id="ip_shodan" target="_blank"><div class="title">Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="ip_shodan"></div></a>
-        <a id="ip_censys" target="_blank"><div class="title">Censys <span class="lock">🔒</span></div><div class="meta" data-meta="ip_censys"></div></a>
-        <a id="ip_greynoise" target="_blank"><div class="title">GreyNoise <span class="lock">🔒</span></div><div class="meta" data-meta="ip_greynoise"></div></a>
-        <a id="ip_ipinfo" target="_blank"><div class="title">IPinfo <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ipinfo"></div></a>
-        <a id="ip_urlscan" target="_blank"><div class="title">urlscan.io <span class="lock">🔒</span></div><div class="meta" data-meta="ip_urlscan"></div></a>
-      </div>
-    </div>
-
-    <!-- ===================== DOMAIN ===================== -->
-    <div class="tool-section" data-type="domain">
-      <div class="section-head">
-        <h2>🌐 Domain & DNS</h2>
-        <div class="pill">Domain pivots</div>
-      </div>
-      <div class="tool-grid">
-        <a id="dom_vt" target="_blank"><div class="title">VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="dom_vt"></div></a>
-        <a id="dom_talos" target="_blank"><div class="title">Talos <span class="lock">🔒</span></div><div class="meta" data-meta="dom_talos"></div></a>
-        <a id="dom_ibmxf" target="_blank"><div class="title">IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="dom_ibmxf"></div></a>
-        <a id="dom_otx" target="_blank"><div class="title">AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="dom_otx"></div></a>
-        <a id="dom_urlscan" target="_blank"><div class="title">URLScan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlscan"></div></a>
-        <a id="dom_whois" target="_blank"><div class="title">WHOIS <span class="lock">🔒</span></div><div class="meta" data-meta="dom_whois"></div></a>
-        <a id="dom_dnstools" target="_blank"><div class="title">WHOIS DomainTools <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnstools"></div></a>
-      </div>
-    </div>
-
-    <!-- ===================== EMAIL ===================== -->
-    <div class="tool-section" data-type="email">
-      <div class="section-head">
-        <h2>📧 Email & Breach</h2>
-        <div class="pill">Email pivots</div>
-      </div>
-      <div class="tool-grid">
-        <a id="em_hunter" target="_blank"><div class="title">Hunter.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_hunter"></div></a>
-        <a id="em_hibp" target="_blank"><div class="title">HIBP <span class="lock">🔒</span></div><div class="meta" data-meta="em_hibp"></div></a>
-      </div>
-    </div>
-
-    <!-- ===================== EMAIL HEADERS ===================== -->
-    <div class="tool-section" data-type="header">
-      <div class="section-head">
-        <h2>🧾 Email Header Analysis Toolkit</h2>
-        <div class="pill">Paste-based tools</div>
-      </div>
-      <div class="tool-grid">
-        <a id="hdr_mha" target="_blank"><div class="title">Microsoft Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mha"></div></a>
-        <a id="hdr_google" target="_blank"><div class="title">Google Messageheader <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_google"></div></a>
-        <a id="hdr_mxtoolbox" target="_blank"><div class="title">MXToolbox Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mxtoolbox"></div></a>
-        <a id="hdr_traceemail" target="_blank"><div class="title">Trace Email <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_traceemail"></div></a>
-      </div>
-    </div>
-
-    <!-- ===================== USERNAME ===================== -->
-    <div class="tool-section" data-type="username">
-      <div class="section-head">
-        <h2>👤 Username Lookup</h2>
-        <div class="pill">Account pivots</div>
-      </div>
-      <div class="tool-grid">
-        <a id="usr_namechk" target="_blank"><div class="title">Namechk <span class="lock">🔒</span></div><div class="meta" data-meta="usr_namechk"></div></a>
-        <a id="usr_whatsmyname" target="_blank"><div class="title">WhatsMyName <span class="lock">🔒</span></div><div class="meta" data-meta="usr_whatsmyname"></div></a>
-      </div>
-    </div>
-
-    <!-- ===================== HASH ===================== -->
-    <div class="tool-section" data-type="hash">
-      <div class="section-head">
-        <h2>🔒 Hash Lookup</h2>
-        <div class="pill">File pivots</div>
-      </div>
-      <div class="tool-grid">
-        <a id="h_vt" target="_blank"><div class="title">VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="h_vt"></div></a>
-        <a id="h_hybrid" target="_blank"><div class="title">Hybrid-Analysis <span class="lock">🔒</span></div><div class="meta" data-meta="h_hybrid"></div></a>
-        <a id="h_triage" target="_blank"><div class="title">Triage <span class="lock">🔒</span></div><div class="meta" data-meta="h_triage"></div></a>
-        <a id="h_otx" target="_blank"><div class="title">AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="h_otx"></div></a>
-      </div>
-    </div>
-
-    <!-- ===================== CVE ===================== -->
-    <div class="tool-section" data-type="cve">
-      <div class="section-head">
-        <h2>🧷 CVE Lookup</h2>
-        <div class="pill">Vulnerability pivots</div>
-      </div>
-      <div class="tool-grid">
-        <a id="cve_nvd" target="_blank"><div class="title">NVD (NIST) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_nvd"></div></a>
-        <a id="cve_cveorg" target="_blank"><div class="title">CVE.org Record <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cveorg"></div></a>
-        <a id="cve_exploitdb" target="_blank"><div class="title">Exploit-DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_exploitdb"></div></a>
-        <a id="cve_github" target="_blank"><div class="title">GitHub PoC Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_github"></div></a>
-      </div>
-    </div>
-
-    <!-- ===================== MITRE ===================== -->
+    <!-- ===================== MITRE TAGGING (UNCHANGED) ===================== -->
     <div class="tool-section">
       <div class="section-head">
         <h2>🧩 MITRE ATT&CK Tagging</h2>
