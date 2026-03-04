@@ -8,33 +8,37 @@ document.addEventListener("DOMContentLoaded", () => {
   const setHref = (id, href) => { const el = $(id); if (el) el.href = href; };
   const setStatus = (msg) => { if (statusText) statusText.textContent = msg; };
 
-  // ---------------- Landing pages (when no input) ----------------
+  // -------- landing links --------
   const landing = {
+    // SOC
+    soc_mitre: "https://attack.mitre.org/",
+    soc_sigma: "https://github.com/SigmaHQ/sigma",
+    soc_cyberchef: "https://gchq.github.io/CyberChef/",
+    soc_malapi: "https://malapi.io/",
+
+    // EventID
+    ev_uws: "https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/",
+    ev_eventidnet: "https://www.eventid.net/",
+    ev_mslearn: "https://learn.microsoft.com/",
+    ev_splunk: "https://docs.splunk.com/",
+
+    // LOLBINS
+    lb_lolbas: "https://lolbas-project.github.io/",
+    lb_lolbas_home: "https://lolbas-project.github.io/",
+    lb_gtfobins: "https://gtfobins.github.io/",
+    lb_hijacklibs: "https://hijacklibs.net/",
+
     // IP
     ip_vt: "https://www.virustotal.com/",
     ip_abuseipdb: "https://www.abuseipdb.com/",
     ip_talos: "https://talosintelligence.com/",
     ip_ibmxf: "https://exchange.xforce.ibmcloud.com/",
     ip_otx: "https://otx.alienvault.com/",
-    ip_anyrun: "https://intelligence.any.run/",
-    ip_mxtoolbox: "https://mxtoolbox.com/",
-    ip_blacklistchecker: "https://blacklistchecker.com/",
-    ip_cleantalk: "https://cleantalk.org/blacklists",
     ip_shodan: "https://www.shodan.io/",
     ip_censys: "https://search.censys.io/",
     ip_greynoise: "https://viz.greynoise.io/",
-    ip_iplocation: "https://iplocation.io/",
     ip_ipinfo: "https://ipinfo.io/",
-    ip_whatismyipaddress: "https://whatismyipaddress.com/",
-    ip_myip: "https://myip.ms/",
-    ip_spur: "https://spur.us/",
-    ip_clickfix: "https://clickfix.carsonww.com/",
-    ip_ripestat: "https://stat.ripe.net/",
-    ip_nitter: "https://nitter.net/",
-    ip_threatminer: "https://www.threatminer.org/",
     ip_urlscan: "https://urlscan.io/",
-    ip_viewdns: "https://viewdns.info/",
-    ip_scamalytics: "https://scamalytics.com/",
 
     // Domain
     dom_vt: "https://www.virustotal.com/",
@@ -42,32 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dom_ibmxf: "https://exchange.xforce.ibmcloud.com/",
     dom_otx: "https://otx.alienvault.com/",
     dom_urlscan: "https://urlscan.io/",
-    dom_mxtoolbox: "https://mxtoolbox.com/",
-    dom_blacklistchecker: "https://blacklistchecker.com/",
-    dom_cleantalk_bl: "https://cleantalk.org/blacklists",
-    dom_cleantalk_malware: "https://cleantalk.org/malware",
-    dom_sucuri: "https://sitecheck.sucuri.net/",
-    dom_urlvoid: "https://www.urlvoid.com/",
-    dom_urlhaus: "https://urlhaus.abuse.ch/",
     dom_whois: "https://www.whois.com/whois/",
-    dom_dnslytics: "https://dnslytics.com/",
-    dom_netcraft: "https://www.netcraft.com/",
-    dom_webcheck: "https://webcheck.spiderlabs.io/",
-    dom_securitytrails: "https://securitytrails.com/",
-    dom_hudsonrock_info: "https://intel.hudsonrock.com/",
-    dom_hudsonrock_urls: "https://cavalier.hudsonrock.com/",
-    dom_socradar: "https://socradar.io/",
-    dom_wayback: "https://web.archive.org/",
-    dom_wayback_save: "https://web.archive.org/",
-    dom_browserling: "https://www.browserling.com/",
-    dom_anyrun: "https://intelligence.any.run/",
-    dom_anyrun_safe: "https://any.run/",
-    dom_phishing_checker: "https://phishing.finsin.cl/list.php",
-    dom_clickfix: "https://clickfix.carsonww.com/",
-    dom_nitter: "https://nitter.net/",
-    dom_netlas: "https://netlas.io/",
-    dom_censys: "https://search.censys.io/",
-    dom_shodan: "https://www.shodan.io/",
     dom_dnstools: "https://whois.domaintools.com/",
 
     // Email
@@ -79,7 +58,6 @@ document.addEventListener("DOMContentLoaded", () => {
     hdr_google: "https://toolbox.googleapps.com/apps/messageheader/",
     hdr_mxtoolbox: "https://mxtoolbox.com/EmailHeaders.aspx",
     hdr_traceemail: "https://whatismyipaddress.com/trace-email",
-    hdr_dnschecker: "https://dnschecker.org/email-header-analyzer.php",
 
     // Username
     usr_namechk: "https://namechk.com/",
@@ -88,23 +66,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Hash
     h_vt: "https://www.virustotal.com/",
     h_hybrid: "https://www.hybrid-analysis.com/",
-    h_joesandbox: "https://www.joesandbox.com/analysis/search",
     h_triage: "https://tria.ge/",
-    h_malshare: "https://malshare.com/",
-    h_ibmxf: "https://exchange.xforce.ibmcloud.com/",
-    h_talos: "https://talosintelligence.com/",
     h_otx: "https://otx.alienvault.com/",
-    h_anyrun: "https://intelligence.any.run/",
-    h_threatminer: "https://www.threatminer.org/",
-    h_cyberchef: "https://gchq.github.io/CyberChef/",
-    h_nitter: "https://nitter.net/",
 
     // CVE
     cve_nvd: "https://nvd.nist.gov/",
     cve_cveorg: "https://www.cve.org/",
-    cve_cisa: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
     cve_exploitdb: "https://www.exploit-db.com/",
-    cve_vulners: "https://vulners.com/",
     cve_github: "https://github.com/search"
   };
 
@@ -120,20 +88,26 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Landing: show all. Detected: show only relevant data-type. Sections without data-type stay visible (MITRE).
   function showRelevantTools(type) {
     document.querySelectorAll(".tool-section").forEach(section => {
       const secType = section.dataset.type;
-      if (!type) { section.style.display = "block"; return; }
-      if (!secType) { section.style.display = "block"; return; } // MITRE block
+      if (!type) { section.style.display = "block"; return; }  // landing
+      if (!secType) { section.style.display = "block"; return; } // MITRE always visible
       section.style.display = (secType === type) ? "block" : "none";
     });
   }
 
+  function scrollToType(type) {
+    if (!type) return;
+    document.querySelector(`.tool-section[data-type="${type}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // ---------- detection helpers ----------
   function looksLikeHeaders(text) {
     const t = (text || "").trim();
     if (!t || !t.includes("\n")) return false;
-    const signals = [
+    return [
       /^received:/im,
       /^authentication-results:/im,
       /^dkim-signature:/im,
@@ -143,11 +117,9 @@ document.addEventListener("DOMContentLoaded", () => {
       /^from:/im,
       /^to:/im,
       /^subject:/im
-    ];
-    return signals.some(rx => rx.test(t));
+    ].some(rx => rx.test(t));
   }
 
-  // Robust IPv6 validator (handles :: compression)
   function isValidIPv6(addr) {
     const v = (addr || "").trim().replace(/^\[|\]$/g, "");
     try { new URL(`http://[${v}]/`); return true; } catch { return false; }
@@ -162,21 +134,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function normalize(raw) {
     let v = (raw || "").trim();
     if (!v) return "";
-
-    // refang for detection
     v = v.replace(/^hxxps:\/\//i, "https://").replace(/^hxxp:\/\//i, "http://");
     v = v.replace(/\[\.\]/g, ".").replace(/\(\.\)/g, ".");
-    v = v.replace(/\[:\]/g, ":"); // IPv6 defang support
-
-    // If URL, get hostname (works for IPv6 too)
+    v = v.replace(/\[:\]/g, ":");
     if (/^(https?:\/\/)/i.test(v)) {
       try { v = new URL(v).hostname; } catch { v = v.replace(/^[a-z]+:\/\//i, ""); }
     }
-
-    // Strip IPv6 brackets
     v = v.replace(/^\[|\]$/g, "");
-
-    // Strip path/query/fragment
     v = v.split("/")[0].split("?")[0].split("#")[0].replace(/\.$/, "");
     return v.trim();
   }
@@ -185,22 +149,68 @@ document.addEventListener("DOMContentLoaded", () => {
     const t = (raw || "").trim();
     const v = normalize(t);
 
+    // headers
     if (looksLikeHeaders(t)) return { type: "header", q: "" };
+
+    // CVE
     if (/^CVE-\d{4}-\d{4,}$/i.test(v)) return { type: "cve", q: v.toUpperCase() };
+
+    // email
     if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return { type: "email", q: v };
+
+    // IP (v4/v6)
     if (isValidIPv6(v) || isValidIPv4(v)) return { type: "ip", q: v };
+
+    // hash
     if (/^[a-fA-F0-9]{32}$/.test(v) || /^[a-fA-F0-9]{40}$/.test(v) || /^[a-fA-F0-9]{64}$/.test(v)) {
       return { type: "hash", q: v.toLowerCase() };
     }
+
+    // Event ID (accept "4625" or "Event ID: 4625")
+    const ev = t.match(/\b(?:event\s*id|eventid)\s*[:#-]?\s*(\d{3,5})\b/i) || t.match(/^\s*(\d{3,5})\s*$/);
+    if (ev && ev[1]) return { type: "eventid", q: ev[1] };
+
+    // LOLBIN / process / binary
+    // common Windows LOL binaries or anything ending with .exe/.dll/.ps1 etc
+    const lol = t.match(/\b([a-z0-9._-]+\.(?:exe|dll|ps1|bat|cmd|vbs|js|hta|msi|scr))\b/i);
+    if (lol && lol[1]) return { type: "lolbin", q: lol[1].toLowerCase() };
+    const lol2 = t.match(/\b(powershell|rundll32|regsvr32|mshta|wscript|cscript|certutil|bitsadmin|wmic|schtasks|cmd)\b/i);
+    if (lol2 && lol2[1]) return { type: "lolbin", q: lol2[1].toLowerCase() };
+
+    // domain
     if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v)) return { type: "domain", q: v.toLowerCase() };
+
+    // username
     if (/^[a-zA-Z0-9_-]{3,}$/.test(v)) return { type: "username", q: v };
+
     return { type: null, q: v };
   }
 
-  // Safe link update (won't crash if element not found)
+  // ---------- link updates ----------
   function updateLinks(type, q) {
     if (!type || !q) return;
     const qp = encodeURIComponent(q);
+
+    if (type === "soc") {
+      setHref("soc_mitre", `https://www.google.com/search?q=${encodeURIComponent("site:attack.mitre.org " + q)}`);
+      setHref("soc_sigma", `https://github.com/SigmaHQ/sigma/search?q=${qp}`);
+      setHref("soc_cyberchef", "https://gchq.github.io/CyberChef/");
+      setHref("soc_malapi", `https://www.google.com/search?q=${encodeURIComponent("site:malapi.io " + q)}`);
+    }
+
+    if (type === "eventid") {
+      setHref("ev_uws", `https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventid=${qp}`);
+      setHref("ev_eventidnet", `https://www.eventid.net/search.asp?search=${qp}&submit=search`);
+      setHref("ev_mslearn", `https://www.google.com/search?q=${encodeURIComponent('site:learn.microsoft.com "Event ID ' + q + '"')}`);
+      setHref("ev_splunk", `https://www.google.com/search?q=${encodeURIComponent('site:docs.splunk.com "EventCode=' + q + '" OR "Event ID ' + q + '"')}`);
+    }
+
+    if (type === "lolbin") {
+      setHref("lb_lolbas", `https://www.google.com/search?q=${encodeURIComponent("site:lolbas-project.github.io " + q)}`);
+      setHref("lb_lolbas_home", "https://lolbas-project.github.io/");
+      setHref("lb_gtfobins", `https://www.google.com/search?q=${encodeURIComponent("site:gtfobins.github.io " + q)}`);
+      setHref("lb_hijacklibs", `https://www.google.com/search?q=${encodeURIComponent("site:hijacklibs.net " + q)}`);
+    }
 
     if (type === "ip") {
       setHref("ip_vt", `https://www.virustotal.com/gui/ip-address/${qp}`);
@@ -208,25 +218,11 @@ document.addEventListener("DOMContentLoaded", () => {
       setHref("ip_talos", `https://talosintelligence.com/reputation_center/lookup?search=${qp}`);
       setHref("ip_ibmxf", `https://exchange.xforce.ibmcloud.com/ip/${qp}`);
       setHref("ip_otx", `https://otx.alienvault.com/indicator/ip/${qp}`);
-      setHref("ip_anyrun", `https://intelligence.any.run/analysis/lookup#${encodeURIComponent(JSON.stringify({ query: q, dateRange: 180 }))}`);
-      setHref("ip_mxtoolbox", `https://mxtoolbox.com/SuperTool.aspx?action=blacklist:${qp}`);
-      setHref("ip_blacklistchecker", `https://blacklistchecker.com/check?input=${qp}`);
-      setHref("ip_cleantalk", `https://cleantalk.org/blacklists/${qp}`);
       setHref("ip_shodan", `https://www.shodan.io/host/${qp}`);
       setHref("ip_censys", `https://search.censys.io/hosts/${qp}`);
       setHref("ip_greynoise", `https://viz.greynoise.io/ip/${qp}`);
-      setHref("ip_iplocation", `https://iplocation.io/ip/${qp}`);
       setHref("ip_ipinfo", `https://ipinfo.io/${qp}`);
-      setHref("ip_whatismyipaddress", `https://whatismyipaddress.com/ip/${qp}`);
-      setHref("ip_myip", `https://myip.ms/info/whois/${qp}`);
-      setHref("ip_spur", `https://spur.us/context/${qp}`);
-      setHref("ip_clickfix", `https://clickfix.carsonww.com/domains?query=${qp}`);
-      setHref("ip_ripestat", `https://stat.ripe.net/resource/${qp}?tab=database`);
-      setHref("ip_nitter", `https://nitter.net/search?f=tweets&q=${qp}`);
-      setHref("ip_threatminer", `https://www.threatminer.org/host.php?q=${qp}`);
       setHref("ip_urlscan", `https://urlscan.io/ip/${qp}`);
-      setHref("ip_viewdns", `https://viewdns.info/iphistory/?domain=${qp}`);
-      setHref("ip_scamalytics", `https://scamalytics.com/ip/${qp}`);
     }
 
     if (type === "domain") {
@@ -235,32 +231,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setHref("dom_ibmxf", `https://exchange.xforce.ibmcloud.com/url/${qp}`);
       setHref("dom_otx", `https://otx.alienvault.com/indicator/domain/${qp}`);
       setHref("dom_urlscan", `https://urlscan.io/search/#page.domain:${qp}`);
-      setHref("dom_mxtoolbox", `https://mxtoolbox.com/SuperTool.aspx?action=blacklist:${qp}`);
-      setHref("dom_blacklistchecker", `https://blacklistchecker.com/check?input=${qp}`);
-      setHref("dom_cleantalk_bl", `https://cleantalk.org/blacklists/${qp}`);
-      setHref("dom_cleantalk_malware", `https://cleantalk.org/website-malware-scanner?url=${qp}`);
-      setHref("dom_sucuri", `https://sitecheck.sucuri.net/results/${qp}`);
-      setHref("dom_urlvoid", `https://urlvoid.com/scan/${qp}/`);
-      setHref("dom_urlhaus", `https://urlhaus.abuse.ch/browse.php?search=${qp}`);
       setHref("dom_whois", `https://www.whois.com/whois/${qp}`);
-      setHref("dom_dnslytics", `https://search.dnslytics.com/search?q=${qp}`);
-      setHref("dom_netcraft", `https://sitereport.netcraft.com/?url=${qp}`);
-      setHref("dom_webcheck", `https://web-check.xyz/check/${qp}`);
-      setHref("dom_securitytrails", `https://securitytrails.com/domain/${qp}`);
-      setHref("dom_hudsonrock_info", `https://www.hudsonrock.com/search/domain/${qp}`);
-      setHref("dom_hudsonrock_urls", `https://cavalier.hudsonrock.com/api/json/v2/osint-tools/urls-by-domain?domain=${qp}`);
-      setHref("dom_socradar", `https://socradar.io/labs/app/dark-web-report?domain=${qp}`);
-      setHref("dom_wayback", `https://web.archive.org/web/*/${qp}`);
-      setHref("dom_wayback_save", `https://web.archive.org/save/${qp}`);
-      setHref("dom_browserling", `https://www.browserling.com/browse/win10/chrome138/${qp}`);
-      setHref("dom_anyrun", `https://intelligence.any.run/analysis/lookup#${encodeURIComponent(JSON.stringify({ query: q, dateRange: 180 }))}`);
-      setHref("dom_anyrun_safe", `https://app.any.run/safe/${qp}`);
-      setHref("dom_phishing_checker", `https://phishing.finsin.cl/list.php?search=${qp}`);
-      setHref("dom_clickfix", `https://clickfix.carsonww.com/domains?query=${qp}`);
-      setHref("dom_nitter", `https://nitter.net/search?f=tweets&q=${qp}`);
-      setHref("dom_netlas", `https://netlas.io/search?query=${qp}`);
-      setHref("dom_censys", `https://search.censys.io/search?resource=hosts&q=${qp}`);
-      setHref("dom_shodan", `https://www.shodan.io/search?query=${qp}`);
       setHref("dom_dnstools", `https://whois.domaintools.com/${qp}`);
     }
 
@@ -272,35 +243,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (type === "hash") {
       setHref("h_vt", `https://www.virustotal.com/gui/file/${qp}`);
       setHref("h_hybrid", `https://www.hybrid-analysis.com/sample/${qp}`);
-      setHref("h_joesandbox", `https://www.joesandbox.com/analysis/search?q=${qp}`);
       setHref("h_triage", `https://tria.ge/s?q=${qp}`);
-      setHref("h_malshare", `https://malshare.com/sample.php?action=detail&hash=${qp}`);
-      setHref("h_ibmxf", `https://exchange.xforce.ibmcloud.com/malware/${qp}`);
-      setHref("h_talos", `https://talosintelligence.com/talos_file_reputation?s=${qp}`);
       setHref("h_otx", `https://otx.alienvault.com/indicator/file/${qp}`);
-      setHref("h_anyrun", `https://intelligence.any.run/analysis/lookup#${encodeURIComponent(JSON.stringify({ query: q, dateRange: 180 }))}`);
-      setHref("h_threatminer", `https://www.threatminer.org/file.php?q=${qp}`);
-      setHref("h_cyberchef", `https://gchq.github.io/CyberChef/#input=${btoa(q)}`);
-      setHref("h_nitter", `https://nitter.net/search?f=tweets&q=${qp}`);
     }
 
     if (type === "cve") {
       setHref("cve_nvd", `https://nvd.nist.gov/vuln/detail/${qp}`);
       setHref("cve_cveorg", `https://www.cve.org/CVERecord?id=${qp}`);
-      setHref("cve_cisa", `https://www.google.com/search?q=${encodeURIComponent(`site:cisa.gov ${q} known exploited vulnerabilities`)}`);
       setHref("cve_exploitdb", `https://www.exploit-db.com/search?cve=${qp}`);
-      setHref("cve_vulners", `https://vulners.com/search?query=${qp}`);
       setHref("cve_github", `https://github.com/search?q=${encodeURIComponent(q + " poc exploit")}&type=repositories`);
     }
   }
 
+  // ---------- defang/refang ----------
   function defangText(text) {
     let t = (text || "");
     t = t
       .replace(/https?:\/\//gi, (m) => m.toLowerCase().startsWith("https") ? "hxxps://" : "hxxp://")
       .replace(/\./g, "[.]");
 
-    // defang ipv6 tokens only
+    // defang IPv6 tokens
     t = t.replace(/[A-Fa-f0-9:\[\]]{2,}/g, (m) => {
       const v = m.replace(/^\[|\]$/g, "");
       if (m.includes(":") && isValidIPv6(v)) return m.replace(/:/g, "[:]");
@@ -318,10 +280,12 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/\[:\]/g, ":");
   }
 
+  // ---------- IOC Extractor (FIXED) ----------
   function uniq(arr) { return Array.from(new Set(arr)); }
 
   function extractIOCs() {
-    const text = input?.value || "";
+    // ✅ Use output textarea if user pasted logs there; fallback to input
+    const text = (output?.value || "").trim() || (input?.value || "");
     const extractedAt = new Date().toISOString();
 
     const timestamps = [
@@ -330,34 +294,58 @@ document.addEventListener("DOMContentLoaded", () => {
       ...(text.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2}:\d{2}\b/g) || []),
     ];
 
-    const ipv4 = (text.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || []).filter(isValidIPv4);
-    const ipv6Candidates = text.match(/[A-Fa-f0-9:]{2,}/g) || [];
-    const ipv6 = ipv6Candidates
-      .map(x => x.replace(/^\[|\]$/g, ""))
-      .filter(x => x.includes(":") && isValidIPv6(x));
-
     const emails = text.match(/\b[^@\s]+@[^@\s]+\.[^@\s]+\b/g) || [];
     const urls = text.match(/\b(?:https?|hxxps?|ftp):\/\/[^\s"'<>]+/gi) || [];
-    const domains = (text.match(/\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || []).filter(d => !d.includes("@"));
+
+    const ipv4Raw = text.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
+    const ipv4 = ipv4Raw.filter(isValidIPv4);
+
+    // collect potential IPv6 tokens then validate strictly
+    const ipv6Candidates = text.match(/\b[0-9A-Fa-f:]{2,}\b/g) || [];
+    const ipv6 = ipv6Candidates.filter(x => x.includes(":") && isValidIPv6(x));
+
+    const domains = (text.match(/\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || [])
+      .filter(d => !d.includes("@"));
+
     const hashes = text.match(/\b[A-Fa-f0-9]{32}\b|\b[A-Fa-f0-9]{40}\b|\b[A-Fa-f0-9]{64}\b/g) || [];
     const cves = (text.match(/\bCVE-\d{4}-\d{4,}\b/gi) || []).map(x => x.toUpperCase());
 
+    const eventIds = (text.match(/\b(?:event\s*id|eventid)\s*[:#-]?\s*\d{3,5}\b/gi) || [])
+      .map(s => (s.match(/\d{3,5}/) || [""])[0])
+      .filter(Boolean);
+
+    // usernames: domain\user, user@domain, "user: xxx", "account name: xxx"
     const usernames = [
-      ...(text.match(/\bby\s+([a-zA-Z0-9._-]{3,})\b/g) || []).map(s => s.replace(/^by\s+/i, "")),
+      ...(text.match(/\b[a-zA-Z0-9._-]+\\[a-zA-Z0-9._-]+\b/g) || []), // domain\user
       ...(text.match(/\buser(?:name)?\s*[:=]\s*([a-zA-Z0-9._-]{3,})\b/gi) || []).map(s => s.split(/[:=]/)[1].trim()),
       ...(text.match(/\baccount\s*name\s*[:=]\s*([a-zA-Z0-9._-]{3,})\b/gi) || []).map(s => s.split(/[:=]/)[1].trim()),
     ].filter(Boolean);
 
-    if (output) {
-      output.value =
+    // hostnames
+    const hostnames = [
+      ...(text.match(/\b(?:host|hostname|computer|device)\s*(?:name)?\s*[:=]\s*([A-Za-z0-9._-]{2,})\b/gi) || [])
+        .map(s => s.split(/[:=]/)[1].trim()),
+    ].filter(Boolean);
+
+    // file paths + process names
+    const paths = text.match(/\b[A-Za-z]:\\[^\s"'<>]+/g) || [];
+    const procs = text.match(/\b[a-zA-Z0-9._-]+\.(?:exe|dll|ps1|bat|cmd|vbs|js|hta|msi|scr)\b/gi) || [];
+
+    const report =
 `IOC EXTRACTOR
 Extracted At (UTC): ${extractedAt}
 
 Timestamps:
 ${uniq(timestamps).join("\n") || "-"}
 
+Event IDs:
+${uniq(eventIds).join("\n") || "-"}
+
 Usernames:
 ${uniq(usernames).join("\n") || "-"}
+
+Hostnames:
+${uniq(hostnames).join("\n") || "-"}
 
 Emails:
 ${uniq(emails).join("\n") || "-"}
@@ -378,22 +366,23 @@ Hashes (MD5/SHA1/SHA256):
 ${uniq(hashes).join("\n") || "-"}
 
 CVEs:
-${uniq(cves).join("\n") || "-"}`;
-    }
+${uniq(cves).join("\n") || "-"}
+
+Processes:
+${uniq(procs.map(p => p.toLowerCase())).join("\n") || "-"}
+
+File Paths:
+${uniq(paths).join("\n") || "-"}`;
+
+    if (output) output.value = report;
   }
 
-  function scrollToType(type) {
-    if (!type) return;
-    const target = document.querySelector(`.tool-section[data-type="${type}"]`);
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
+  // ---------- Search ----------
   function doSearch({ silent = false } = {}) {
-    const raw = input?.value || "";
-    const trimmed = raw.trim();
+    const raw = (input?.value || "").trim();
 
-    // Landing state (show all tools)
-    if (!trimmed) {
+    // landing
+    if (!raw) {
       setLandingLinks();
       renderCardMeta();
       showRelevantTools(null);
@@ -402,30 +391,27 @@ ${uniq(cves).join("\n") || "-"}`;
       return;
     }
 
-    const { type, q } = detectType(trimmed);
+    const { type, q } = detectType(raw);
 
-    // Email headers
     if (type === "header") {
       setLandingLinks();
       renderCardMeta();
       showRelevantTools("header");
       setStatus("Status: detected EMAIL HEADERS → open analyzer + paste");
-      if (!silent && output) output.value = trimmed;
+      if (!silent && output) output.value = raw;
       scrollToType("header");
       return;
     }
 
-    // Unknown input → keep landing
     if (!type) {
       setLandingLinks();
       renderCardMeta();
       showRelevantTools(null);
       setStatus("Status: unknown IOC type (landing page)");
-      if (!silent && output) output.value = trimmed;
+      if (!silent && output) output.value = raw;
       return;
     }
 
-    // Detected input → show only relevant tools + update links
     showRelevantTools(type);
     updateLinks(type, q);
     renderCardMeta();
@@ -434,66 +420,50 @@ ${uniq(cves).join("\n") || "-"}`;
     scrollToType(type);
   }
 
-  function copyOutput() {
-    if (!output) return;
-    output.focus();
-    output.select();
-    document.execCommand("copy");
-  }
-
-  function clearAll() {
-    if (input) input.value = "";
-    if (output) output.value = "";
-    setLandingLinks();
-    renderCardMeta();
-    showRelevantTools(null);
-    setStatus("Status: ready (landing page)");
-  }
-
-  function toggleTheme() {
-    document.body.classList.toggle("light");
-  }
-
-  // Events
+  // ---------- Events ----------
   $("search-btn")?.addEventListener("click", () => doSearch({ silent: false }));
-
-  input?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") doSearch({ silent: false });
-  });
-
-  // Ensure tool links reflect current input before click (prevents opening landing)
-  document.addEventListener("click", (e) => {
-    const a = e.target.closest(".tool-grid a");
-    if (!a) return;
-    if ((input?.value || "").trim()) doSearch({ silent: true });
-  }, true);
+  input?.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch({ silent: false }); });
 
   $("defang-btn")?.addEventListener("click", () => {
     if (!output) return;
-    output.value = defangText(input?.value || "");
+    const src = (output.value || "").trim() ? output.value : (input?.value || "");
+    output.value = defangText(src);
     setStatus("Status: defanged output generated");
   });
 
   $("refang-btn")?.addEventListener("click", () => {
     if (!output) return;
-    output.value = refangText(output.value || input?.value || "");
+    const src = output.value || input?.value || "";
+    output.value = refangText(src);
     setStatus("Status: refanged output generated");
   });
 
+  // ✅ FIXED: Extract IOCs now extracts from output textarea OR input
   $("extract-btn")?.addEventListener("click", () => {
     extractIOCs();
     setStatus("Status: IOC extraction complete");
   });
 
   $("copy-btn")?.addEventListener("click", () => {
-    copyOutput();
+    if (!output) return;
+    output.focus();
+    output.select();
+    document.execCommand("copy");
     setStatus("Status: copied to clipboard");
   });
 
-  $("clear-all")?.addEventListener("click", clearAll);
-  $("toggle-dark")?.addEventListener("click", toggleTheme);
+  $("clear-all")?.addEventListener("click", () => {
+    if (input) input.value = "";
+    if (output) output.value = "";
+    setLandingLinks();
+    renderCardMeta();
+    showRelevantTools(null);
+    setStatus("Status: ready (landing page)");
+  });
 
-  // Startup (landing page)
+  $("toggle-dark")?.addEventListener("click", () => document.body.classList.toggle("light"));
+
+  // Startup
   setLandingLinks();
   renderCardMeta();
   showRelevantTools(null);
