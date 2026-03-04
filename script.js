@@ -1,9 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("input");
   const output = document.getElementById("output");
-  const status = document.getElementById("status");
+  const statusEl = document.getElementById("status");
+  const statusText = statusEl ? statusEl.querySelector("span") : null;
 
-  // ---------- Landing pages ----------
+  // ---------------- Landing pages (when no input) ----------------
   const landing = {
     // IP
     ip_vt: "https://www.virustotal.com/",
@@ -103,6 +104,10 @@ document.addEventListener("DOMContentLoaded", () => {
     cve_github: "https://github.com/search"
   };
 
+  function setStatus(msg) {
+    if (statusText) statusText.textContent = msg;
+  }
+
   function setLandingLinks() {
     Object.entries(landing).forEach(([id, href]) => {
       const el = document.getElementById(id);
@@ -121,7 +126,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function looksLikeHeaders(text) {
     const t = (text || "").trim();
     if (!t || !t.includes("\n")) return false;
-    const signals = [/^received:/im,/^authentication-results:/im,/^dkim-signature:/im,/^arc-seal:/im,/^message-id:/im,/^return-path:/im];
+    const signals = [
+      /^received:/im,
+      /^authentication-results:/im,
+      /^dkim-signature:/im,
+      /^arc-seal:/im,
+      /^message-id:/im,
+      /^return-path:/im,
+    ];
     return signals.some(rx => rx.test(t));
   }
 
@@ -152,13 +164,12 @@ document.addEventListener("DOMContentLoaded", () => {
     return { type: null, q: v };
   }
 
-  // ✅ Landing page shows all sections; detected shows only one (MITRE always visible)
+  // Landing page: show all. Detected: show only that section. MITRE always visible.
   function showRelevantTools(type) {
     document.querySelectorAll(".tool-section").forEach(section => {
       const secType = section.dataset.type;
-
       if (!type) { section.style.display = "block"; return; }
-      if (!secType) { section.style.display = "block"; return; } // MITRE
+      if (!secType) { section.style.display = "block"; return; }
       section.style.display = (secType === type) ? "block" : "none";
     });
   }
@@ -256,6 +267,8 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("cve_vulners").href = `https://vulners.com/search?query=${encodeURIComponent(q)}`;
       document.getElementById("cve_github").href = `https://github.com/search?q=${encodeURIComponent(q + " poc exploit")}&type=repositories`;
     }
+
+    // username type uses landing pages only (open tools)
   }
 
   function defangText(text) {
@@ -277,7 +290,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const text = input.value || "";
     const extractedAt = new Date().toISOString();
 
-    const ts = [
+    const timestamps = [
       ...(text.match(/\b\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g) || []),
       ...(text.match(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}\b/gi) || []),
       ...(text.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2}:\d{2}\b/g) || []),
@@ -302,7 +315,7 @@ document.addEventListener("DOMContentLoaded", () => {
 Extracted At (UTC): ${extractedAt}
 
 Timestamps:
-${uniq(ts).join("\n") || "-"}
+${uniq(timestamps).join("\n") || "-"}
 
 Usernames:
 ${uniq(usernames).join("\n") || "-"}
@@ -329,44 +342,47 @@ CVEs:
 ${uniq(cves).join("\n") || "-"}`;
   }
 
-  // ✅ Landing page behavior
   function doSearch() {
     const raw = input.value || "";
     const trimmed = raw.trim();
 
+    // No input => LANDING PAGE (all sections + landing links)
     if (!trimmed) {
       setLandingLinks();
       renderCardMeta();
       showRelevantTools(null);
-      status.querySelector("span").textContent = "Status: ready (landing page)";
+      setStatus("Status: ready (landing page)");
       output.value = "";
       return;
     }
 
     const { type, q } = detectType(trimmed);
 
+    // Headers => show header section
     if (type === "header") {
       setLandingLinks();
       renderCardMeta();
       showRelevantTools("header");
-      status.querySelector("span").textContent = "Status: detected EMAIL HEADERS → open analyzer + paste";
+      setStatus("Status: detected EMAIL HEADERS → open analyzer + paste");
       output.value = trimmed;
       return;
     }
 
+    // Unknown => keep landing page
     if (!type) {
       setLandingLinks();
       renderCardMeta();
       showRelevantTools(null);
-      status.querySelector("span").textContent = "Status: unknown IOC type (landing page)";
+      setStatus("Status: unknown IOC type (landing page)");
       output.value = trimmed;
       return;
     }
 
+    // Detected => show only relevant section + generate links
     showRelevantTools(type);
     updateLinks(type, q);
     renderCardMeta();
-    status.querySelector("span").textContent = `Status: detected ${type.toUpperCase()} → ${q}`;
+    setStatus(`Status: detected ${type.toUpperCase()} → ${q}`);
     output.value = `${type.toUpperCase()} Query: ${q}`;
   }
 
@@ -382,36 +398,45 @@ ${uniq(cves).join("\n") || "-"}`;
     setLandingLinks();
     renderCardMeta();
     showRelevantTools(null);
-    status.querySelector("span").textContent = "Status: ready (landing page)";
+    setStatus("Status: ready (landing page)");
   }
 
   function toggleTheme() {
     document.body.classList.toggle("light");
   }
 
-  // --- Events ---
+  // Events
   document.getElementById("search-btn").addEventListener("click", doSearch);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") doSearch();
+  });
+
   document.getElementById("defang-btn").addEventListener("click", () => {
     output.value = defangText(input.value || "");
-    status.querySelector("span").textContent = "Status: defanged output generated";
+    setStatus("Status: defanged output generated");
   });
+
   document.getElementById("refang-btn").addEventListener("click", () => {
     output.value = refangText(output.value || input.value || "");
-    status.querySelector("span").textContent = "Status: refanged output generated";
+    setStatus("Status: refanged output generated");
   });
+
   document.getElementById("extract-btn").addEventListener("click", () => {
     extractIOCs();
-    status.querySelector("span").textContent = "Status: IOC extraction complete";
+    setStatus("Status: IOC extraction complete");
   });
+
   document.getElementById("copy-btn").addEventListener("click", () => {
     copyOutput();
-    status.querySelector("span").textContent = "Status: copied to clipboard";
+    setStatus("Status: copied to clipboard");
   });
+
   document.getElementById("clear-all").addEventListener("click", clearAll);
   document.getElementById("toggle-dark").addEventListener("click", toggleTheme);
 
-  // Startup: landing page
+  // Startup (landing page)
   setLandingLinks();
   renderCardMeta();
   showRelevantTools(null);
+  setStatus("Status: ready (landing page)");
 });
