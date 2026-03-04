@@ -85,19 +85,7 @@ button:hover{
   border-color: rgba(56,189,248,0.45);
   transform: translateY(-1px);
 }
-
 button:active{ transform: translateY(0px); }
-
-.sidebar .hint{
-  margin-top: 14px;
-  padding: 12px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.035);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
 
 .main{
   flex:1;
@@ -117,7 +105,6 @@ button:active{ transform: translateY(0px); }
   margin:0;
   font-size: 26px;
 }
-
 .header .sub{
   margin:6px 0 0;
   color: var(--muted);
@@ -220,6 +207,7 @@ textarea#output:focus{
   background: rgba(255,255,255,0.03);
   box-shadow: 0 10px 24px rgba(0,0,0,0.20);
   overflow:hidden;
+  scroll-margin-top: 18px;
 }
 
 .section-head{
@@ -292,6 +280,18 @@ textarea#output:focus{
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(0,0,0,0.18);
+}
+
+/* Tool icon badge ("logo") */
+.ico{
+  width: 26px;
+  height: 26px;
+  border-radius: 10px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 26px;
+  border: 1px solid rgba(56,189,248,0.25);
+  background: radial-gradient(circle at 30% 25%, rgba(56,189,248,0.25), rgba(56,189,248,0.06));
 }
 
 /* ===== MITRE FIX (alignment + full screen) ===== */
