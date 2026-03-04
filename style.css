@@ -52,16 +52,8 @@ body{
   border:1px solid rgba(56,189,248,0.25);
 }
 
-.brand h2{
-  margin:0;
-  font-size: 16px;
-  color: var(--accent);
-}
-.brand p{
-  margin:2px 0 0;
-  font-size: 12px;
-  color: var(--muted);
-}
+.brand h2{ margin:0; font-size: 16px; color: var(--accent); }
+.brand p{ margin:2px 0 0; font-size: 12px; color: var(--muted); }
 
 .sidebar .actions{
   margin-top: 14px;
@@ -80,11 +72,7 @@ button{
   user-select:none;
   touch-action:manipulation;
 }
-
-button:hover{
-  border-color: rgba(56,189,248,0.45);
-  transform: translateY(-1px);
-}
+button:hover{ border-color: rgba(56,189,248,0.45); transform: translateY(-1px); }
 button:active{ transform: translateY(0px); }
 
 .main{
@@ -93,23 +81,9 @@ button:active{ transform: translateY(0px); }
   overflow:auto;
 }
 
-.header{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom: 14px;
-}
-
-.header h1{
-  margin:0;
-  font-size: 26px;
-}
-.header .sub{
-  margin:6px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-}
+.header{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom: 14px; }
+.header h1{ margin:0; font-size: 26px; }
+.header .sub{ margin:6px 0 0; color: var(--muted); font-size: 13px; }
 
 .input-panel{
   border: 1px solid var(--border);
@@ -119,12 +93,7 @@ button:active{ transform: translateY(0px); }
   padding: 14px;
 }
 
-.input-row{
-  display:flex;
-  gap:10px;
-  align-items:center;
-}
-
+.input-row{ display:flex; gap:10px; align-items:center; }
 input{
   flex:1;
   padding: 12px 12px;
@@ -134,7 +103,6 @@ input{
   color: var(--text);
   outline: none;
 }
-
 input:focus{
   border-color: rgba(56,189,248,0.55);
   box-shadow: 0 0 0 4px rgba(56,189,248,0.12);
@@ -146,17 +114,8 @@ input:focus{
   background: linear-gradient(180deg, rgba(56,189,248,0.35), rgba(56,189,248,0.12));
 }
 
-.tools{
-  margin-top: 10px;
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-}
-
-.tools button{
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.04);
-}
+.tools{ margin-top: 10px; display:flex; flex-wrap:wrap; gap:10px; }
+.tools button{ border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); }
 
 .status{
   margin-top: 10px;
@@ -171,7 +130,6 @@ input:focus{
   justify-content:space-between;
   gap:10px;
 }
-
 .status .badge{
   padding: 4px 10px;
   border-radius: 999px;
@@ -194,21 +152,16 @@ textarea#output{
   color: var(--text);
   outline:none;
 }
-
 textarea#output:focus{
   border-color: rgba(56,189,248,0.55);
   box-shadow: 0 0 0 4px rgba(56,189,248,0.12);
 }
 
-.tool-section{
-  margin-top: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: rgba(255,255,255,0.03);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.20);
-  overflow:hidden;
-  scroll-margin-top: 18px;
-}
+/* HIDE ALL tool sections by default */
+.tool-section{ display:none; margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: rgba(255,255,255,0.03); box-shadow: 0 10px 24px rgba(0,0,0,0.20); overflow:hidden; }
+.tool-section.active{ display:block; }
+.tool-section.tool-always{ display:block; } /* keep MITRE tagging visible always */
 
 .section-head{
   display:flex;
@@ -218,19 +171,8 @@ textarea#output:focus{
   border-bottom: 1px solid var(--border);
   background: rgba(255,255,255,0.02);
 }
-
-.section-head h2{
-  margin:0;
-  font-size: 16px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-
-.section-head .pill{
-  font-size: 12px;
-  color: var(--muted);
-}
+.section-head h2{ margin:0; font-size: 16px; display:flex; align-items:center; gap:10px; }
+.section-head .pill{ font-size: 12px; color: var(--muted); }
 
 .tool-grid{
   display:grid;
@@ -251,7 +193,6 @@ textarea#output:focus{
   overflow:hidden;
   transition: transform .12s ease, border-color .12s ease, background .12s ease;
 }
-
 .tool-grid a:hover{
   transform: translateY(-2px);
   border-color: rgba(56,189,248,0.35);
@@ -265,13 +206,7 @@ textarea#output:focus{
   justify-content:space-between;
   gap:10px;
 }
-
-.tool-grid a .meta{
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--muted);
-  word-break: break-all;
-}
+.tool-grid a .meta{ margin-top: 6px; font-size: 12px; color: var(--muted); word-break: break-all; }
 
 .tool-grid a .lock{
   font-size: 12px;
@@ -282,7 +217,6 @@ textarea#output:focus{
   background: rgba(0,0,0,0.18);
 }
 
-/* Tool icon badge ("logo") */
 .ico{
   width: 26px;
   height: 26px;
@@ -294,14 +228,13 @@ textarea#output:focus{
   background: radial-gradient(circle at 30% 25%, rgba(56,189,248,0.25), rgba(56,189,248,0.06));
 }
 
-/* ===== MITRE FIX (alignment + full screen) ===== */
+/* MITRE panel */
 #mitre-panel{
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 10px;
   padding: 14px;
 }
-
 #mitre-panel label{
   display:flex;
   align-items:center;
@@ -312,7 +245,6 @@ textarea#output:focus{
   background: rgba(255,255,255,0.03);
   line-height: 1.2;
 }
-
 #mitre-panel input[type="checkbox"]{
   width: 18px;
   height: 18px;
