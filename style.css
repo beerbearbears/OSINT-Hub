@@ -135,9 +135,10 @@ button:active{ transform: translateY(0px); }
 .input-row{
   display:flex;
   gap:10px;
-  align-items:center;
+  align-items:stretch; /* ✅ better for textarea */
 }
 
+/* keep old input styles in case you add input elsewhere */
 input{
   flex:1;
   padding: 12px 12px;
@@ -148,7 +149,20 @@ input{
   outline: none;
 }
 
-input:focus{
+.main-input{
+  flex:1;
+  padding: 12px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(15,23,42,0.55);
+  color: var(--text);
+  outline: none;
+  resize: vertical;
+  min-height: 52px;
+  line-height: 1.35;
+}
+
+.main-input:focus{
   border-color: rgba(56,189,248,0.55);
   box-shadow: 0 0 0 4px rgba(56,189,248,0.12);
 }
@@ -227,7 +241,7 @@ textarea#output:focus{
   background: rgba(255,255,255,0.03);
   box-shadow: 0 10px 24px rgba(0,0,0,0.20);
   overflow:hidden;
-  display:block; /* landing page default */
+  display:block;
 }
 
 .section-head{
