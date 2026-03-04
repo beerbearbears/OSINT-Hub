@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Romel Centralized OSINT</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
@@ -23,7 +23,7 @@
     </div>
 
     <div class="hint">
-      Landing page shows all tools. <br>
+      Landing page shows all tools.<br />
       Search input shows only relevant OSINT.
     </div>
   </div>
@@ -32,13 +32,17 @@
     <div class="header">
       <div>
         <h1>Romel Centralized OSINT</h1>
-        <div class="sub">IP / Domain / Hash / CVE pivots + Extractor</div>
+        <div class="sub">IP / Domain / Hash / CVE pivots + IOC Extractor</div>
       </div>
     </div>
 
     <div class="input-panel">
       <div class="input-row">
-        <input id="input" placeholder="Enter IP / Domain / Email / Username / Hash / CVE or paste Email Headers / logs">
+        <input
+          id="input"
+          type="text"
+          placeholder="Enter IP / Domain / Email / Username / Hash / CVE or paste Email Headers / logs"
+        />
         <button id="search-btn" type="button">Search</button>
       </div>
 
@@ -57,7 +61,7 @@
       <textarea id="output" placeholder="Results / Extracted IOCs"></textarea>
     </div>
 
-    <!-- ===== IP ===== -->
+    <!-- ===================== IP ===================== -->
     <div class="tool-section" data-type="ip">
       <div class="section-head">
         <h2>🛡 Threat & Reputation (IP)</h2>
@@ -96,7 +100,7 @@
       </div>
     </div>
 
-    <!-- ===== DOMAIN ===== -->
+    <!-- ===================== DOMAIN ===================== -->
     <div class="tool-section" data-type="domain">
       <div class="section-head">
         <h2>🌐 Domain & DNS</h2>
@@ -145,7 +149,7 @@
       </div>
     </div>
 
-    <!-- ===== EMAIL ===== -->
+    <!-- ===================== EMAIL ===================== -->
     <div class="tool-section" data-type="email">
       <div class="section-head">
         <h2>📧 Email & Breach</h2>
@@ -157,7 +161,7 @@
       </div>
     </div>
 
-    <!-- ===== HEADERS ===== -->
+    <!-- ===================== EMAIL HEADERS ===================== -->
     <div class="tool-section" data-type="header">
       <div class="section-head">
         <h2>🧾 Email Header Analysis Toolkit</h2>
@@ -172,7 +176,7 @@
       </div>
     </div>
 
-    <!-- ===== USERNAME ===== -->
+    <!-- ===================== USERNAME ===================== -->
     <div class="tool-section" data-type="username">
       <div class="section-head">
         <h2>👤 Username Lookup</h2>
@@ -184,7 +188,7 @@
       </div>
     </div>
 
-    <!-- ===== HASH ===== -->
+    <!-- ===================== HASH ===================== -->
     <div class="tool-section" data-type="hash">
       <div class="section-head">
         <h2>🔒 Hash Lookup</h2>
@@ -208,7 +212,7 @@
       </div>
     </div>
 
-    <!-- ===== CVE ===== -->
+    <!-- ===================== CVE ===================== -->
     <div class="tool-section" data-type="cve">
       <div class="section-head">
         <h2>🧷 CVE Lookup</h2>
@@ -224,7 +228,7 @@
       </div>
     </div>
 
-    <!-- ===== MITRE ===== -->
+    <!-- ===================== MITRE ===================== -->
     <div class="tool-section">
       <div class="section-head">
         <h2>🧩 MITRE ATT&CK Tagging</h2>
