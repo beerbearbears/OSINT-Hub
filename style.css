@@ -1,264 +1,330 @@
-:root{
-  --bg:#0b1220;
-  --bg2:#0f172a;
-  --text:#e5e7eb;
-  --muted:#9ca3af;
-  --border:rgba(255,255,255,0.10);
-  --accent:#38bdf8;
-  --shadow: 0 10px 28px rgba(0,0,0,0.35);
-  --radius: 16px;
-  --radius2: 12px;
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Romel Centralized OSINT</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
 
-*{box-sizing:border-box}
-html,body{height:100%}
+  <div class="sidebar">
+    <div class="brand">
+      <div class="logo">🔎</div>
+      <div>
+        <h2>OSINT</h2>
+        <p>Romel Centralized Toolkit</p>
+      </div>
+    </div>
 
-body{
-  margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  background: radial-gradient(1200px 700px at 80% 0%, rgba(56,189,248,0.18), transparent 55%),
-              radial-gradient(900px 600px at 10% 20%, rgba(34,197,94,0.10), transparent 60%),
-              linear-gradient(180deg, var(--bg), var(--bg2));
-  color:var(--text);
-  display:flex;
-}
+    <div class="actions">
+      <button id="toggle-dark" type="button">🌙 Toggle Theme</button>
+      <button id="clear-all" type="button">🗑 Clear</button>
+    </div>
 
-.sidebar{
-  width: 280px;
-  padding: 18px;
-  border-right: 1px solid var(--border);
-  background: rgba(15,23,42,0.55);
-  backdrop-filter: blur(10px);
-  position: sticky;
-  top:0;
-  height:100vh;
-}
+    <div class="hint">
+      Landing page shows all tools.<br />
+      Search input shows only relevant OSINT.
+    </div>
+  </div>
 
-.brand{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding: 10px 12px;
-  border-radius: var(--radius);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
-}
+  <div class="main">
+    <div class="header">
+      <div>
+        <h1>Romel Centralized OSINT</h1>
+        <div class="sub">IP / IPv6 / Domain / Hash / CVE pivots + Smart IOC Extractor</div>
+      </div>
+    </div>
 
-.brand .logo{
-  width:40px;height:40px;border-radius:14px;
-  display:grid;place-items:center;
-  background: radial-gradient(circle at 30% 20%, rgba(56,189,248,0.35), rgba(56,189,248,0.06));
-  border:1px solid rgba(56,189,248,0.25);
-}
+    <div class="input-panel">
+      <div class="input-row">
+        <input
+          id="input"
+          type="text"
+          placeholder="Enter IP / IPv6 / Domain / Email / Username / Hash / CVE / Event ID / Txxxx or paste Email Headers / logs (you can paste in Output too)"
+        />
+        <button id="search-btn" type="button">Search</button>
+      </div>
 
-.brand h2{ margin:0; font-size: 16px; color: var(--accent); }
-.brand p{ margin:2px 0 0; font-size: 12px; color: var(--muted); }
+      <div class="tools">
+        <button id="defang-btn" type="button">Defang</button>
+        <button id="refang-btn" type="button">Refang</button>
+        <button id="extract-btn" type="button">Extract IOCs</button>
+        <button id="copy-btn" type="button">Copy</button>
+      </div>
 
-.sidebar .actions{
-  margin-top: 14px;
-  display:grid;
-  gap:10px;
-}
+      <div id="status" class="status">
+        <span>Status: ready (landing page)</span>
+        <span class="badge">OSINT</span>
+      </div>
 
-button{
-  padding: 10px 12px;
-  border: 1px solid rgba(56,189,248,0.25);
-  background: linear-gradient(180deg, rgba(56,189,248,0.18), rgba(56,189,248,0.08));
-  color: var(--text);
-  border-radius: 12px;
-  cursor:pointer;
-  font-weight: 700;
-  user-select:none;
-  touch-action:manipulation;
-}
-button:hover{ border-color: rgba(56,189,248,0.45); transform: translateY(-1px); }
-button:active{ transform: translateY(0px); }
+      <textarea id="output" placeholder="Results / Extracted IOCs (Tip: Paste full email headers/logs here then press Search or Extract IOCs)"></textarea>
+      <div class="hintline">Tip: Paste full email headers/logs into the Output box then press Search (or Extract IOCs).</div>
+    </div>
 
-.main{
-  flex:1;
-  padding: 18px 18px 32px;
-  overflow:auto;
-}
+    <!-- ===================== IP ===================== -->
+    <div class="tool-section" data-type="ip">
+      <div class="section-head">
+        <h2>🛡 Threat & Reputation (IP)</h2>
+        <div class="pill">IP pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="ip_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="ip_vt"></div></a>
+        <a id="ip_abuseipdb" target="_blank"><div class="title">🚫 AbuseIPDB <span class="lock">🔒</span></div><div class="meta" data-meta="ip_abuseipdb"></div></a>
+        <a id="ip_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="ip_talos"></div></a>
+        <a id="ip_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ibmxf"></div></a>
+        <a id="ip_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="ip_otx"></div></a>
 
-.header{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom: 14px; }
-.header h1{ margin:0; font-size: 26px; }
-.header .sub{ margin:6px 0 0; color: var(--muted); font-size: 13px; }
+        <a id="ip_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_anyrun"></div></a>
+        <a id="ip_mxtoolbox" target="_blank"><div class="title">📧 MXToolBox (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_mxtoolbox"></div></a>
+        <a id="ip_blacklistchecker" target="_blank"><div class="title">🧱 Blacklist Checker <span class="lock">🔒</span></div><div class="meta" data-meta="ip_blacklistchecker"></div></a>
+        <a id="ip_cleantalk" target="_blank"><div class="title">🧼 CleanTalk (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_cleantalk"></div></a>
 
-.input-panel{
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: rgba(255,255,255,0.04);
-  box-shadow: var(--shadow);
-  padding: 14px;
-}
+        <a id="ip_shodan" target="_blank"><div class="title">🛰 Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="ip_shodan"></div></a>
+        <a id="ip_censys" target="_blank"><div class="title">🔭 Censys <span class="lock">🔒</span></div><div class="meta" data-meta="ip_censys"></div></a>
+        <a id="ip_greynoise" target="_blank"><div class="title">🌫 GreyNoise <span class="lock">🔒</span></div><div class="meta" data-meta="ip_greynoise"></div></a>
 
-.input-row{ display:flex; gap:10px; align-items:center; }
-input{
-  flex:1;
-  padding: 12px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(15,23,42,0.55);
-  color: var(--text);
-  outline: none;
-}
-input:focus{
-  border-color: rgba(56,189,248,0.55);
-  box-shadow: 0 0 0 4px rgba(56,189,248,0.12);
-}
+        <a id="ip_iplocation" target="_blank"><div class="title">📍 IPLocation <span class="lock">🔒</span></div><div class="meta" data-meta="ip_iplocation"></div></a>
+        <a id="ip_ipinfo" target="_blank"><div class="title">🗺 IPinfo <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ipinfo"></div></a>
+        <a id="ip_whatismyipaddress" target="_blank"><div class="title">🧾 WhatIsMyIPAddress <span class="lock">🔒</span></div><div class="meta" data-meta="ip_whatismyipaddress"></div></a>
+        <a id="ip_myip" target="_blank"><div class="title">🧷 myip.ms <span class="lock">🔒</span></div><div class="meta" data-meta="ip_myip"></div></a>
 
-#search-btn{
-  min-width: 110px;
-  border: 1px solid rgba(56,189,248,0.45);
-  background: linear-gradient(180deg, rgba(56,189,248,0.35), rgba(56,189,248,0.12));
-}
+        <a id="ip_spur" target="_blank"><div class="title">🕳 SPUR (VPN detect) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_spur"></div></a>
+        <a id="ip_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="ip_clickfix"></div></a>
+        <a id="ip_ripestat" target="_blank"><div class="title">🗃 RIPEstat <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ripestat"></div></a>
+        <a id="ip_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_nitter"></div></a>
 
-.tools{ margin-top: 10px; display:flex; flex-wrap:wrap; gap:10px; }
-.tools button{ border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); }
+        <a id="ip_threatminer" target="_blank"><div class="title">⛏ ThreatMiner <span class="lock">🔒</span></div><div class="meta" data-meta="ip_threatminer"></div></a>
+        <a id="ip_urlscan" target="_blank"><div class="title">🔎 urlscan.io <span class="lock">🔒</span></div><div class="meta" data-meta="ip_urlscan"></div></a>
+        <a id="ip_viewdns" target="_blank"><div class="title">🧩 ViewDNS IP History <span class="lock">🔒</span></div><div class="meta" data-meta="ip_viewdns"></div></a>
+        <a id="ip_scamalytics" target="_blank"><div class="title">🎭 Scamalytics <span class="lock">🔒</span></div><div class="meta" data-meta="ip_scamalytics"></div></a>
+      </div>
+    </div>
 
-.status{
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.03);
-  color: var(--muted);
-  font-size: 13px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-.status .badge{
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(56,189,248,0.35);
-  color: var(--accent);
-  font-weight: 700;
-  font-size: 12px;
-  background: rgba(56,189,248,0.08);
-}
+    <!-- ===================== DOMAIN ===================== -->
+    <div class="tool-section" data-type="domain">
+      <div class="section-head">
+        <h2>🌐 Domain & DNS</h2>
+        <div class="pill">Domain pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="dom_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="dom_vt"></div></a>
+        <a id="dom_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="dom_talos"></div></a>
+        <a id="dom_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="dom_ibmxf"></div></a>
+        <a id="dom_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="dom_otx"></div></a>
 
-textarea#output{
-  width:100%;
-  margin-top: 10px;
-  height: 170px;
-  resize: vertical;
-  padding: 12px;
-  border-radius: var(--radius);
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(15,23,42,0.55);
-  color: var(--text);
-  outline:none;
-}
-textarea#output:focus{
-  border-color: rgba(56,189,248,0.55);
-  box-shadow: 0 0 0 4px rgba(56,189,248,0.12);
-}
+        <a id="dom_urlscan" target="_blank"><div class="title">🔎 URLScan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlscan"></div></a>
+        <a id="dom_mxtoolbox" target="_blank"><div class="title">📧 MXToolBox (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_mxtoolbox"></div></a>
+        <a id="dom_blacklistchecker" target="_blank"><div class="title">🧱 Blacklist Checker <span class="lock">🔒</span></div><div class="meta" data-meta="dom_blacklistchecker"></div></a>
+        <a id="dom_cleantalk_bl" target="_blank"><div class="title">🧼 CleanTalk (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_cleantalk_bl"></div></a>
 
-/* HIDE ALL tool sections by default */
-.tool-section{ display:none; margin-top: 16px; border: 1px solid var(--border); border-radius: var(--radius);
-  background: rgba(255,255,255,0.03); box-shadow: 0 10px 24px rgba(0,0,0,0.20); overflow:hidden; }
-.tool-section.active{ display:block; }
-.tool-section.tool-always{ display:block; } /* keep MITRE tagging visible always */
+        <a id="dom_cleantalk_malware" target="_blank"><div class="title">🧼 CleanTalk (Malware Scan) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_cleantalk_malware"></div></a>
+        <a id="dom_sucuri" target="_blank"><div class="title">🛡 SUCURI (Malware Scan) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_sucuri"></div></a>
+        <a id="dom_urlvoid" target="_blank"><div class="title">🕸 URLVoid <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlvoid"></div></a>
+        <a id="dom_urlhaus" target="_blank"><div class="title">🏚 URLHaus <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlhaus"></div></a>
 
-.section-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(255,255,255,0.02);
-}
-.section-head h2{ margin:0; font-size: 16px; display:flex; align-items:center; gap:10px; }
-.section-head .pill{ font-size: 12px; color: var(--muted); }
+        <a id="dom_whois" target="_blank"><div class="title">📇 WHOIS <span class="lock">🔒</span></div><div class="meta" data-meta="dom_whois"></div></a>
+        <a id="dom_dnslytics" target="_blank"><div class="title">🧬 DNSLytics <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnslytics"></div></a>
+        <a id="dom_netcraft" target="_blank"><div class="title">🏗 Netcraft <span class="lock">🔒</span></div><div class="meta" data-meta="dom_netcraft"></div></a>
+        <a id="dom_webcheck" target="_blank"><div class="title">🧪 Web Check <span class="lock">🔒</span></div><div class="meta" data-meta="dom_webcheck"></div></a>
 
-.tool-grid{
-  display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-  padding: 14px;
-}
+        <a id="dom_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails <span class="lock">🔒</span></div><div class="meta" data-meta="dom_securitytrails"></div></a>
+        <a id="dom_hudsonrock_info" target="_blank"><div class="title">🧯 HudsonRock Infostealer <span class="lock">🔒</span></div><div class="meta" data-meta="dom_hudsonrock_info"></div></a>
+        <a id="dom_hudsonrock_urls" target="_blank"><div class="title">🧾 HudsonRock URL Discovery <span class="lock">🔒</span></div><div class="meta" data-meta="dom_hudsonrock_urls"></div></a>
+        <a id="dom_socradar" target="_blank"><div class="title">🕳 SOCRadar DarkWebReport <span class="lock">🔒</span></div><div class="meta" data-meta="dom_socradar"></div></a>
 
-.tool-grid a{
-  text-decoration:none;
-  color: var(--text);
-  border: 1px solid rgba(255,255,255,0.10);
-  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
-  border-radius: var(--radius2);
-  padding: 12px;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.18);
-  position: relative;
-  overflow:hidden;
-  transition: transform .12s ease, border-color .12s ease, background .12s ease;
-}
-.tool-grid a:hover{
-  transform: translateY(-2px);
-  border-color: rgba(56,189,248,0.35);
-  background: linear-gradient(180deg, rgba(56,189,248,0.10), rgba(255,255,255,0.02));
-}
+        <a id="dom_wayback" target="_blank"><div class="title">🕰 Wayback Machine <span class="lock">🔒</span></div><div class="meta" data-meta="dom_wayback"></div></a>
+        <a id="dom_wayback_save" target="_blank"><div class="title">💾 Wayback (Save) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_wayback_save"></div></a>
+        <a id="dom_browserling" target="_blank"><div class="title">🧊 Browserling <span class="lock">🔒</span></div><div class="meta" data-meta="dom_browserling"></div></a>
+        <a id="dom_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_anyrun"></div></a>
 
-.tool-grid a .title{
-  font-weight: 800;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-.tool-grid a .meta{ margin-top: 6px; font-size: 12px; color: var(--muted); word-break: break-all; }
+        <a id="dom_anyrun_safe" target="_blank"><div class="title">🧯 AnyRun (Safe) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_anyrun_safe"></div></a>
+        <a id="dom_phishing_checker" target="_blank"><div class="title">🎣 Phishing Checker <span class="lock">🔒</span></div><div class="meta" data-meta="dom_phishing_checker"></div></a>
+        <a id="dom_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="dom_clickfix"></div></a>
+        <a id="dom_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_nitter"></div></a>
 
-.tool-grid a .lock{
-  font-size: 12px;
-  opacity: 0.85;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(0,0,0,0.18);
-}
+        <a id="dom_netlas" target="_blank"><div class="title">🧿 Netlas <span class="lock">🔒</span></div><div class="meta" data-meta="dom_netlas"></div></a>
+        <a id="dom_censys" target="_blank"><div class="title">🔭 Censys <span class="lock">🔒</span></div><div class="meta" data-meta="dom_censys"></div></a>
+        <a id="dom_shodan" target="_blank"><div class="title">🛰 Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_shodan"></div></a>
+        <a id="dom_dnstools" target="_blank"><div class="title">📇 WHOIS DomainTools <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnstools"></div></a>
+      </div>
+    </div>
 
-.ico{
-  width: 26px;
-  height: 26px;
-  border-radius: 10px;
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 26px;
-  border: 1px solid rgba(56,189,248,0.25);
-  background: radial-gradient(circle at 30% 25%, rgba(56,189,248,0.25), rgba(56,189,248,0.06));
-}
+    <!-- ===================== EMAIL & BREACH ===================== -->
+    <div class="tool-section" data-type="email">
+      <div class="section-head">
+        <h2>📧 Email & Breach</h2>
+        <div class="pill">Email pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="em_hunter" target="_blank"><div class="title">🧾 Hunter.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_hunter"></div></a>
+        <a id="em_hibp" target="_blank"><div class="title">🧨 HaveIBeenPwned <span class="lock">🔒</span></div><div class="meta" data-meta="em_hibp"></div></a>
+        <a id="em_intelbase" target="_blank"><div class="title">🕵️ IntelBase <span class="lock">🔒</span></div><div class="meta" data-meta="em_intelbase"></div></a>
+      </div>
+    </div>
 
-/* MITRE panel */
-#mitre-panel{
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 10px;
-  padding: 14px;
-}
-#mitre-panel label{
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.03);
-  line-height: 1.2;
-}
-#mitre-panel input[type="checkbox"]{
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  flex: 0 0 18px;
-  accent-color: var(--accent);
-}
+    <!-- ===================== EMAIL HEADERS ===================== -->
+    <div class="tool-section" data-type="header">
+      <div class="section-head">
+        <h2>🧾 Email Header Analysis Toolkit</h2>
+        <div class="pill">Paste-based tools</div>
+      </div>
+      <div class="tool-grid">
+        <a id="hdr_mha" target="_blank"><div class="title">🧩 Microsoft Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mha"></div></a>
+        <a id="hdr_google" target="_blank"><div class="title">🧰 Google Messageheader <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_google"></div></a>
+        <a id="hdr_mxtoolbox" target="_blank"><div class="title">📧 MXToolbox Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mxtoolbox"></div></a>
+        <a id="hdr_traceemail" target="_blank"><div class="title">🧵 Trace Email <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_traceemail"></div></a>
+        <a id="hdr_dnschecker" target="_blank"><div class="title">🧪 DNSChecker Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_dnschecker"></div></a>
+      </div>
+    </div>
 
-/* Light mode */
-body.light{
-  --bg:#f3f4f6;
-  --bg2:#eef2ff;
-  --text:#111827;
-  --muted:#4b5563;
-  --border: rgba(17,24,39,0.10);
-  --shadow: 0 10px 28px rgba(0,0,0,0.10);
-}
+    <!-- ===================== HASH ===================== -->
+    <div class="tool-section" data-type="hash">
+      <div class="section-head">
+        <h2>🔒 Hash Lookup</h2>
+        <div class="pill">File pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="h_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="h_vt"></div></a>
+        <a id="h_hybrid" target="_blank"><div class="title">🧫 Hybrid-Analysis <span class="lock">🔒</span></div><div class="meta" data-meta="h_hybrid"></div></a>
+        <a id="h_joesandbox" target="_blank"><div class="title">🧪 JOE Sandbox <span class="lock">🔒</span></div><div class="meta" data-meta="h_joesandbox"></div></a>
+        <a id="h_triage" target="_blank"><div class="title">🧯 Triage <span class="lock">🔒</span></div><div class="meta" data-meta="h_triage"></div></a>
+
+        <a id="h_malshare" target="_blank"><div class="title">📦 MalShare <span class="lock">🔒</span></div><div class="meta" data-meta="h_malshare"></div></a>
+        <a id="h_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="h_ibmxf"></div></a>
+        <a id="h_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="h_talos"></div></a>
+        <a id="h_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="h_otx"></div></a>
+
+        <a id="h_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="h_anyrun"></div></a>
+        <a id="h_threatminer" target="_blank"><div class="title">⛏ ThreatMiner <span class="lock">🔒</span></div><div class="meta" data-meta="h_threatminer"></div></a>
+        <a id="h_cyberchef" target="_blank"><div class="title">🧪 CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="h_cyberchef"></div></a>
+        <a id="h_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="h_nitter"></div></a>
+      </div>
+    </div>
+
+    <!-- ===================== USERNAME ===================== -->
+    <div class="tool-section" data-type="username">
+      <div class="section-head">
+        <h2>👤 Username Lookup</h2>
+        <div class="pill">Account pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="usr_namechk" target="_blank"><div class="title">🧾 Namechk <span class="lock">🔒</span></div><div class="meta" data-meta="usr_namechk"></div></a>
+        <a id="usr_whatsmyname" target="_blank"><div class="title">🕵️ WhatsMyName <span class="lock">🔒</span></div><div class="meta" data-meta="usr_whatsmyname"></div></a>
+      </div>
+    </div>
+
+    <!-- ===================== CVE LOOKUP ===================== -->
+    <div class="tool-section" data-type="cve">
+      <div class="section-head">
+        <h2>🧷 CVE Lookup</h2>
+        <div class="pill">Vulnerability pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="cve_nvd" target="_blank"><div class="title">📄 NVD (NIST) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_nvd"></div></a>
+        <a id="cve_cveorg" target="_blank"><div class="title">🧾 CVE.org Record <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cveorg"></div></a>
+        <a id="cve_cisa" target="_blank"><div class="title">🧨 CISA KEV (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cisa"></div></a>
+        <a id="cve_exploitdb" target="_blank"><div class="title">💥 Exploit-DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_exploitdb"></div></a>
+        <a id="cve_vulners" target="_blank"><div class="title">🧠 Vulners <span class="lock">🔒</span></div><div class="meta" data-meta="cve_vulners"></div></a>
+        <a id="cve_github" target="_blank"><div class="title">🧑‍💻 GitHub PoC Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_github"></div></a>
+      </div>
+    </div>
+
+    <!-- ===================== CVE ↔ KEV / EPSS ===================== -->
+    <div class="tool-section" data-type="cveplus">
+      <div class="section-head">
+        <h2>📊 CVE ↔ KEV / EPSS</h2>
+        <div class="pill">Exploitability pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="cvep_cisa_kev" target="_blank"><div class="title">🧨 CISA KEV Search <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_cisa_kev"></div></a>
+        <a id="cvep_epss" target="_blank"><div class="title">📈 EPSS Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_epss"></div></a>
+      </div>
+    </div>
+
+    <!-- ===================== EMAIL ARTIFACTS ===================== -->
+    <div class="tool-section" data-type="emailartifacts">
+      <div class="section-head">
+        <h2>✉️ Email Artifacts</h2>
+        <div class="pill">Message-ID / DKIM / SPF pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="emart_msgid_search" target="_blank"><div class="title">🔎 Message-ID Search <span class="lock">🔒</span></div><div class="meta" data-meta="emart_msgid_search"></div></a>
+        <a id="emart_dkim_domain" target="_blank"><div class="title">🔐 DKIM Domain Pivot <span class="lock">🔒</span></div><div class="meta" data-meta="emart_dkim_domain"></div></a>
+        <a id="emart_spf_domain" target="_blank"><div class="title">🧾 SPF mailfrom Pivot <span class="lock">🔒</span></div><div class="meta" data-meta="emart_spf_domain"></div></a>
+      </div>
+    </div>
+
+    <!-- ===================== LOLBINS ===================== -->
+    <div class="tool-section" data-type="lolbins">
+      <div class="section-head">
+        <h2>🧨 LOLBINS / Living-off-the-land</h2>
+        <div class="pill">Binary / command pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="lb_lolbas" target="_blank"><div class="title">🧰 LOLBAS (Windows) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas"></div></a>
+        <a id="lb_gtfobins" target="_blank"><div class="title">🧰 GTFOBins (Linux) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_gtfobins"></div></a>
+        <a id="lb_hijacklibs" target="_blank"><div class="title">🧩 HijackLibs <span class="lock">🔒</span></div><div class="meta" data-meta="lb_hijacklibs"></div></a>
+      </div>
+    </div>
+
+    <!-- ===================== WINDOWS EVENT ID LOOKUP ===================== -->
+    <div class="tool-section" data-type="eventid">
+      <div class="section-head">
+        <h2>🪟 Windows Event ID Lookup</h2>
+        <div class="pill">Event pivots</div>
+      </div>
+      <div class="tool-grid">
+        <a id="ev_eventidnet" target="_blank"><div class="title">📚 EventID.net <span class="lock">🔒</span></div><div class="meta" data-meta="ev_eventidnet"></div></a>
+        <a id="ev_mslearn" target="_blank"><div class="title">📘 Microsoft Learn (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_mslearn"></div></a>
+        <a id="ev_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="ev_hackthelogs"></div></a>
+      </div>
+    </div>
+
+    <!-- ===================== WINDOWS LOGS / SYSMON ===================== -->
+    <div class="tool-section" data-type="sysmon">
+      <div class="section-head">
+        <h2>🧾 Windows Logs / Sysmon</h2>
+        <div class="pill">Sysmon IDs + docs</div>
+      </div>
+      <div class="tool-grid">
+        <a id="sysmon_mslearn" target="_blank"><div class="title">📘 Sysmon Docs (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_mslearn"></div></a>
+        <a id="sysmon_swift" target="_blank"><div class="title">🧩 SwiftOnSecurity Sysmon Config <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_swift"></div></a>
+        <a id="sysmon_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_hackthelogs"></div></a>
+      </div>
+    </div>
+
+    <!-- ===================== SOC QUICK PIVOTS ===================== -->
+    <div class="tool-section" data-type="soc">
+      <div class="section-head">
+        <h2>🚨 SOC Quick Pivots</h2>
+        <div class="pill">Hunt helpers</div>
+      </div>
+      <div class="tool-grid">
+        <a id="soc_ruler" target="_blank"><div class="title">🧿 RULER Project <span class="lock">🔒</span></div><div class="meta" data-meta="soc_ruler"></div></a>
+        <a id="soc_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="soc_hackthelogs"></div></a>
+        <a id="soc_explainshell" target="_blank"><div class="title">🧾 ExplainShell <span class="lock">🔒</span></div><div class="meta" data-meta="soc_explainshell"></div></a>
+        <a id="soc_sigma" target="_blank"><div class="title">📜 Sigma Rules (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_sigma"></div></a>
+      </div>
+    </div>
+
+    <!-- ===================== MITRE ATT&CK (ALWAYS) ===================== -->
+    <div class="tool-section tool-always">
+      <div class="section-head">
+        <h2>🧩 MITRE ATT&CK Tagging</h2>
+        <div class="pill">Optional tags</div>
+      </div>
+      <div id="mitre-panel">
+        <label><input type="checkbox" value="T1071"> T1071 – Application Layer Protocol</label>
+        <label><input type="checkbox" value="T1566"> T1566 – Phishing</label>
+        <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
+        <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
+        <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
