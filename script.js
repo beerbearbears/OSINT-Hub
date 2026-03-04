@@ -7,8 +7,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const $ = (id) => document.getElementById(id);
   const setHref = (id, href) => { const el = $(id); if (el) el.href = href; };
   const setStatus = (msg) => { if (statusText) statusText.textContent = msg; };
+  const enc = encodeURIComponent;
 
-  // ---------------- Landing pages (no query) ----------------
+  // ---------------- Landing pages (when no input) ----------------
   const landing = {
     // IP
     ip_vt: "https://www.virustotal.com/",
@@ -70,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dom_shodan: "https://www.shodan.io/",
     dom_dnstools: "https://whois.domaintools.com/",
 
-    // Email & Breach
+    // Email
     em_hunter: "https://hunter.io/",
     em_hibp: "https://haveibeenpwned.com/",
     em_intelbase: "https://intelbase.is/",
@@ -108,28 +109,21 @@ document.addEventListener("DOMContentLoaded", () => {
     cve_vulners: "https://vulners.com/",
     cve_github: "https://github.com/search",
 
-    // LOLBins
-    lb_lolbas: "https://lolbas-project.github.io/",
-    lb_lolbas_home: "https://lolbas-project.github.io/",
-    lb_gtfobins: "https://gtfobins.github.io/",
-    lb_hijacklibs: "https://hijacklibs.net/",
+    // CVE+ (KEV/EPSS)
+    cvep_cisa_kev: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+    cvep_epss: "https://www.first.org/epss/",
 
-    // Email Artifacts
-    emart_hdr_mha: "https://mha.azurewebsites.net/pages/mha.html",
-    emart_google: "https://toolbox.googleapps.com/apps/messageheader/",
+    // Email artifacts
     emart_msgid_search: "https://www.google.com/",
     emart_dkim_domain: "https://www.google.com/",
     emart_spf_domain: "https://www.google.com/",
 
-    // CVE+
-    cvep_nvd: "https://nvd.nist.gov/",
-    cvep_cisa_kev: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
-    cvep_epss: "https://www.first.org/epss/",
-    cvep_github: "https://github.com/search",
-    cvep_exploitdb: "https://www.exploit-db.com/",
+    // LOLBINS
+    lb_lolbas: "https://lolbas-project.github.io/",
+    lb_gtfobins: "https://gtfobins.github.io/",
+    lb_hijacklibs: "https://hijacklibs.net/",
 
     // Event ID
-    ev_uws: "https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/",
     ev_eventidnet: "https://www.eventid.net/",
     ev_mslearn: "https://learn.microsoft.com/",
     ev_hackthelogs: "https://www.hackthelogs.com/mainpage.html",
@@ -138,15 +132,12 @@ document.addEventListener("DOMContentLoaded", () => {
     sysmon_mslearn: "https://learn.microsoft.com/",
     sysmon_swift: "https://github.com/SwiftOnSecurity/sysmon-config",
     sysmon_hackthelogs: "https://www.hackthelogs.com/mainpage.html",
-    sysmon_splunk: "https://docs.splunk.com/",
 
     // SOC
-    soc_mitre: "https://attack.mitre.org/",
-    soc_sigma: "https://github.com/SigmaHQ/sigma",
-    soc_cyberchef: "https://gchq.github.io/CyberChef/",
     soc_ruler: "https://ruler-project.github.io/ruler-project/RULER/remote/",
+    soc_hackthelogs: "https://www.hackthelogs.com/mainpage.html",
     soc_explainshell: "https://explainshell.com/",
-    soc_hackthelogs: "https://www.hackthelogs.com/mainpage.html"
+    soc_sigma: "https://github.com/SigmaHQ/sigma",
   };
 
   function setLandingLinks() {
@@ -161,43 +152,68 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Hide everything, show only matching data-type section
-  function showRelevantTools(type) {
+  function setSearchMode(on) {
+    document.body.classList.toggle("search-mode", !!on);
+  }
+
+  function showRelevantTools(types) {
     document.querySelectorAll(".tool-section[data-type]").forEach(section => {
       section.classList.remove("active");
     });
-    if (!type) return;
-    const sec = document.querySelector(`.tool-section[data-type="${type}"]`);
-    if (sec) sec.classList.add("active");
+    if (!types || !types.length) return;
+    types.forEach(t => {
+      const sec = document.querySelector(`.tool-section[data-type="${t}"]`);
+      if (sec) sec.classList.add("active");
+    });
   }
 
-  // ---------- detection helpers ----------
-  function looksLikeHeaders(text) {
-    const t = (text || "").trim();
-    if (!t || !t.includes("\n")) return false;
-    const signals = [
-      /^received:/im,
-      /^authentication-results:/im,
-      /^dkim-signature:/im,
-      /^arc-seal:/im,
-      /^message-id:/im,
-      /^return-path:/im,
-      /^from:/im,
-      /^to:/im,
-      /^subject:/im,
-    ];
-    return signals.some(rx => rx.test(t));
-  }
-
+  // ---------- validators ----------
   function isValidIPv4(addr) {
     const parts = (addr || "").trim().split(".");
     if (parts.length !== 4) return false;
     return parts.every(p => /^\d{1,3}$/.test(p) && Number(p) >= 0 && Number(p) <= 255);
   }
 
+  function isPrivateIPv4(ip) {
+    if (!isValidIPv4(ip)) return false;
+    const [a,b] = ip.split(".").map(Number);
+    if (a === 10) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 127) return true;
+    if (a === 169 && b === 254) return true;
+    return false;
+  }
+
   function isValidIPv6(addr) {
     const v = (addr || "").trim().replace(/^\[|\]$/g, "");
     try { new URL(`http://[${v}]/`); return true; } catch { return false; }
+  }
+
+  function isPrivateIPv6(ip) {
+    const v = (ip || "").toLowerCase();
+    // fc00::/7 (ULA) or fe80::/10 (link-local) or ::1
+    return v.startsWith("fc") || v.startsWith("fd") || v.startsWith("fe80") || v === "::1";
+  }
+
+  function looksLikeHeaders(text) {
+    const t = (text || "").trim();
+    if (!t) return false;
+    const head = t.split("\n").slice(0, 60).join("\n");
+
+    const strong = [
+      /(^|\n)\s*received:\s/im,
+      /(^|\n)\s*authentication-results:\s/im,
+      /(^|\n)\s*dkim-signature:\s/im,
+      /(^|\n)\s*arc-seal:\s/im,
+      /(^|\n)\s*message-id:\s/im,
+      /(^|\n)\s*return-path:\s/im,
+      /(^|\n)\s*mime-version:\s/im,
+      /(^|\n)\s*content-type:\s/im,
+    ];
+    const hasAnyStrong = strong.some(rx => rx.test(head));
+    const colonLines = (head.match(/(^|\n)[A-Za-z0-9-]{2,}:\s.+/g) || []).length;
+    return hasAnyStrong || colonLines >= 4;
   }
 
   function normalize(raw) {
@@ -219,51 +235,72 @@ document.addEventListener("DOMContentLoaded", () => {
     const messageId = (t.match(/^message-id:\s*(.+)$/im) || [])[1]?.trim() || "";
     const returnPath = (t.match(/^return-path:\s*<?([^>\s]+)>?/im) || [])[1]?.trim() || "";
 
-    const dkimSig = (t.match(/^dkim-signature:\s*([\s\S]+?)(?:\n\S|$)/im) || [])[1] || "";
-    const dkimSelector = (dkimSig.match(/\bs=([^;\s]+)/i) || [])[1] || "";
-    const dkimDomain = (dkimSig.match(/\bd=([^;\s]+)/i) || [])[1] || "";
+    // DKIM selector/domain
+    const dkimBlock = (t.match(/^dkim-signature:\s*([\s\S]+?)(?:\n[A-Za-z0-9-]{2,}:\s|$)/im) || [])[1] || "";
+    const dkimSelector = (dkimBlock.match(/\bs=([^;\s]+)/i) || [])[1] || "";
+    const dkimDomain = (dkimBlock.match(/\bd=([^;\s]+)/i) || [])[1] || "";
 
-    const authRes = (t.match(/^authentication-results:\s*([\s\S]+?)(?:\n\S|$)/im) || [])[1] || "";
-    const spfDomain = (authRes.match(/\bsmtp\.mailfrom=([^;\s]+)/i) || [])[1] || "";
+    // SPF mailfrom is often in Authentication-Results
+    const auth = (t.match(/^authentication-results:\s*([\s\S]+?)(?:\n[A-Za-z0-9-]{2,}:\s|$)/im) || [])[1] || "";
+    const spfMailfrom = (auth.match(/\bsmtp\.mailfrom=([^;\s]+)/i) || [])[1] || "";
 
     return {
       messageId,
       returnPath,
       dkimSelector,
       dkimDomain: (dkimDomain || "").toLowerCase(),
-      spfDomain: (spfDomain || "").toLowerCase(),
+      spfMailfrom: (spfMailfrom || "").toLowerCase(),
     };
   }
 
-  function detectType(raw) {
-    const t = (raw || "").trim();
-    const v = normalize(t);
+  function detectType(raw, pastedText) {
+    const r = (raw || "").trim();
+    const p = (pastedText || "").trim();
 
-    if (looksLikeHeaders(t)) return { type: "header", q: "" };
+    if (looksLikeHeaders(p) || looksLikeHeaders(r)) return { type: "header", q: "" };
 
+    const v = normalize(r);
+
+    // MITRE technique id
+    if (/^T\d{4,5}$/i.test(v)) return { type: "mitre", q: v.toUpperCase() };
+
+    // CVE
     if (/^CVE-\d{4}-\d{4,}$/i.test(v)) return { type: "cveplus", q: v.toUpperCase() };
 
+    // email
     if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return { type: "email", q: v };
 
+    // event id / sysmon hints
+    if (/^(event\s*id|eventid)\s*[:#]?\s*\d{3,5}$/i.test(r) || /^\d{3,5}$/.test(v)) return { type: "eventid", q: v.replace(/[^\d]/g, "") };
+    if (/sysmon/i.test(r)) return { type: "sysmon", q: r };
+
+    // ip
     if (isValidIPv4(v) || isValidIPv6(v)) return { type: "ip", q: v };
 
+    // hash
     if (/^[a-fA-F0-9]{32}$/.test(v) || /^[a-fA-F0-9]{40}$/.test(v) || /^[a-fA-F0-9]{64}$/.test(v)) {
       return { type: "hash", q: v.toLowerCase() };
     }
 
+    // domain
     if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v)) return { type: "domain", q: v.toLowerCase() };
 
-    if (/^\d{3,5}$/.test(v)) return { type: "eventid", q: v };
+    // commandline / file
+    if (/[\\\/].+\.(exe|dll|ps1|vbs|js|bat|cmd)\b/i.test(r) || /\b[a-z0-9_-]+\.(exe|dll|ps1|vbs|js|bat|cmd)\b/i.test(r) || r.includes(" -") || r.includes(" /")) {
+      return { type: "lolbins", q: r };
+    }
 
+    // username
     if (/^[a-zA-Z0-9_-]{3,}$/.test(v)) return { type: "username", q: v };
 
     return { type: null, q: v };
   }
 
-  // ---------- link updates ----------
-  function updateLinks(type, q, rawText="") {
-    const qp = encodeURIComponent(q || "");
-    const g = (s) => `https://www.google.com/search?q=${encodeURIComponent(s)}`;
+  // ---------- link builders ----------
+  const gsearch = (q) => `https://www.google.com/search?q=${enc(q)}`;
+
+  function updateLinksForQuery(type, q, headerText="") {
+    const qp = enc(q || "");
 
     if (type === "ip") {
       setHref("ip_vt", `https://www.virustotal.com/gui/ip-address/${qp}`);
@@ -271,7 +308,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setHref("ip_talos", `https://talosintelligence.com/reputation_center/lookup?search=${qp}`);
       setHref("ip_ibmxf", `https://exchange.xforce.ibmcloud.com/ip/${qp}`);
       setHref("ip_otx", `https://otx.alienvault.com/indicator/ip/${qp}`);
-      setHref("ip_anyrun", `https://intelligence.any.run/analysis/lookup#${encodeURIComponent(JSON.stringify({ query: q, dateRange: 180 }))}`);
+      setHref("ip_anyrun", `https://intelligence.any.run/analysis/lookup#${enc(JSON.stringify({ query: q, dateRange: 180 }))}`);
       setHref("ip_mxtoolbox", `https://mxtoolbox.com/SuperTool.aspx?action=blacklist:${qp}`);
       setHref("ip_blacklistchecker", `https://blacklistchecker.com/check?input=${qp}`);
       setHref("ip_cleantalk", `https://cleantalk.org/blacklists/${qp}`);
@@ -316,7 +353,7 @@ document.addEventListener("DOMContentLoaded", () => {
       setHref("dom_wayback", `https://web.archive.org/web/*/${qp}`);
       setHref("dom_wayback_save", `https://web.archive.org/save/${qp}`);
       setHref("dom_browserling", `https://www.browserling.com/browse/win10/chrome138/${qp}`);
-      setHref("dom_anyrun", `https://intelligence.any.run/analysis/lookup#${encodeURIComponent(JSON.stringify({ query: q, dateRange: 180 }))}`);
+      setHref("dom_anyrun", `https://intelligence.any.run/analysis/lookup#${enc(JSON.stringify({ query: q, dateRange: 180 }))}`);
       setHref("dom_anyrun_safe", `https://app.any.run/safe/${qp}`);
       setHref("dom_phishing_checker", `https://phishing.finsin.cl/list.php?search=${qp}`);
       setHref("dom_clickfix", `https://clickfix.carsonww.com/domains?query=${qp}`);
@@ -330,7 +367,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (type === "email") {
       setHref("em_hunter", `https://hunter.io/search/${qp}`);
       setHref("em_hibp", `https://haveibeenpwned.com/account/${qp}`);
-      setHref("em_intelbase", `https://intelbase.is/search?query=${qp}`);
+
+      // ✅ intelbase 404 fix: stable site-search
+      setHref("em_intelbase", gsearch(`site:intelbase.is ${q}`));
     }
 
     if (type === "hash") {
@@ -342,61 +381,70 @@ document.addEventListener("DOMContentLoaded", () => {
       setHref("h_ibmxf", `https://exchange.xforce.ibmcloud.com/malware/${qp}`);
       setHref("h_talos", `https://talosintelligence.com/talos_file_reputation?s=${qp}`);
       setHref("h_otx", `https://otx.alienvault.com/indicator/file/${qp}`);
-      setHref("h_anyrun", `https://intelligence.any.run/analysis/lookup#${encodeURIComponent(JSON.stringify({ query: q, dateRange: 180 }))}`);
+      setHref("h_anyrun", `https://intelligence.any.run/analysis/lookup#${enc(JSON.stringify({ query: q, dateRange: 180 }))}`);
       setHref("h_threatminer", `https://www.threatminer.org/file.php?q=${qp}`);
       setHref("h_cyberchef", `https://gchq.github.io/CyberChef/#input=${btoa(q)}`);
       setHref("h_nitter", `https://nitter.net/search?f=tweets&q=${qp}`);
     }
 
     if (type === "username") {
-      setHref("usr_namechk", `https://namechk.com/${encodeURIComponent(q)}`);
-      setHref("usr_whatsmyname", `https://whatsmyname.app/?q=${encodeURIComponent(q)}`);
-    }
-
-    if (type === "cve") {
-      setHref("cve_nvd", `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(q)}`);
-      setHref("cve_cveorg", `https://www.cve.org/CVERecord?id=${encodeURIComponent(q)}`);
-      setHref("cve_cisa", g(`site:cisa.gov ${q} known exploited vulnerabilities`));
-      setHref("cve_exploitdb", `https://www.exploit-db.com/search?cve=${encodeURIComponent(q)}`);
-      setHref("cve_vulners", `https://vulners.com/search?query=${encodeURIComponent(q)}`);
-      setHref("cve_github", `https://github.com/search?q=${encodeURIComponent(q + " poc exploit")}&type=repositories`);
+      setHref("usr_namechk", `https://namechk.com/${enc(q)}`);
+      setHref("usr_whatsmyname", `https://whatsmyname.app/?q=${enc(q)}`);
     }
 
     if (type === "cveplus") {
-      const cve = String(q || "").toUpperCase();
-      setHref("cvep_nvd", `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(cve)}`);
-      setHref("cvep_cisa_kev", g(`site:cisa.gov "Known Exploited Vulnerabilities" ${cve}`));
-      setHref("cvep_epss", g(`site:first.org epss ${cve}`));
-      setHref("cvep_github", `https://github.com/search?q=${encodeURIComponent(cve + " poc exploit")}&type=repositories`);
-      setHref("cvep_exploitdb", `https://www.exploit-db.com/search?cve=${encodeURIComponent(cve)}`);
+      setHref("cve_nvd", `https://nvd.nist.gov/vuln/detail/${enc(q)}`);
+      setHref("cve_cveorg", `https://www.cve.org/CVERecord?id=${enc(q)}`);
+      setHref("cve_cisa", gsearch(`site:cisa.gov ${q} known exploited vulnerabilities`));
+      setHref("cve_exploitdb", `https://www.exploit-db.com/search?cve=${enc(q)}`);
+      setHref("cve_vulners", `https://vulners.com/search?query=${enc(q)}`);
+      setHref("cve_github", `https://github.com/search?q=${enc(q + " poc exploit")}&type=repositories`);
+
+      setHref("cvep_cisa_kev", gsearch(`site:cisa.gov "Known Exploited Vulnerabilities" ${q}`));
+      setHref("cvep_epss", gsearch(`site:first.org EPSS ${q}`));
     }
 
     if (type === "eventid") {
-      const eid = String(q || "").trim();
-      setHref("ev_uws", `https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventid=${encodeURIComponent(eid)}`);
-      setHref("ev_eventidnet", `https://www.eventid.net/search.asp?search=${encodeURIComponent(eid)}&submit=search`);
-      setHref("ev_mslearn", g(`site:learn.microsoft.com "Event ID ${eid}"`));
-      setHref("ev_hackthelogs", g(`site:hackthelogs.com event id ${eid}`));
+      setHref("ev_eventidnet", `https://www.eventid.net/search.asp?search=${enc(q)}&submit=search`);
+      setHref("ev_mslearn", gsearch(`site:learn.microsoft.com "Event ID ${q}"`));
+      setHref("ev_hackthelogs", `https://www.hackthelogs.com/?s=${enc(q)}`);
     }
 
-    // Headers => also prep Email Artifacts pivots from pasted headers
+    if (type === "sysmon") {
+      setHref("sysmon_mslearn", gsearch(`site:learn.microsoft.com sysmon event id ${q}`));
+    }
+
+    if (type === "mitre") {
+      // Not a section, but give user a useful result in output
+      // (MITRE checkbox section always visible)
+    }
+
     if (type === "header") {
-      const art = extractEmailArtifacts(rawText);
-      setHref("emart_hdr_mha", "https://mha.azurewebsites.net/pages/mha.html");
-      setHref("emart_google", "https://toolbox.googleapps.com/apps/messageheader/");
-      setHref("emart_msgid_search", art.messageId ? g(`"${art.messageId}"`) : g("message-id header"));
-      setHref("emart_dkim_domain", art.dkimDomain ? g(`DKIM d=${art.dkimDomain}`) : g("DKIM signature d="));
-      setHref("emart_spf_domain", art.spfDomain ? g(`SPF smtp.mailfrom=${art.spfDomain}`) : g("SPF smtp.mailfrom="));
+      const art = extractEmailArtifacts(headerText);
+      setHref("emart_msgid_search", art.messageId ? gsearch(`"${art.messageId}"`) : gsearch("message-id header"));
+      setHref("emart_dkim_domain", art.dkimDomain ? gsearch(`DKIM d=${art.dkimDomain}`) : gsearch("DKIM signature d="));
+      setHref("emart_spf_domain", art.spfMailfrom ? gsearch(`SPF smtp.mailfrom=${art.spfMailfrom}`) : gsearch("SPF smtp.mailfrom="));
+    }
+
+    if (type === "lolbins") {
+      // Use google searches against LOLBAS + Sigma
+      setHref("lb_lolbas", gsearch(`site:lolbas-project.github.io ${q}`));
+      setHref("soc_sigma", gsearch(`site:github.com SigmaHQ sigma ${q}`));
+      setHref("soc_explainshell", "https://explainshell.com/");
     }
   }
 
-  // ---------- defang/refang ----------
+  // ---------- Defang / Refang ----------
   function defangText(text) {
     let t = (text || "");
-    t = t.replace(/https?:\/\//gi, (m) => m.toLowerCase().startsWith("https") ? "hxxps://" : "hxxp://")
-         .replace(/\./g, "[.]");
 
-    // defang IPv6 by replacing : with [:] only for real IPv6 tokens
+    // URLs
+    t = t.replace(/https?:\/\//gi, (m) => m.toLowerCase().startsWith("https") ? "hxxps://" : "hxxp://");
+
+    // dots
+    t = t.replace(/\./g, "[.]");
+
+    // IPv6 (replace : with [:] only for real IPv6 tokens)
     t = t.replace(/[A-Fa-f0-9:\[\]]{2,}/g, (m) => {
       const v = m.replace(/^\[|\]$/g, "");
       if (m.includes(":") && isValidIPv6(v)) return m.replace(/:/g, "[:]");
@@ -414,136 +462,312 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/\[:\]/g, ":");
   }
 
-  // ---------- IOC Extractor ----------
+  // ---------- Smart IOC Extractor ----------
   function uniq(arr) { return Array.from(new Set(arr)); }
 
-  function extractIOCs() {
-    const text = (output?.value || "").trim() || (input?.value || "");
-    const extractedAt = new Date().toISOString();
+  const suspiciousTlds = new Set(["zip","mov","top","xyz","click","cam","gq","tk","work","life","rest","fit","quest"]);
+  const urlShorteners = ["bit.ly","t.co","tinyurl.com","goo.gl","is.gd","cutt.ly","rebrand.ly","ow.ly","buff.ly","rb.gy"];
 
-    const timestamps = [
-      ...(text.match(/\b\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g) || []),
-      ...(text.match(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}\b/gi) || []),
-      ...(text.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2}:\d{2}\b/g) || []),
-    ];
+  function scoreUrl(u) {
+    let s = 25;
+    const lower = u.toLowerCase();
 
-    const ipv4Raw = text.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
-    const ipv4 = ipv4Raw.filter(isValidIPv4);
+    if (lower.includes("@")) s += 10;
+    if (lower.includes("xn--")) s += 10;
+    if (/\b\d{1,3}(\.\d{1,3}){3}\b/.test(lower)) s += 10; // IP in URL
+    if (/:([0-9]{2,5})\b/.test(lower) && !/:(80|443)\b/.test(lower)) s += 8;
 
-    const ipv6Candidates = text.match(/\b[0-9A-Fa-f:]{2,}\b/g) || [];
-    const ipv6 = ipv6Candidates.filter(x => x.includes(":") && isValidIPv6(x));
+    const extHit = lower.match(/\.(exe|dll|scr|js|jse|vbs|vbe|ps1|bat|cmd|msi|iso|img|zip|rar|7z|one|lnk)(\?|$|#|\/)/);
+    if (extHit) s += 18;
 
-    const emails = text.match(/\b[^@\s]+@[^@\s]+\.[^@\s]+\b/g) || [];
-    const urls = text.match(/\b(?:https?|hxxps?|ftp):\/\/[^\s"'<>]+/gi) || [];
-    const domains = (text.match(/\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || []).filter(d => !d.includes("@"));
-    const hashes = text.match(/\b[A-Fa-f0-9]{32}\b|\b[A-Fa-f0-9]{40}\b|\b[A-Fa-f0-9]{64}\b/g) || [];
-    const cves = (text.match(/\bCVE-\d{4}-\d{4,}\b/gi) || []).map(x => x.toUpperCase());
-    const eventIds = (text.match(/\b(?:event\s*id|eventid)\s*[:#-]?\s*\d{3,5}\b/gi) || [])
-      .map(s => (s.match(/\d{3,5}/) || [""])[0]).filter(Boolean);
+    const kw = ["invoice","payment","update","security","verify","login","reset","password","mfa","urgent","doc","sharepoint","onedrive","dropbox"];
+    if (kw.some(k => lower.includes(k))) s += 8;
 
-    output.value =
-`IOC EXTRACTOR
-Extracted At (UTC): ${extractedAt}
+    try {
+      const url = new URL(lower.replace(/^hxxp/, "http"));
+      const host = url.hostname;
+      if (urlShorteners.includes(host)) s += 15;
+      const tld = host.split(".").pop();
+      if (tld && suspiciousTlds.has(tld)) s += 10;
+    } catch {}
 
-Timestamps:
-${uniq(timestamps).join("\n") || "-"}
-
-Emails:
-${uniq(emails).join("\n") || "-"}
-
-IPv4:
-${uniq(ipv4).join("\n") || "-"}
-
-IPv6:
-${uniq(ipv6).join("\n") || "-"}
-
-Domains:
-${uniq(domains).join("\n") || "-"}
-
-URLs:
-${uniq(urls).join("\n") || "-"}
-
-Hashes (MD5/SHA1/SHA256):
-${uniq(hashes).join("\n") || "-"}
-
-CVEs:
-${uniq(cves).join("\n") || "-"}
-
-Event IDs:
-${uniq(eventIds).join("\n") || "-"}`;
+    return s;
   }
 
+  function scoreDomain(d) {
+    let s = 18;
+    const lower = d.toLowerCase();
+    if (lower.startsWith("xn--")) s += 10;
+    const tld = lower.split(".").pop();
+    if (tld && suspiciousTlds.has(tld)) s += 10;
+    if (lower.includes("-")) s += 2;
+    return s;
+  }
+
+  function scoreIp(ip) {
+    if (isValidIPv4(ip)) {
+      if (isPrivateIPv4(ip)) return 6;
+      return 30;
+    }
+    if (isValidIPv6(ip)) {
+      if (isPrivateIPv6(ip)) return 6;
+      return 30;
+    }
+    return 0;
+  }
+
+  function extractSmartIOCs(text) {
+    const now = new Date().toISOString();
+    const t = text || "";
+
+    // Core artifacts
+    const timestamps = [
+      ...(t.match(/\b\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g) || []),
+      ...(t.match(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}\b/gi) || []),
+      ...(t.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2}:\d{2}\b/g) || []),
+    ];
+
+    const ipv4Raw = t.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
+    const ipv4 = uniq(ipv4Raw.filter(isValidIPv4));
+
+    const ipv6Candidates = t.match(/\b[0-9A-Fa-f:]{2,}\b/g) || [];
+    const ipv6 = uniq(ipv6Candidates.filter(x => x.includes(":") && isValidIPv6(x)));
+
+    const emails = uniq(t.match(/\b[^@\s]+@[^@\s]+\.[^@\s]+\b/g) || []);
+    const urls = uniq(t.match(/\b(?:https?|hxxps?|ftp):\/\/[^\s"'<>]+/gi) || []);
+    const domains = uniq((t.match(/\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || []).filter(d => !d.includes("@")));
+
+    const hashes = uniq(t.match(/\b[A-Fa-f0-9]{32}\b|\b[A-Fa-f0-9]{40}\b|\b[A-Fa-f0-9]{64}\b/g) || []).map(x => x.toLowerCase());
+    const cves = uniq((t.match(/\bCVE-\d{4}-\d{4,}\b/gi) || []).map(x => x.toUpperCase()));
+    const mitre = uniq((t.match(/\bT\d{4,5}\b/gi) || []).map(x => x.toUpperCase()));
+
+    // Windows Event IDs + Sysmon IDs
+    const eventIds = uniq([
+      ...((t.match(/\bEvent\s*ID\s*[:#]?\s*(\d{3,5})\b/gi) || []).map(x => x.replace(/[^\d]/g, ""))),
+      ...((t.match(/\b(?:^|\s)(\d{3,5})(?:\s|$)\b/g) || []).filter(x => /^\d{3,5}$/.test(x.trim())).map(x => x.trim()))
+    ]).filter(Boolean);
+
+    const sysmonIds = uniq((t.match(/\bSysmon\s*(?:Event\s*)?ID\s*[:#]?\s*(\d{1,2})\b/gi) || []).map(x => x.replace(/[^\d]/g, ""))).filter(Boolean);
+
+    // file/process/command line (simple but useful)
+    const filePaths = uniq(t.match(/\b[A-Za-z]:\\[^\r\n"']+\b/g) || []);
+    const executables = uniq(t.match(/\b[a-zA-Z0-9._-]+\.(exe|dll|ps1|vbs|js|bat|cmd|msi)\b/gi) || []).map(x => x.toLowerCase());
+    const commandLines = [];
+    const cmdLineMatch = t.match(/\bcommand\s*line\s*[:=]\s*([^\r\n]+)/i);
+    if (cmdLineMatch && cmdLineMatch[1]) commandLines.push(cmdLineMatch[1].trim());
+
+    // Email header artifacts (if present)
+    const emailArtifacts = looksLikeHeaders(t) ? extractEmailArtifacts(t) : { messageId:"", returnPath:"", dkimSelector:"", dkimDomain:"", spfMailfrom:"" };
+
+    // Score items
+    const scored = [];
+
+    hashes.forEach(h => scored.push({ type:"HASH", value:h, score:50, note:"High-value file pivot" }));
+    cves.forEach(c => scored.push({ type:"CVE", value:c, score:42, note:"Vulnerability pivot (check KEV/EPSS)" }));
+    mitre.forEach(m => scored.push({ type:"MITRE", value:m, score:28, note:"Technique pivot (ATT&CK)" }));
+
+    ipv4.forEach(ip => scored.push({ type:"IP", value:ip, score:scoreIp(ip), note:isPrivateIPv4(ip) ? "Private/loopback/link-local" : "Public IP pivot" }));
+    ipv6.forEach(ip => scored.push({ type:"IPV6", value:ip, score:scoreIp(ip), note:isPrivateIPv6(ip) ? "ULA/link-local/loopback" : "Public IPv6 pivot" }));
+
+    urls.forEach(u => scored.push({ type:"URL", value:u, score:scoreUrl(u), note:"URL pivot" }));
+    domains.forEach(d => scored.push({ type:"DOMAIN", value:d, score:scoreDomain(d), note:"Domain pivot" }));
+    emails.forEach(e => scored.push({ type:"EMAIL", value:e, score:20, note:"Identity/Breach pivot" }));
+
+    eventIds.slice(0, 30).forEach(eid => scored.push({ type:"EVENT_ID", value:eid, score:16, note:"Windows event lookup" }));
+    sysmonIds.forEach(sid => scored.push({ type:"SYSMON_ID", value:sid, score:18, note:"Sysmon ID pivot" }));
+
+    executables.forEach(exe => scored.push({ type:"EXECUTABLE", value:exe, score:22, note:"Possible LOLBIN / process pivot" }));
+    filePaths.slice(0, 50).forEach(p => scored.push({ type:"FILEPATH", value:p, score:10, note:"Host artifact" }));
+    commandLines.forEach(c => scored.push({ type:"CMDLINE", value:c, score:26, note:"Command line pivot" }));
+
+    if (emailArtifacts.messageId) scored.push({ type:"MESSAGE-ID", value:emailArtifacts.messageId, score:22, note:"Email artifact pivot" });
+    if (emailArtifacts.dkimDomain) scored.push({ type:"DKIM d=", value:emailArtifacts.dkimDomain, score:20, note:"Sender DKIM domain pivot" });
+    if (emailArtifacts.dkimSelector) scored.push({ type:"DKIM s=", value:emailArtifacts.dkimSelector, score:14, note:"DKIM selector" });
+    if (emailArtifacts.spfMailfrom) scored.push({ type:"SPF mailfrom", value:emailArtifacts.spfMailfrom, score:20, note:"SPF mailfrom pivot" });
+    if (emailArtifacts.returnPath) scored.push({ type:"Return-Path", value:emailArtifacts.returnPath, score:18, note:"Return-Path pivot" });
+
+    // Sort high to low and dedupe by type+value
+    const key = (o) => `${o.type}::${o.value}`.toLowerCase();
+    const seen = new Set();
+    const deduped = [];
+    scored.sort((a,b) => b.score - a.score).forEach(o => {
+      const k = key(o);
+      if (!seen.has(k)) { seen.add(k); deduped.push(o); }
+    });
+
+    const high = deduped.filter(x => x.score >= 30).slice(0, 20);
+    const medium = deduped.filter(x => x.score >= 18 && x.score < 30).slice(0, 40);
+
+    // Build investigation-ready quick pivot links for top items
+    const pivots = [];
+    high.forEach(item => {
+      if (item.type === "IP" || item.type === "IPV6") {
+        pivots.push(`VT IP: https://www.virustotal.com/gui/ip-address/${enc(item.value)}`);
+        pivots.push(`AbuseIPDB: https://www.abuseipdb.com/check/${enc(item.value)}`);
+        pivots.push(`GreyNoise: https://viz.greynoise.io/ip/${enc(item.value)}`);
+      }
+      if (item.type === "DOMAIN") {
+        pivots.push(`VT Domain: https://www.virustotal.com/gui/domain/${enc(item.value)}`);
+        pivots.push(`urlscan: https://urlscan.io/search/#page.domain:${enc(item.value)}`);
+        pivots.push(`WHOIS: https://www.whois.com/whois/${enc(item.value)}`);
+      }
+      if (item.type === "HASH") {
+        pivots.push(`VT File: https://www.virustotal.com/gui/file/${enc(item.value)}`);
+        pivots.push(`Triage: https://tria.ge/s?q=${enc(item.value)}`);
+        pivots.push(`OTX File: https://otx.alienvault.com/indicator/file/${enc(item.value)}`);
+      }
+      if (item.type === "CVE") {
+        pivots.push(`NVD: https://nvd.nist.gov/vuln/detail/${enc(item.value)}`);
+        pivots.push(`Exploit-DB: https://www.exploit-db.com/search?cve=${enc(item.value)}`);
+      }
+      if (item.type === "URL") {
+        pivots.push(`urlscan: https://urlscan.io/search/#${enc(item.value)}`);
+        pivots.push(`VT URL search: ${gsearch(`site:virustotal.com ${item.value}`)}`);
+      }
+    });
+
+    const out =
+`SMART IOC EXTRACTOR
+Extracted At (UTC): ${now}
+
+INVESTIGATION-READY (Top priority):
+${high.map(x => `- [${x.score}] ${x.type}: ${x.value}${x.note ? `  (${x.note})` : ""}`).join("\n") || "- None"}
+
+USEFUL (Medium priority):
+${medium.map(x => `- [${x.score}] ${x.type}: ${x.value}${x.note ? `  (${x.note})` : ""}`).join("\n") || "- None"}
+
+EMAIL ARTIFACTS (if detected):
+- Message-ID: ${emailArtifacts.messageId || "-"}
+- Return-Path: ${emailArtifacts.returnPath || "-"}
+- DKIM selector (s=): ${emailArtifacts.dkimSelector || "-"}
+- DKIM domain (d=): ${emailArtifacts.dkimDomain || "-"}
+- SPF mailfrom: ${emailArtifacts.spfMailfrom || "-"}
+
+TIMESTAMPS:
+${uniq(timestamps).join("\n") || "-"}
+
+QUICK PIVOT LINKS (Top items):
+${uniq(pivots).slice(0, 25).join("\n") || "-"}
+
+ALL EXTRACTED (Raw lists):
+Emails:
+${emails.join("\n") || "-"}
+
+IPv4:
+${ipv4.join("\n") || "-"}
+
+IPv6:
+${ipv6.join("\n") || "-"}
+
+Domains:
+${domains.join("\n") || "-"}
+
+URLs:
+${urls.join("\n") || "-"}
+
+Hashes:
+${hashes.join("\n") || "-"}
+
+CVEs:
+${cves.join("\n") || "-"}
+
+MITRE Technique IDs:
+${mitre.join("\n") || "-"}
+
+Windows Event IDs:
+${eventIds.join("\n") || "-"}
+
+Sysmon IDs:
+${sysmonIds.join("\n") || "-"}
+
+Executables:
+${executables.join("\n") || "-"}
+
+File Paths:
+${filePaths.join("\n") || "-"}
+
+Command Lines:
+${commandLines.join("\n") || "-"}`;
+
+    return out;
+  }
+
+  // ---------- Main search ----------
   function doSearch({ silent = false } = {}) {
     const raw = (input.value || "").trim();
+    const pasted = (output.value || "").trim();
 
-    // no input => hide all sections
-    if (!raw) {
-      showRelevantTools(null);
+    if (!raw && !pasted) {
+      setSearchMode(false);
       setLandingLinks();
       renderCardMeta();
-      setStatus("Status: ready (no input)");
+      setStatus("Status: ready (landing page)");
       if (!silent) output.value = "";
       return;
     }
 
-    const { type, q } = detectType(raw);
+    const { type, q } = detectType(raw, pasted);
+
+    // unknown -> keep landing visible
+    if (!type) {
+      setSearchMode(false);
+      setLandingLinks();
+      renderCardMeta();
+      setStatus("Status: unknown type (landing page)");
+      if (!silent && raw) output.value = raw;
+      return;
+    }
+
+    // enable search mode
+    setSearchMode(true);
+
+    // determine which sections to show
+    const sections = [];
+    if (type === "header") { sections.push("header","emailartifacts"); }
+    else if (type === "cveplus") { sections.push("cve","cveplus"); }
+    else if (type === "sysmon") { sections.push("sysmon","soc"); }
+    else if (type === "lolbins") { sections.push("lolbins","soc"); }
+    else if (type === "mitre") { sections.push("soc"); }
+    else sections.push(type);
+
+    showRelevantTools(sections);
+
+    // start from landing then build query links
+    setLandingLinks();
 
     if (type === "header") {
-      // Show header toolkit; also update Email Artifacts links from header text
-      showRelevantTools("header");
-      updateLinks("header", "", raw);
-      setLandingLinks();
+      const headerText = pasted || raw;
+      updateLinksForQuery("header", "", headerText);
+      if (!silent && !pasted) output.value = raw;
       renderCardMeta();
-      setStatus("Status: detected EMAIL HEADERS → open analyzer + paste");
-
-      if (!silent) output.value = raw;
-
-      // also reveal Email Artifacts section automatically (useful)
-      const emailArtSec = document.querySelector('.tool-section[data-type="emailart"]');
-      if (emailArtSec) emailArtSec.classList.add("active");
-
+      setStatus("Status: detected EMAIL HEADERS → header tools + email artifacts pivots");
       return;
     }
 
-    if (!type) {
-      showRelevantTools(null);
-      setLandingLinks();
+    updateLinksForQuery(type, q);
+
+    if (type === "mitre") {
+      if (!silent) output.value = `MITRE Technique: ${q}\nATT&CK: https://attack.mitre.org/techniques/${q}/`;
+      setStatus(`Status: detected MITRE technique → ${q}`);
       renderCardMeta();
-      setStatus("Status: unknown input (no tools shown)");
-      if (!silent) output.value = raw;
       return;
     }
 
-    // CVE routes to CVE↔KEV/EPSS by design; still keep CVE Lookup section accessible
-    if (type === "cveplus") {
-      // Show both cveplus + cve for convenience
-      showRelevantTools("cveplus");
-      const cveSec = document.querySelector('.tool-section[data-type="cve"]');
-      if (cveSec) cveSec.classList.add("active");
-      updateLinks("cveplus", q);
-      updateLinks("cve", q);
-      renderCardMeta();
-      setStatus(`Status: detected CVE → ${q}`);
-      if (!silent) output.value = `CVE Query: ${q}`;
-      return;
-    }
-
-    // Normal types
-    showRelevantTools(type);
-    updateLinks(type, q, raw);
-    renderCardMeta();
-    setStatus(`Status: detected ${type.toUpperCase()} → ${q}`);
     if (!silent) output.value = `${type.toUpperCase()} Query: ${q}`;
+    setStatus(`Status: detected ${type.toUpperCase()} → ${q}`);
+    renderCardMeta();
   }
 
-  // Ensure clicks never use landing URLs when input exists
+  // Ensure tools clicked after input use query links (prevents landing redirects)
   document.addEventListener("click", (e) => {
     const a = e.target.closest(".tool-grid a");
     if (!a) return;
-    if ((input.value || "").trim()) doSearch({ silent: true });
+    const raw = (input.value || "").trim();
+    const pasted = (output.value || "").trim();
+    if (raw || pasted) doSearch({ silent: true });
   }, true);
 
-  // Events
+  // ---------- Buttons ----------
   document.getElementById("search-btn").addEventListener("click", () => doSearch({ silent:false }));
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch({ silent:false }); });
 
@@ -560,8 +784,9 @@ ${uniq(eventIds).join("\n") || "-"}`;
   });
 
   document.getElementById("extract-btn").addEventListener("click", () => {
-    extractIOCs();
-    setStatus("Status: IOC extraction complete");
+    const text = (output.value || "").trim() || (input.value || "");
+    output.value = extractSmartIOCs(text);
+    setStatus("Status: Smart IOC extraction complete");
   });
 
   document.getElementById("copy-btn").addEventListener("click", () => {
@@ -574,19 +799,20 @@ ${uniq(eventIds).join("\n") || "-"}`;
   document.getElementById("clear-all").addEventListener("click", () => {
     input.value = "";
     output.value = "";
-    showRelevantTools(null);
+    setSearchMode(false);
+    showRelevantTools([]);
     setLandingLinks();
     renderCardMeta();
-    setStatus("Status: ready (no input)");
+    setStatus("Status: ready (landing page)");
   });
 
   document.getElementById("toggle-dark").addEventListener("click", () => {
     document.body.classList.toggle("light");
   });
 
-  // Startup
+  // Startup (landing page)
+  setSearchMode(false);
   setLandingLinks();
   renderCardMeta();
-  showRelevantTools(null); // hide all by default
-  setStatus("Status: ready (no input)");
+  setStatus("Status: ready (landing page)");
 });
