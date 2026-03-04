@@ -25,6 +25,8 @@
     <div class="hint">
       Landing page shows all tools.<br />
       Search input shows only relevant OSINT.
+      <br /><br />
+      Tip: Paste full email headers in the input or Output box.
     </div>
   </div>
 
@@ -38,11 +40,15 @@
 
     <div class="input-panel">
       <div class="input-row">
-        <input
+        <!-- ✅ changed to textarea so headers work -->
+        <textarea
           id="input"
-          type="text"
-          placeholder="Enter IP / IPv6 / Domain / Email / Username / Hash / CVE / Event ID / Txxxx or paste Email Headers / logs (you can paste in Output too)"
-        />
+          class="main-input"
+          rows="2"
+          spellcheck="false"
+          placeholder="Enter IP / IPv6 / Domain / Email / Username / Hash / CVE / Event ID / Txxxx OR paste Email Headers / logs here (multi-line supported). You can paste in Output too."
+        ></textarea>
+
         <button id="search-btn" type="button">Search</button>
       </div>
 
@@ -59,7 +65,7 @@
       </div>
 
       <textarea id="output" placeholder="Results / Extracted IOCs (Tip: Paste full email headers/logs here then press Search or Extract IOCs)"></textarea>
-      <div class="hintline">Tip: Paste full email headers/logs into the Output box then press Search (or Extract IOCs).</div>
+      <div class="hintline">Tip: Paste full email headers/logs into the Input or Output box then press Search (or Extract IOCs).</div>
     </div>
 
     <!-- ===================== IP ===================== -->
