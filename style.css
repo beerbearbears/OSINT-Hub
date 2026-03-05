@@ -23,6 +23,7 @@ body{
   display:flex;
 }
 
+/* ===== Sidebar ===== */
 .sidebar{
   width: 280px;
   padding: 18px;
@@ -32,6 +33,7 @@ body{
   position: sticky;
   top:0;
   height:100vh;
+  overflow:auto;
 }
 
 .brand{
@@ -79,6 +81,7 @@ button{
   font-weight: 700;
   user-select:none;
   touch-action:manipulation;
+  min-height: 44px; /* mobile tap target */
 }
 
 button:hover{
@@ -99,10 +102,12 @@ button:active{ transform: translateY(0px); }
   line-height: 1.4;
 }
 
+/* ===== Main ===== */
 .main{
   flex:1;
   padding: 18px 18px 32px;
   overflow:auto;
+  min-width: 0; /* prevent overflow on mobile */
 }
 
 .header{
@@ -111,6 +116,7 @@ button:active{ transform: translateY(0px); }
   justify-content:space-between;
   gap:12px;
   margin-bottom: 14px;
+  flex-wrap: wrap;
 }
 
 .header h1{
@@ -135,10 +141,10 @@ button:active{ transform: translateY(0px); }
 .input-row{
   display:flex;
   gap:10px;
-  align-items:stretch; /* ✅ better for textarea */
+  align-items:center;
+  flex-wrap: wrap; /* allow wrap */
 }
 
-/* keep old input styles in case you add input elsewhere */
 input{
   flex:1;
   padding: 12px 12px;
@@ -147,22 +153,11 @@ input{
   background: rgba(15,23,42,0.55);
   color: var(--text);
   outline: none;
+  min-height: 44px; /* mobile tap target */
+  min-width: 220px;
 }
 
-.main-input{
-  flex:1;
-  padding: 12px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(15,23,42,0.55);
-  color: var(--text);
-  outline: none;
-  resize: vertical;
-  min-height: 52px;
-  line-height: 1.35;
-}
-
-.main-input:focus{
+input:focus{
   border-color: rgba(56,189,248,0.55);
   box-shadow: 0 0 0 4px rgba(56,189,248,0.12);
 }
@@ -197,6 +192,7 @@ input{
   align-items:center;
   justify-content:space-between;
   gap:10px;
+  flex-wrap: wrap;
 }
 
 .status .badge{
@@ -233,7 +229,7 @@ textarea#output:focus{
   font-size: 12px;
 }
 
-/* Sections */
+/* ===== Sections ===== */
 .tool-section{
   margin-top: 16px;
   border: 1px solid var(--border);
@@ -241,7 +237,7 @@ textarea#output:focus{
   background: rgba(255,255,255,0.03);
   box-shadow: 0 10px 24px rgba(0,0,0,0.20);
   overflow:hidden;
-  display:block;
+  display:block; /* landing page default */
 }
 
 .section-head{
@@ -251,6 +247,8 @@ textarea#output:focus{
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   background: rgba(255,255,255,0.02);
+  gap: 10px;
+  flex-wrap: wrap; /* wrap on small screens */
 }
 
 .section-head h2{
@@ -259,6 +257,7 @@ textarea#output:focus{
   display:flex;
   align-items:center;
   gap:10px;
+  flex-wrap: wrap;
 }
 
 .section-head .pill{
@@ -304,7 +303,8 @@ textarea#output:focus{
   margin-top: 6px;
   font-size: 12px;
   color: var(--muted);
-  word-break: break-all;
+  word-break: break-word; /* better on mobile */
+  overflow-wrap: anywhere;
 }
 
 .tool-grid a .lock{
@@ -316,7 +316,7 @@ textarea#output:focus{
   background: rgba(0,0,0,0.18);
 }
 
-/* ===== MITRE FIX (alignment + full screen) ===== */
+/* ===== MITRE FIX ===== */
 #mitre-panel{
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -354,7 +354,7 @@ body.search-mode .tool-section.tool-always{
   display:block;
 }
 
-/* Light mode */
+/* ===== Light mode ===== */
 body.light{
   --bg:#f3f4f6;
   --bg2:#eef2ff;
@@ -362,4 +362,77 @@ body.light{
   --muted:#4b5563;
   --border: rgba(17,24,39,0.10);
   --shadow: 0 10px 28px rgba(0,0,0,0.10);
+}
+
+/* =========================================================
+   ✅ MOBILE RESPONSIVE (ADDED)
+   - Sidebar becomes top bar
+   - Grids become 1 column
+   - Input/search buttons stack
+   ========================================================= */
+@media (max-width: 980px){
+  body{
+    flex-direction: column;
+  }
+
+  .sidebar{
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .main{
+    padding: 14px 14px 28px;
+  }
+
+  .tool-grid{
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 600px){
+  .brand{
+    padding: 10px;
+  }
+
+  .header h1{
+    font-size: 20px;
+  }
+
+  .input-row{
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  input{
+    min-width: 0;
+    width: 100%;
+  }
+
+  #search-btn{
+    width: 100%;
+  }
+
+  .tools{
+    gap: 8px;
+  }
+
+  .tools button{
+    flex: 1 1 calc(50% - 8px); /* 2 per row */
+  }
+
+  .tool-grid{
+    grid-template-columns: 1fr; /* single column on phones */
+    padding: 12px;
+  }
+
+  .tool-grid a{
+    padding: 12px;
+  }
+
+  #mitre-panel{
+    grid-template-columns: 1fr;
+  }
 }
