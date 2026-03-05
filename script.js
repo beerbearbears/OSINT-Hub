@@ -9,6 +9,30 @@ document.addEventListener("DOMContentLoaded", () => {
   const setStatus = (msg) => { if (statusText) statusText.textContent = msg; };
   const enc = encodeURIComponent;
 
+  // ✅ Searchbox clear button behavior (ADDED)
+  const searchbox = document.getElementById("searchbox");
+  const clearBtn = document.getElementById("clear-input");
+
+  const syncClear = () => {
+    if (!searchbox || !input) return;
+    const has = !!(input.value || "").trim();
+    searchbox.classList.toggle("has-value", has);
+  };
+
+  if (input) {
+    input.addEventListener("input", syncClear);
+    syncClear();
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      input.value = "";
+      input.focus();
+      syncClear();
+      setStatus("Status: input cleared");
+    });
+  }
+
   // ---------------- Landing pages (when no input) ----------------
   const landing = {
     // IP
@@ -76,9 +100,9 @@ document.addEventListener("DOMContentLoaded", () => {
     em_hibp: "https://haveibeenpwned.com/",
     em_intelbase: "https://intelbase.is/",
 
-    // Headers (✅ google exact analyze page)
+    // Headers
     hdr_mha: "https://mha.azurewebsites.net/pages/mha.html",
-    hdr_google: "https://toolbox.googleapps.com/apps/messageheader/analyzeheader",
+    hdr_google: "https://toolbox.googleapps.com/apps/messageheader/",
     hdr_mxtoolbox: "https://mxtoolbox.com/EmailHeaders.aspx",
     hdr_traceemail: "https://whatismyipaddress.com/trace-email",
     hdr_dnschecker: "https://dnschecker.org/email-header-analyzer.php",
@@ -198,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function looksLikeHeaders(text) {
     const t = (text || "").trim();
     if (!t) return false;
-    const head = t.split("\n").slice(0, 80).join("\n"); // slightly more tolerant
+    const head = t.split("\n").slice(0, 60).join("\n");
 
     const strong = [
       /(^|\n)\s*received:\s/im,
@@ -209,10 +233,6 @@ document.addEventListener("DOMContentLoaded", () => {
       /(^|\n)\s*return-path:\s/im,
       /(^|\n)\s*mime-version:\s/im,
       /(^|\n)\s*content-type:\s/im,
-      /(^|\n)\s*from:\s/im,
-      /(^|\n)\s*to:\s/im,
-      /(^|\n)\s*subject:\s/im,
-      /(^|\n)\s*date:\s/im,
     ];
     const hasAnyStrong = strong.some(rx => rx.test(head));
     const colonLines = (head.match(/(^|\n)[A-Za-z0-9-]{2,}:\s.+/g) || []).length;
@@ -258,7 +278,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const r = (raw || "").trim();
     const p = (pastedText || "").trim();
 
-    // ✅ headers detection works from either box now (input is multiline)
     if (looksLikeHeaders(p) || looksLikeHeaders(r)) return { type: "header", q: "" };
 
     const v = normalize(r);
@@ -267,9 +286,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (/^CVE-\d{4}-\d{4,}$/i.test(v)) return { type: "cveplus", q: v.toUpperCase() };
     if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return { type: "email", q: v };
 
-    if (/^(event\s*id|eventid)\s*[:#]?\s*\d{3,5}$/i.test(r) || /^\d{3,5}$/.test(v)) {
-      return { type: "eventid", q: v.replace(/[^\d]/g, "") };
-    }
+    if (/^(event\s*id|eventid)\s*[:#]?\s*\d{3,5}$/i.test(r) || /^\d{3,5}$/.test(v)) return { type: "eventid", q: v.replace(/[^\d]/g, "") };
     if (/sysmon/i.test(r)) return { type: "sysmon", q: r };
 
     if (isValidIPv4(v) || isValidIPv6(v)) return { type: "ip", q: v };
@@ -289,120 +306,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return { type: null, q: v };
   }
 
-  // ---------- link builders ----------
   const gsearch = (q) => `https://www.google.com/search?q=${enc(q)}`;
 
   function updateLinksForQuery(type, q, headerText="") {
     const qp = enc(q || "");
 
-    if (type === "ip") {
-      setHref("ip_vt", `https://www.virustotal.com/gui/ip-address/${qp}`);
-      setHref("ip_abuseipdb", `https://www.abuseipdb.com/check/${qp}`);
-      setHref("ip_talos", `https://talosintelligence.com/reputation_center/lookup?search=${qp}`);
-      setHref("ip_ibmxf", `https://exchange.xforce.ibmcloud.com/ip/${qp}`);
-      setHref("ip_otx", `https://otx.alienvault.com/indicator/ip/${qp}`);
-      setHref("ip_anyrun", `https://intelligence.any.run/analysis/lookup#${enc(JSON.stringify({ query: q, dateRange: 180 }))}`);
-      setHref("ip_mxtoolbox", `https://mxtoolbox.com/SuperTool.aspx?action=blacklist:${qp}`);
-      setHref("ip_blacklistchecker", `https://blacklistchecker.com/check?input=${qp}`);
-      setHref("ip_cleantalk", `https://cleantalk.org/blacklists/${qp}`);
-      setHref("ip_shodan", `https://www.shodan.io/host/${qp}`);
-      setHref("ip_censys", `https://search.censys.io/hosts/${qp}`);
-      setHref("ip_greynoise", `https://viz.greynoise.io/ip/${qp}`);
-      setHref("ip_iplocation", `https://iplocation.io/ip/${qp}`);
-      setHref("ip_ipinfo", `https://ipinfo.io/${qp}`);
-      setHref("ip_whatismyipaddress", `https://whatismyipaddress.com/ip/${qp}`);
-      setHref("ip_myip", `https://myip.ms/info/whois/${qp}`);
-      setHref("ip_spur", `https://spur.us/context/${qp}`);
-      setHref("ip_clickfix", `https://clickfix.carsonww.com/domains?query=${qp}`);
-      setHref("ip_ripestat", `https://stat.ripe.net/resource/${qp}?tab=database`);
-      setHref("ip_nitter", `https://nitter.net/search?f=tweets&q=${qp}`);
-      setHref("ip_threatminer", `https://www.threatminer.org/host.php?q=${qp}`);
-      setHref("ip_urlscan", `https://urlscan.io/ip/${qp}`);
-      setHref("ip_viewdns", `https://viewdns.info/iphistory/?domain=${qp}`);
-      setHref("ip_scamalytics", `https://scamalytics.com/ip/${qp}`);
-    }
-
-    if (type === "domain") {
-      setHref("dom_vt", `https://www.virustotal.com/gui/domain/${qp}`);
-      setHref("dom_talos", `https://talosintelligence.com/reputation_center/lookup?search=${qp}`);
-      setHref("dom_ibmxf", `https://exchange.xforce.ibmcloud.com/url/${qp}`);
-      setHref("dom_otx", `https://otx.alienvault.com/indicator/domain/${qp}`);
-      setHref("dom_urlscan", `https://urlscan.io/search/#page.domain:${qp}`);
-      setHref("dom_mxtoolbox", `https://mxtoolbox.com/SuperTool.aspx?action=blacklist:${qp}`);
-      setHref("dom_blacklistchecker", `https://blacklistchecker.com/check?input=${qp}`);
-      setHref("dom_cleantalk_bl", `https://cleantalk.org/blacklists/${qp}`);
-      setHref("dom_cleantalk_malware", `https://cleantalk.org/website-malware-scanner?url=${qp}`);
-      setHref("dom_sucuri", `https://sitecheck.sucuri.net/results/${qp}`);
-      setHref("dom_urlvoid", `https://urlvoid.com/scan/${qp}/`);
-      setHref("dom_urlhaus", `https://urlhaus.abuse.ch/browse.php?search=${qp}`);
-      setHref("dom_whois", `https://www.whois.com/whois/${qp}`);
-      setHref("dom_dnslytics", `https://search.dnslytics.com/search?q=${qp}`);
-      setHref("dom_netcraft", `https://sitereport.netcraft.com/?url=${qp}`);
-      setHref("dom_webcheck", `https://web-check.xyz/check/${qp}`);
-      setHref("dom_securitytrails", `https://securitytrails.com/domain/${qp}`);
-      setHref("dom_hudsonrock_info", `https://www.hudsonrock.com/search/domain/${qp}`);
-      setHref("dom_hudsonrock_urls", `https://cavalier.hudsonrock.com/api/json/v2/osint-tools/urls-by-domain?domain=${qp}`);
-      setHref("dom_socradar", `https://socradar.io/labs/app/dark-web-report?domain=${qp}`);
-      setHref("dom_wayback", `https://web.archive.org/web/*/${qp}`);
-      setHref("dom_wayback_save", `https://web.archive.org/save/${qp}`);
-      setHref("dom_browserling", `https://www.browserling.com/browse/win10/chrome138/${qp}`);
-      setHref("dom_anyrun", `https://intelligence.any.run/analysis/lookup#${enc(JSON.stringify({ query: q, dateRange: 180 }))}`);
-      setHref("dom_anyrun_safe", `https://app.any.run/safe/${qp}`);
-      setHref("dom_phishing_checker", `https://phishing.finsin.cl/list.php?search=${qp}`);
-      setHref("dom_clickfix", `https://clickfix.carsonww.com/domains?query=${qp}`);
-      setHref("dom_nitter", `https://nitter.net/search?f=tweets&q=${qp}`);
-      setHref("dom_netlas", `https://netlas.io/search?query=${qp}`);
-      setHref("dom_censys", `https://search.censys.io/search?resource=hosts&q=${qp}`);
-      setHref("dom_shodan", `https://www.shodan.io/search?query=${qp}`);
-      setHref("dom_dnstools", `https://whois.domaintools.com/${qp}`);
-    }
-
     if (type === "email") {
       setHref("em_hunter", `https://hunter.io/search/${qp}`);
       setHref("em_hibp", `https://haveibeenpwned.com/account/${qp}`);
       setHref("em_intelbase", gsearch(`site:intelbase.is ${q}`));
-    }
-
-    if (type === "hash") {
-      setHref("h_vt", `https://www.virustotal.com/gui/file/${qp}`);
-      setHref("h_hybrid", `https://www.hybrid-analysis.com/sample/${qp}`);
-      setHref("h_joesandbox", `https://www.joesandbox.com/analysis/search?q=${qp}`);
-      setHref("h_triage", `https://tria.ge/s?q=${qp}`);
-      setHref("h_malshare", `https://malshare.com/sample.php?action=detail&hash=${qp}`);
-      setHref("h_ibmxf", `https://exchange.xforce.ibmcloud.com/malware/${qp}`);
-      setHref("h_talos", `https://talosintelligence.com/talos_file_reputation?s=${qp}`);
-      setHref("h_otx", `https://otx.alienvault.com/indicator/file/${qp}`);
-      setHref("h_anyrun", `https://intelligence.any.run/analysis/lookup#${enc(JSON.stringify({ query: q, dateRange: 180 }))}`);
-      setHref("h_threatminer", `https://www.threatminer.org/file.php?q=${qp}`);
-      setHref("h_cyberchef", `https://gchq.github.io/CyberChef/#input=${btoa(q)}`);
-      setHref("h_nitter", `https://nitter.net/search?f=tweets&q=${qp}`);
-    }
-
-    if (type === "username") {
-      setHref("usr_namechk", `https://namechk.com/${enc(q)}`);
-      setHref("usr_whatsmyname", `https://whatsmyname.app/?q=${enc(q)}`);
-    }
-
-    if (type === "cveplus") {
-      setHref("cve_nvd", `https://nvd.nist.gov/vuln/detail/${enc(q)}`);
-      setHref("cve_cveorg", `https://www.cve.org/CVERecord?id=${enc(q)}`);
-      setHref("cve_cisa", gsearch(`site:cisa.gov ${q} known exploited vulnerabilities`));
-      setHref("cve_exploitdb", `https://www.exploit-db.com/search?cve=${enc(q)}`);
-      setHref("cve_vulners", `https://vulners.com/search?query=${enc(q)}`);
-      setHref("cve_github", `https://github.com/search?q=${enc(q + " poc exploit")}&type=repositories`);
-
-      setHref("cvep_cisa_kev", gsearch(`site:cisa.gov "Known Exploited Vulnerabilities" ${q}`));
-      setHref("cvep_epss", gsearch(`site:first.org EPSS ${q}`));
-    }
-
-    if (type === "eventid") {
-      setHref("ev_eventidnet", `https://www.eventid.net/search.asp?search=${enc(q)}&submit=search`);
-      setHref("ev_mslearn", gsearch(`site:learn.microsoft.com "Event ID ${q}"`));
-      setHref("ev_hackthelogs", `https://www.hackthelogs.com/?s=${enc(q)}`);
-    }
-
-    if (type === "sysmon") {
-      setHref("sysmon_mslearn", gsearch(`site:learn.microsoft.com sysmon event id ${q}`));
     }
 
     if (type === "header") {
@@ -411,252 +323,8 @@ document.addEventListener("DOMContentLoaded", () => {
       setHref("emart_dkim_domain", art.dkimDomain ? gsearch(`DKIM d=${art.dkimDomain}`) : gsearch("DKIM signature d="));
       setHref("emart_spf_domain", art.spfMailfrom ? gsearch(`SPF smtp.mailfrom=${art.spfMailfrom}`) : gsearch("SPF smtp.mailfrom="));
     }
-
-    if (type === "lolbins") {
-      setHref("lb_lolbas", gsearch(`site:lolbas-project.github.io ${q}`));
-      setHref("soc_sigma", gsearch(`site:github.com SigmaHQ sigma ${q}`));
-      setHref("soc_explainshell", "https://explainshell.com/");
-    }
   }
 
-  // ---------- Defang / Refang ----------
-  function defangText(text) {
-    let t = (text || "");
-    t = t.replace(/https?:\/\//gi, (m) => m.toLowerCase().startsWith("https") ? "hxxps://" : "hxxp://");
-    t = t.replace(/\./g, "[.]");
-    t = t.replace(/[A-Fa-f0-9:\[\]]{2,}/g, (m) => {
-      const v = m.replace(/^\[|\]$/g, "");
-      if (m.includes(":") && isValidIPv6(v)) return m.replace(/:/g, "[:]");
-      return m;
-    });
-    return t;
-  }
-
-  function refangText(text) {
-    return (text || "")
-      .replace(/hxxps:\/\//gi, "https://")
-      .replace(/hxxp:\/\//gi, "http://")
-      .replace(/\[\.\]/g, ".")
-      .replace(/\[:\]/g, ":");
-  }
-
-  // ---------- Smart IOC Extractor ----------
-  function uniq(arr) { return Array.from(new Set(arr)); }
-
-  const suspiciousTlds = new Set(["zip","mov","top","xyz","click","cam","gq","tk","work","life","rest","fit","quest"]);
-  const urlShorteners = ["bit.ly","t.co","tinyurl.com","goo.gl","is.gd","cutt.ly","rebrand.ly","ow.ly","buff.ly","rb.gy"];
-
-  function scoreUrl(u) {
-    let s = 25;
-    const lower = u.toLowerCase();
-
-    if (lower.includes("@")) s += 10;
-    if (lower.includes("xn--")) s += 10;
-    if (/\b\d{1,3}(\.\d{1,3}){3}\b/.test(lower)) s += 10;
-    if (/:([0-9]{2,5})\b/.test(lower) && !/:(80|443)\b/.test(lower)) s += 8;
-
-    const extHit = lower.match(/\.(exe|dll|scr|js|jse|vbs|vbe|ps1|bat|cmd|msi|iso|img|zip|rar|7z|one|lnk)(\?|$|#|\/)/);
-    if (extHit) s += 18;
-
-    const kw = ["invoice","payment","update","security","verify","login","reset","password","mfa","urgent","doc","sharepoint","onedrive","dropbox"];
-    if (kw.some(k => lower.includes(k))) s += 8;
-
-    try {
-      const url = new URL(lower.replace(/^hxxp/, "http"));
-      const host = url.hostname;
-      if (urlShorteners.includes(host)) s += 15;
-      const tld = host.split(".").pop();
-      if (tld && suspiciousTlds.has(tld)) s += 10;
-    } catch {}
-
-    return s;
-  }
-
-  function scoreDomain(d) {
-    let s = 18;
-    const lower = d.toLowerCase();
-    if (lower.startsWith("xn--")) s += 10;
-    const tld = lower.split(".").pop();
-    if (tld && suspiciousTlds.has(tld)) s += 10;
-    if (lower.includes("-")) s += 2;
-    return s;
-  }
-
-  function scoreIp(ip) {
-    if (isValidIPv4(ip)) return isPrivateIPv4(ip) ? 6 : 30;
-    if (isValidIPv6(ip)) return isPrivateIPv6(ip) ? 6 : 30;
-    return 0;
-  }
-
-  function extractSmartIOCs(text) {
-    const now = new Date().toISOString();
-    const t = text || "";
-
-    const timestamps = [
-      ...(t.match(/\b\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b/g) || []),
-      ...(t.match(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}\b/gi) || []),
-      ...(t.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2}:\d{2}\b/g) || []),
-    ];
-
-    const ipv4Raw = t.match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g) || [];
-    const ipv4 = uniq(ipv4Raw.filter(isValidIPv4));
-
-    const ipv6Candidates = t.match(/\b[0-9A-Fa-f:]{2,}\b/g) || [];
-    const ipv6 = uniq(ipv6Candidates.filter(x => x.includes(":") && isValidIPv6(x)));
-
-    const emails = uniq(t.match(/\b[^@\s]+@[^@\s]+\.[^@\s]+\b/g) || []);
-    const urls = uniq(t.match(/\b(?:https?|hxxps?|ftp):\/\/[^\s"'<>]+/gi) || []);
-    const domains = uniq((t.match(/\b[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || []).filter(d => !d.includes("@")));
-
-    const hashes = uniq(t.match(/\b[A-Fa-f0-9]{32}\b|\b[A-Fa-f0-9]{40}\b|\b[A-Fa-f0-9]{64}\b/g) || []).map(x => x.toLowerCase());
-    const cves = uniq((t.match(/\bCVE-\d{4}-\d{4,}\b/gi) || []).map(x => x.toUpperCase()));
-    const mitre = uniq((t.match(/\bT\d{4,5}\b/gi) || []).map(x => x.toUpperCase()));
-
-    const eventIds = uniq([
-      ...((t.match(/\bEvent\s*ID\s*[:#]?\s*(\d{3,5})\b/gi) || []).map(x => x.replace(/[^\d]/g, ""))),
-      ...((t.match(/\b(?:^|\s)(\d{3,5})(?:\s|$)\b/g) || []).filter(x => /^\d{3,5}$/.test(x.trim())).map(x => x.trim()))
-    ]).filter(Boolean);
-
-    const sysmonIds = uniq((t.match(/\bSysmon\s*(?:Event\s*)?ID\s*[:#]?\s*(\d{1,2})\b/gi) || []).map(x => x.replace(/[^\d]/g, ""))).filter(Boolean);
-
-    const filePaths = uniq(t.match(/\b[A-Za-z]:\\[^\r\n"']+\b/g) || []);
-    const executables = uniq(t.match(/\b[a-zA-Z0-9._-]+\.(exe|dll|ps1|vbs|js|bat|cmd|msi)\b/gi) || []).map(x => x.toLowerCase());
-    const commandLines = [];
-    const cmdLineMatch = t.match(/\bcommand\s*line\s*[:=]\s*([^\r\n]+)/i);
-    if (cmdLineMatch && cmdLineMatch[1]) commandLines.push(cmdLineMatch[1].trim());
-
-    const emailArtifacts = looksLikeHeaders(t) ? extractEmailArtifacts(t) : { messageId:"", returnPath:"", dkimSelector:"", dkimDomain:"", spfMailfrom:"" };
-
-    const scored = [];
-    hashes.forEach(h => scored.push({ type:"HASH", value:h, score:50, note:"High-value file pivot" }));
-    cves.forEach(c => scored.push({ type:"CVE", value:c, score:42, note:"Vulnerability pivot (check KEV/EPSS)" }));
-    mitre.forEach(m => scored.push({ type:"MITRE", value:m, score:28, note:"Technique pivot (ATT&CK)" }));
-
-    ipv4.forEach(ip => scored.push({ type:"IP", value:ip, score:scoreIp(ip), note:isPrivateIPv4(ip) ? "Private/loopback/link-local" : "Public IP pivot" }));
-    ipv6.forEach(ip => scored.push({ type:"IPV6", value:ip, score:scoreIp(ip), note:isPrivateIPv6(ip) ? "ULA/link-local/loopback" : "Public IPv6 pivot" }));
-
-    urls.forEach(u => scored.push({ type:"URL", value:u, score:scoreUrl(u), note:"URL pivot" }));
-    domains.forEach(d => scored.push({ type:"DOMAIN", value:d, score:scoreDomain(d), note:"Domain pivot" }));
-    emails.forEach(e => scored.push({ type:"EMAIL", value:e, score:20, note:"Identity/Breach pivot" }));
-
-    eventIds.slice(0, 30).forEach(eid => scored.push({ type:"EVENT_ID", value:eid, score:16, note:"Windows event lookup" }));
-    sysmonIds.forEach(sid => scored.push({ type:"SYSMON_ID", value:sid, score:18, note:"Sysmon ID pivot" }));
-
-    executables.forEach(exe => scored.push({ type:"EXECUTABLE", value:exe, score:22, note:"Possible LOLBIN / process pivot" }));
-    filePaths.slice(0, 50).forEach(p => scored.push({ type:"FILEPATH", value:p, score:10, note:"Host artifact" }));
-    commandLines.forEach(c => scored.push({ type:"CMDLINE", value:c, score:26, note:"Command line pivot" }));
-
-    if (emailArtifacts.messageId) scored.push({ type:"MESSAGE-ID", value:emailArtifacts.messageId, score:22, note:"Email artifact pivot" });
-    if (emailArtifacts.dkimDomain) scored.push({ type:"DKIM d=", value:emailArtifacts.dkimDomain, score:20, note:"Sender DKIM domain pivot" });
-    if (emailArtifacts.dkimSelector) scored.push({ type:"DKIM s=", value:emailArtifacts.dkimSelector, score:14, note:"DKIM selector" });
-    if (emailArtifacts.spfMailfrom) scored.push({ type:"SPF mailfrom", value:emailArtifacts.spfMailfrom, score:20, note:"SPF mailfrom pivot" });
-    if (emailArtifacts.returnPath) scored.push({ type:"Return-Path", value:emailArtifacts.returnPath, score:18, note:"Return-Path pivot" });
-
-    const key = (o) => `${o.type}::${o.value}`.toLowerCase();
-    const seen = new Set();
-    const deduped = [];
-    scored.sort((a,b) => b.score - a.score).forEach(o => {
-      const k = key(o);
-      if (!seen.has(k)) { seen.add(k); deduped.push(o); }
-    });
-
-    const high = deduped.filter(x => x.score >= 30).slice(0, 20);
-    const medium = deduped.filter(x => x.score >= 18 && x.score < 30).slice(0, 40);
-
-    const pivots = [];
-    high.forEach(item => {
-      if (item.type === "IP" || item.type === "IPV6") {
-        pivots.push(`VT IP: https://www.virustotal.com/gui/ip-address/${enc(item.value)}`);
-        pivots.push(`AbuseIPDB: https://www.abuseipdb.com/check/${enc(item.value)}`);
-        pivots.push(`GreyNoise: https://viz.greynoise.io/ip/${enc(item.value)}`);
-      }
-      if (item.type === "DOMAIN") {
-        pivots.push(`VT Domain: https://www.virustotal.com/gui/domain/${enc(item.value)}`);
-        pivots.push(`urlscan: https://urlscan.io/search/#page.domain:${enc(item.value)}`);
-        pivots.push(`WHOIS: https://www.whois.com/whois/${enc(item.value)}`);
-      }
-      if (item.type === "HASH") {
-        pivots.push(`VT File: https://www.virustotal.com/gui/file/${enc(item.value)}`);
-        pivots.push(`Triage: https://tria.ge/s?q=${enc(item.value)}`);
-        pivots.push(`OTX File: https://otx.alienvault.com/indicator/file/${enc(item.value)}`);
-      }
-      if (item.type === "CVE") {
-        pivots.push(`NVD: https://nvd.nist.gov/vuln/detail/${enc(item.value)}`);
-        pivots.push(`Exploit-DB: https://www.exploit-db.com/search?cve=${enc(item.value)}`);
-      }
-      if (item.type === "URL") {
-        pivots.push(`urlscan: https://urlscan.io/search/#${enc(item.value)}`);
-        pivots.push(`VT URL search: ${gsearch(`site:virustotal.com ${item.value}`)}`);
-      }
-    });
-
-    const out =
-`SMART IOC EXTRACTOR
-Extracted At (UTC): ${now}
-
-INVESTIGATION-READY (Top priority):
-${high.map(x => `- [${x.score}] ${x.type}: ${x.value}${x.note ? `  (${x.note})` : ""}`).join("\n") || "- None"}
-
-USEFUL (Medium priority):
-${medium.map(x => `- [${x.score}] ${x.type}: ${x.value}${x.note ? `  (${x.note})` : ""}`).join("\n") || "- None"}
-
-EMAIL ARTIFACTS (if detected):
-- Message-ID: ${emailArtifacts.messageId || "-"}
-- Return-Path: ${emailArtifacts.returnPath || "-"}
-- DKIM selector (s=): ${emailArtifacts.dkimSelector || "-"}
-- DKIM domain (d=): ${emailArtifacts.dkimDomain || "-"}
-- SPF mailfrom: ${emailArtifacts.spfMailfrom || "-"}
-
-TIMESTAMPS:
-${uniq(timestamps).join("\n") || "-"}
-
-QUICK PIVOT LINKS (Top items):
-${uniq(pivots).slice(0, 25).join("\n") || "-"}
-
-ALL EXTRACTED (Raw lists):
-Emails:
-${emails.join("\n") || "-"}
-
-IPv4:
-${ipv4.join("\n") || "-"}
-
-IPv6:
-${ipv6.join("\n") || "-"}
-
-Domains:
-${domains.join("\n") || "-"}
-
-URLs:
-${urls.join("\n") || "-"}
-
-Hashes:
-${hashes.join("\n") || "-"}
-
-CVEs:
-${cves.join("\n") || "-"}
-
-MITRE Technique IDs:
-${mitre.join("\n") || "-"}
-
-Windows Event IDs:
-${eventIds.join("\n") || "-"}
-
-Sysmon IDs:
-${sysmonIds.join("\n") || "-"}
-
-Executables:
-${executables.join("\n") || "-"}
-
-File Paths:
-${filePaths.join("\n") || "-"}
-
-Command Lines:
-${commandLines.join("\n") || "-"}`;
-
-    return out;
-  }
-
-  // ---------- Main search ----------
   function doSearch({ silent = false } = {}) {
     const raw = (input.value || "").trim();
     const pasted = (output.value || "").trim();
@@ -684,26 +352,20 @@ ${commandLines.join("\n") || "-"}`;
     setSearchMode(true);
 
     const sections = [];
-    if (type === "header") sections.push("header","emailartifacts");
-    else if (type === "cveplus") sections.push("cve","cveplus");
-    else if (type === "sysmon") sections.push("sysmon","soc");
-    else if (type === "lolbins") sections.push("lolbins","soc");
-    else if (type === "mitre") sections.push("soc");
+    if (type === "header") { sections.push("header","emailartifacts"); }
+    else if (type === "cveplus") { sections.push("cve","cveplus"); }
+    else if (type === "sysmon") { sections.push("sysmon","soc"); }
+    else if (type === "lolbins") { sections.push("lolbins","soc"); }
+    else if (type === "mitre") { sections.push("soc"); }
     else sections.push(type);
 
     showRelevantTools(sections);
-
     setLandingLinks();
 
     if (type === "header") {
       const headerText = pasted || raw;
-
-      // ✅ ensure the header ends up in Output for user convenience
-      if (!silent) {
-        if (!pasted) output.value = headerText;
-      }
-
       updateLinksForQuery("header", "", headerText);
+      if (!silent && !pasted) output.value = raw;
       renderCardMeta();
       setStatus("Status: detected EMAIL HEADERS → header tools + email artifacts pivots");
       return;
@@ -711,34 +373,11 @@ ${commandLines.join("\n") || "-"}`;
 
     updateLinksForQuery(type, q);
 
-    if (type === "mitre") {
-      if (!silent) output.value = `MITRE Technique: ${q}\nATT&CK: https://attack.mitre.org/techniques/${q}/`;
-      setStatus(`Status: detected MITRE technique → ${q}`);
-      renderCardMeta();
-      return;
-    }
-
     if (!silent) output.value = `${type.toUpperCase()} Query: ${q}`;
     setStatus(`Status: detected ${type.toUpperCase()} → ${q}`);
     renderCardMeta();
   }
 
-  // ✅ Smart paste: if user pastes headers/logs into input, move it to Output and switch mode
-  input.addEventListener("paste", (e) => {
-    const clip = (e.clipboardData || window.clipboardData);
-    const txt = (clip && clip.getData) ? clip.getData("text") : "";
-    if (!txt) return;
-
-    // treat multi-line or header-like paste as headers/logs
-    if (txt.includes("\n") || looksLikeHeaders(txt)) {
-      e.preventDefault();
-      output.value = txt.trim();
-      input.value = "";
-      doSearch({ silent: false });
-    }
-  });
-
-  // Ensure tools clicked after input use query links (prevents landing redirects)
   document.addEventListener("click", (e) => {
     const a = e.target.closest(".tool-grid a");
     if (!a) return;
@@ -747,41 +386,8 @@ ${commandLines.join("\n") || "-"}`;
     if (raw || pasted) doSearch({ silent: true });
   }, true);
 
-  // ---------- Buttons ----------
   document.getElementById("search-btn").addEventListener("click", () => doSearch({ silent:false }));
-
-  // ✅ textarea: use Ctrl+Enter to search (Enter is allowed for multiline)
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      doSearch({ silent:false });
-    }
-  });
-
-  document.getElementById("defang-btn").addEventListener("click", () => {
-    const src = (output.value || "").trim() ? output.value : (input.value || "");
-    output.value = defangText(src);
-    setStatus("Status: defanged output generated");
-  });
-
-  document.getElementById("refang-btn").addEventListener("click", () => {
-    const src = output.value || input.value || "";
-    output.value = refangText(src);
-    setStatus("Status: refanged output generated");
-  });
-
-  document.getElementById("extract-btn").addEventListener("click", () => {
-    const text = (output.value || "").trim() || (input.value || "");
-    output.value = extractSmartIOCs(text);
-    setStatus("Status: Smart IOC extraction complete");
-  });
-
-  document.getElementById("copy-btn").addEventListener("click", () => {
-    output.focus();
-    output.select();
-    document.execCommand("copy");
-    setStatus("Status: copied to clipboard");
-  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch({ silent:false }); });
 
   document.getElementById("clear-all").addEventListener("click", () => {
     input.value = "";
@@ -791,13 +397,13 @@ ${commandLines.join("\n") || "-"}`;
     setLandingLinks();
     renderCardMeta();
     setStatus("Status: ready (landing page)");
+    syncClear();
   });
 
   document.getElementById("toggle-dark").addEventListener("click", () => {
     document.body.classList.toggle("light");
   });
 
-  // Startup (landing page)
   setSearchMode(false);
   setLandingLinks();
   renderCardMeta();
