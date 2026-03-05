@@ -37,9 +37,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ---------------- Helpers ----------------
   const gsearch = (q) => `https://www.google.com/search?q=${enc(q)}`;
-  const anyrunLookupHash = (q) =>
-    `https://intelligence.any.run/analysis/lookup#${enc(JSON.stringify({ query: q, dateRange: 180 }))}`;
-
   const anyrunLookupGeneral = (q) =>
     `https://intelligence.any.run/analysis/lookup#${enc(JSON.stringify({ query: q, dateRange: 180 }))}`;
 
@@ -182,35 +179,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const r = (raw || "").trim();
     const p = (pastedText || "").trim();
 
-    // Email headers detection
     if (looksLikeHeaders(p) || looksLikeHeaders(r)) return { type: "header", q: "" };
 
     const v = normalize(r);
 
-    // MITRE
     if (/^T\d{4,5}$/i.test(v)) return { type: "mitre", q: v.toUpperCase() };
-
-    // CVE
     if (/^CVE-\d{4}-\d{4,}$/i.test(v)) return { type: "cve", q: v.toUpperCase() };
-
-    // Email
     if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return { type: "email", q: v.toLowerCase() };
-
-    // EventID
     if (/^\d{3,5}$/.test(v)) return { type: "eventid", q: v };
-
-    // IP
     if (isValidIPv4(v) || isValidIPv6(v)) return { type: "ip", q: v };
 
-    // Hash
     if (/^[a-fA-F0-9]{32}$/.test(v) || /^[a-fA-F0-9]{40}$/.test(v) || /^[a-fA-F0-9]{64}$/.test(v)) {
       return { type: "hash", q: v.toLowerCase() };
     }
 
-    // Domain
     if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v)) return { type: "domain", q: v.toLowerCase() };
-
-    // Username
     if (/^[a-zA-Z0-9._-]{3,}$/.test(v)) return { type: "username", q: v };
 
     return { type: null, q: v };
@@ -361,12 +344,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ---------------- Defang / Refang (FIXED) ----------------
-  // Defang only IOCs (URLs/domains/IPs/emails), not the whole paragraph.
+  // ---------------- Defang / Refang (IPv6 FIXED) ----------------
   function defangSmart(text) {
     let t = (text || "");
 
-    // URLs
+    // URLs (also defang dots inside)
     t = t.replace(/\bhttps?:\/\/[^\s<>"')]+/gi, (m) => {
       let x = m.replace(/^https:\/\//i, "hxxps://").replace(/^http:\/\//i, "hxxp://");
       x = x.replace(/\./g, "[.]");
@@ -375,7 +357,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Emails
     t = t.replace(/\b([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,})\b/gi, (m, u, d) => {
-      return `${u}[@]${d.replace(/\./g, "[.]")}`;
+      return `${u}[@]${String(d).replace(/\./g, "[.]")}`;
     });
 
     // IPv4
@@ -384,12 +366,25 @@ document.addEventListener("DOMContentLoaded", () => {
       return m.replace(/\./g, "[.]");
     });
 
+    // IPv6 (standalone or [bracketed])
+    // We only defang tokens that validate as IPv6 to avoid breaking timestamps like 12:30:10
+    t = t.replace(/(\[?[0-9A-Fa-f:]{2,}\]?)/g, (token) => {
+      if (!token.includes(":")) return token;
+      // strip common trailing punctuation for validation, then re-add later
+      const trail = token.match(/[),.;]+$/)?.[0] || "";
+      const core = token.slice(0, token.length - trail.length);
+
+      const cleaned = core.replace(/^\[|\]$/g, "");
+      if (!isValidIPv6(cleaned)) return token;
+
+      const def = core.replace(/:/g, "[:]");
+      return def + trail;
+    });
+
     // Domains (standalone)
     t = t.replace(/\b([a-z0-9-]+(?:\.[a-z0-9-]+)+)\b/gi, (m) => {
-      // avoid already-defanged or obvious file extensions like .exe
       if (m.includes("[.]")) return m;
       if (/\.(exe|dll|sys|bat|cmd|ps1|js|vbs)$/i.test(m)) return m;
-      // must contain TLD-ish
       if (!/\.[a-z]{2,}$/i.test(m)) return m;
       return m.replace(/\./g, "[.]");
     });
@@ -406,7 +401,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return t;
   }
 
-  // ---------------- Tool link builders (FIXED) ----------------
+  // ---------------- Tool link builders ----------------
   function buildLinksForIP(ip) {
     setHref("ip_vt", `https://www.virustotal.com/gui/ip-address/${enc(ip)}`);
     setHref("ip_abuseipdb", `https://www.abuseipdb.com/check/${enc(ip)}`);
@@ -478,7 +473,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setHref("h_ibmxf", `https://exchange.xforce.ibmcloud.com/malware/${enc(hash)}`);
     setHref("h_talos", `https://talosintelligence.com/talos_file_reputation?s=${enc(hash)}`);
     setHref("h_otx", `https://otx.alienvault.com/indicator/file/${enc(hash)}`);
-    setHref("h_anyrun", anyrunLookupHash(hash));
+    setHref("h_anyrun", anyrunLookupGeneral(hash));
     setHref("h_threatminer", `https://www.threatminer.org/sample.php?q=${enc(hash)}`);
     setHref("h_cyberchef", `https://gchq.github.io/CyberChef/`);
     setHref("h_nitter", `https://nitter.net/search?q=${enc(hash)}`);
@@ -487,7 +482,6 @@ document.addEventListener("DOMContentLoaded", () => {
   function buildLinksForEmail(email) {
     setHref("em_hunter", `https://hunter.io/email-verifier/${enc(email)}`);
     setHref("em_hibp", `https://haveibeenpwned.com/account/${enc(email)}`);
-    // ✅ intelbase fix (no 404)
     setHref("em_intelbase", `https://intelbase.is/search?q=${enc(email)}`);
   }
 
@@ -514,13 +508,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function buildLinksForHeaders(headerText) {
-    // Header tools
     setHref("hdr_dnschecker", "https://dnschecker.org/email-header-analyzer.php");
     setHref("hdr_mxtoolbox", "https://mxtoolbox.com/Public/Tools/EmailHeaders.aspx");
     setHref("hdr_mha", "https://mha.azurewebsites.net/pages/mha.html");
     setHref("hdr_google", "https://toolbox.googleapps.com/apps/messageheader/analyzeheader");
 
-    // Artifacts
     const h = parseEmailHeaders(headerText);
 
     setHref("emart_msgid_search", h.messageId ? gsearch(`"${h.messageId}"`) : landing.emart_msgid_search);
@@ -535,7 +527,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return h;
   }
 
-  // ---------------- Smart IOC extractor output (UPGRADED) ----------------
+  // ---------------- Smart IOC extractor output (header focus) ----------------
   function extractSmartIOCs(text) {
     const now = new Date().toISOString();
     const t = (text || "").replace(/\r\n/g, "\n");
@@ -568,9 +560,6 @@ QUICK PIVOTS:
 - Origin IP Pivot: ${originLink}
 - SPF Domain Pivot: ${spfLink}
 - DKIM Domain Pivot: ${dkimLink}
-
-NOTE:
-- Origin IP is best-effort based on last public IPv4 seen in Received headers.
 `;
   }
 
@@ -605,7 +594,6 @@ NOTE:
 
     setSearchMode(true);
 
-    // Decide visible sections
     let sections = [];
     if (type === "header") sections = ["header", "emailartifacts"];
     else if (type === "cve") sections = ["cve", "cveplus"];
@@ -613,15 +601,15 @@ NOTE:
 
     showRelevantTools(sections);
 
-    // Reset to landing first then build query links
     setLandingLinks();
 
     if (type === "ip") {
       buildLinksForIP(q);
-      const privateNote = (isValidIPv4(q) && isPrivateIPv4(q)) || (isValidIPv6(q) && isPrivateIPv6(q));
+      const privateNote =
+        (isValidIPv4(q) && isPrivateIPv4(q)) || (isValidIPv6(q) && isPrivateIPv6(q));
       if (!silent && output) {
         output.value = privateNote
-          ? `IP detected (PRIVATE/RFC1918): ${q}\nNote: tools will still open, but results may be empty for private IPs.`
+          ? `IP detected (PRIVATE): ${q}\nNote: external OSINT may not return results for private IPs.`
           : `IP detected: ${q}`;
       }
       setStatus(`Status: detected IP`);
@@ -685,7 +673,7 @@ Quick Pivots:
 - SPF Domain Pivot: ${h.spfMailfromDomain ? `https://www.virustotal.com/gui/domain/${enc(h.spfMailfromDomain)}` : "-"}
 - DKIM Domain Pivot: ${h.dkimDomain ? `https://www.virustotal.com/gui/domain/${enc(h.dkimDomain)}` : "-"}
 
-Tip: Use Extract IOCs for a full investigation-ready summary.`;
+Tip: Use Extract IOCs for an investigation-ready summary.`;
       }
 
       setStatus("Status: detected EMAIL HEADERS → header tools + email artifacts");
@@ -717,14 +705,14 @@ Tip: Use Extract IOCs for a full investigation-ready summary.`;
   if (defangBtn) defangBtn.addEventListener("click", () => {
     const src = (output?.value || "").trim() ? output.value : (input?.value || "");
     if (output) output.value = defangSmart(src);
-    setStatus("Status: defanged (smart IOC-only)");
+    setStatus("Status: defanged (smart IOC-only, IPv6 supported)");
   });
 
   const refangBtn = $("refang-btn");
   if (refangBtn) refangBtn.addEventListener("click", () => {
     const src = (output?.value || "").trim() ? output.value : (input?.value || "");
     if (output) output.value = refangSmart(src);
-    setStatus("Status: refanged");
+    setStatus("Status: refanged (IPv6 supported)");
   });
 
   const extractBtn = $("extract-btn");
