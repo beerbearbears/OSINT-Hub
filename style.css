@@ -23,9 +23,6 @@ body{
   display:flex;
 }
 
-/* =========================
-   SIDEBAR
-   ========================= */
 .sidebar{
   width: 280px;
   padding: 18px;
@@ -72,9 +69,6 @@ body{
   gap:10px;
 }
 
-/* =========================
-   BUTTONS
-   ========================= */
 button{
   padding: 10px 12px;
   border: 1px solid rgba(56,189,248,0.25);
@@ -106,9 +100,6 @@ button:active{ transform: translateY(0px); }
   line-height: 1.4;
 }
 
-/* =========================
-   MAIN
-   ========================= */
 .main{
   flex:1;
   padding: 18px 18px 32px;
@@ -134,9 +125,6 @@ button:active{ transform: translateY(0px); }
   font-size: 13px;
 }
 
-/* =========================
-   INPUT PANEL
-   ========================= */
 .input-panel{
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -149,39 +137,24 @@ button:active{ transform: translateY(0px); }
   display:flex;
   gap:10px;
   align-items:center;
-  flex-wrap: wrap;
 }
 
-/* ✅ UPGRADED SEARCH BOX (SOC STYLE) */
+/* ✅ Improved Searchbox */
 .searchbox{
   flex:1;
   display:flex;
   align-items:center;
   gap:10px;
-
-  height:52px;
-  padding: 0 12px;
+  padding: 10px 12px;
   border-radius: 14px;
-
-  border: 1px solid rgba(56,189,248,0.28);
-  background:
-    radial-gradient(800px 120px at 15% 0%, rgba(56,189,248,0.18), transparent 55%),
-    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-
-  box-shadow:
-    inset 0 1px 2px rgba(0,0,0,0.35),
-    0 10px 26px rgba(0,0,0,0.25);
-
-  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(15,23,42,0.55);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
 }
 
 .searchbox:focus-within{
-  border-color: rgba(56,189,248,0.65);
-  box-shadow:
-    0 0 0 3px rgba(56,189,248,0.18),
-    inset 0 1px 2px rgba(0,0,0,0.35),
-    0 14px 30px rgba(0,0,0,0.28);
-  transform: translateY(-1px);
+  border-color: rgba(56,189,248,0.55);
+  box-shadow: 0 0 0 4px rgba(56,189,248,0.12);
 }
 
 .search-ico{
@@ -190,65 +163,42 @@ button:active{ transform: translateY(0px); }
   border-radius: 12px;
   display:grid;
   place-items:center;
-
-  background: rgba(56,189,248,0.10);
+  background: radial-gradient(circle at 30% 20%, rgba(56,189,248,0.30), rgba(56,189,248,0.06));
   border: 1px solid rgba(56,189,248,0.22);
-  box-shadow: inset 0 1px 1px rgba(255,255,255,0.06);
-  font-size: 16px;
+  flex: 0 0 34px;
 }
 
 .searchbox input{
   flex:1;
-  height: 100%;
-  border: none !important;
-  outline: none !important;
-  background: transparent !important;
-  padding: 0;
+  width:100%;
+  border:0;
+  outline:none;
+  background: transparent;
   color: var(--text);
   font-size: 14px;
-  line-height: 1;
+  padding: 6px 0;
   min-width: 0;
 }
 
-.searchbox input::placeholder{
-  color: rgba(229,231,235,0.55);
-}
-
 .clear-input{
-  width: 36px;
-  height: 36px;
-  min-height: 36px;
-  padding: 0;
+  display:none;
+  padding: 8px 10px;
   border-radius: 12px;
-
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.05);
-  color: rgba(229,231,235,0.8);
-
-  display: none;
-  align-items:center;
-  justify-content:center;
-  font-weight: 900;
-  cursor:pointer;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  line-height: 1;
 }
 
 .searchbox.has-value .clear-input{
-  display:flex;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
 }
 
-.clear-input:hover{
-  border-color: rgba(56,189,248,0.35);
-  background: rgba(56,189,248,0.10);
-}
-
-/* Make search button match bar */
 #search-btn{
   min-width: 110px;
-  height: 52px;
-  padding: 0 18px;
   border: 1px solid rgba(56,189,248,0.45);
   background: linear-gradient(180deg, rgba(56,189,248,0.35), rgba(56,189,248,0.12));
-  border-radius: 14px;
 }
 
 .tools{
@@ -311,9 +261,7 @@ textarea#output:focus{
   font-size: 12px;
 }
 
-/* =========================
-   SECTIONS
-   ========================= */
+/* Sections */
 .tool-section{
   margin-top: 16px;
   border: 1px solid var(--border);
@@ -321,7 +269,7 @@ textarea#output:focus{
   background: rgba(255,255,255,0.03);
   box-shadow: 0 10px 24px rgba(0,0,0,0.20);
   overflow:hidden;
-  display:block;
+  display:block; /* landing page default */
 }
 
 .section-head{
@@ -396,9 +344,7 @@ textarea#output:focus{
   background: rgba(0,0,0,0.18);
 }
 
-/* =========================
-   ✅ MITRE CHECKBOX FIX
-   ========================= */
+/* ===== MITRE FIX (alignment + checkbox size) ===== */
 #mitre-panel{
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -418,19 +364,14 @@ textarea#output:focus{
 }
 
 #mitre-panel input[type="checkbox"]{
-  width:16px;
-  height:16px;
-  min-width:16px;
-  min-height:16px;
+  width: 16px;
+  height: 16px;
   margin: 0;
   flex: 0 0 16px;
   accent-color: var(--accent);
-  transform: none !important;
 }
 
-/* =========================
-   SEARCH MODE
-   ========================= */
+/* Search mode: hide all typed sections, show only active + always */
 body.search-mode .tool-section[data-type]{
   display:none;
 }
@@ -441,9 +382,7 @@ body.search-mode .tool-section.tool-always{
   display:block;
 }
 
-/* =========================
-   LIGHT MODE
-   ========================= */
+/* Light mode */
 body.light{
   --bg:#f3f4f6;
   --bg2:#eef2ff;
@@ -453,50 +392,42 @@ body.light{
   --shadow: 0 10px 28px rgba(0,0,0,0.10);
 }
 
-/* =========================
-   ✅ MOBILE FIT
-   ========================= */
-@media (max-width: 900px){
-  .sidebar{
-    width: 250px;
-  }
-}
-
-@media (max-width: 760px){
+/* ✅ Mobile responsive */
+@media (max-width: 880px){
   body{ display:block; }
   .sidebar{
+    width:100%;
+    height:auto;
     position: relative;
-    width: 100%;
-    height: auto;
     border-right: none;
     border-bottom: 1px solid var(--border);
   }
-  .main{
-    padding: 14px 14px 26px;
-  }
+  .main{ padding: 14px 14px 28px; }
 }
 
-@media (max-width:600px){
+@media (max-width: 520px){
   .input-row{
     flex-direction: column;
     align-items: stretch;
   }
-
-  .searchbox{
-    width:100%;
-    height:50px;
-  }
-
   #search-btn{
     width:100%;
-    height:50px;
+    min-width: unset;
   }
-
-  .tool-grid{
-    grid-template-columns: 1fr;
+  .searchbox{
+    padding: 10px 10px;
   }
-
+  .search-ico{
+    width: 32px;
+    height: 32px;
+    border-radius: 12px;
+  }
   #mitre-panel{
     grid-template-columns: 1fr;
+  }
+  #mitre-panel input[type="checkbox"]{
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
   }
 }
