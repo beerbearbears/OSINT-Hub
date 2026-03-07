@@ -1013,6 +1013,665 @@ Tip: Use Extract IOCs for an investigation-ready summary.`;
     catch { setBulkStatus("Copy failed — try manually"); }
   });
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── SCRIPT / COMMAND ANALYZER ENGINE ───────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  let saCurrentMode = "powershell";
+
+  // ── Mode switcher ──
+  document.querySelectorAll(".sa-mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".sa-mode-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      saCurrentMode = btn.dataset.mode;
+      const badge = $("sa-mode-badge");
+      if (badge) badge.textContent = saCurrentMode.toUpperCase();
+    });
+  });
+
+  // ── Shannon entropy ──
+  function calcEntropy(str) {
+    if (!str) return 0;
+    const freq = {};
+    for (const c of str) freq[c] = (freq[c] || 0) + 1;
+    const len = str.length;
+    return -Object.values(freq).reduce((s, f) => {
+      const p = f / len;
+      return s + p * Math.log2(p);
+    }, 0);
+  }
+
+  // ── Base64 decode (handles PS unicode base64 too) ──
+  function tryDecodeBase64(str) {
+    const clean = str.replace(/[\s\r\n]/g, "");
+    if (clean.length < 8) return null;
+    try {
+      // Try standard base64
+      const raw = atob(clean);
+      // Check if it looks like UTF-16LE (PowerShell -EncodedCommand)
+      const isUtf16 = raw.split("").every((c, i) => i % 2 === 1 ? c === "\0" : true);
+      if (isUtf16) {
+        return raw.split("").filter((_, i) => i % 2 === 0).join("");
+      }
+      // Check if printable enough
+      const printable = raw.split("").filter(c => c.charCodeAt(0) >= 32 && c.charCodeAt(0) < 127).length;
+      if (printable / raw.length > 0.6) return raw;
+      return null;
+    } catch { return null; }
+  }
+
+  // ── Deep decode: strip layers of encoding ──
+  function deepDecode(text) {
+    let current = text;
+    const layers = [];
+    let maxLayers = 6;
+    while (maxLayers-- > 0) {
+      // Find base64 blobs (min 20 chars)
+      const b64Match = current.match(/[A-Za-z0-9+/]{20,}={0,2}/g);
+      if (!b64Match) break;
+      let decoded = null;
+      for (const blob of b64Match) {
+        const d = tryDecodeBase64(blob);
+        if (d && d.length > 4) { decoded = d; break; }
+      }
+      if (!decoded || decoded === current) break;
+      layers.push({ from: current.slice(0, 120) + (current.length > 120 ? "…" : ""), to: decoded });
+      current = decoded;
+    }
+    return { final: current, layers };
+  }
+
+  // ── Char array decoder: [char]72+[char]101+... ──
+  function decodeCharArray(text) {
+    const results = [];
+    const pattern = /(\[char\]\d+(?:\s*[+,]\s*\[char\]\d+)+)/gi;
+    const matches = text.match(pattern) || [];
+    matches.forEach(m => {
+      const nums = m.match(/\d+/g) || [];
+      const decoded = nums.map(n => String.fromCharCode(Number(n))).join("");
+      results.push({ original: m, decoded });
+    });
+    return results;
+  }
+
+  // ── String reverse detection ──
+  function findReversedStrings(text) {
+    const results = [];
+    const pattern = /['"]([\w\-./:\\]{8,})['"]\s*[-|]\s*(?:split\s*''|ForEach|%)/gi;
+    const matches = [...text.matchAll(/\[string\]::join\(.*?(-join|-split)/gi)];
+    // Simpler: detect -join after split
+    const rev = text.match(/-split\s+''[^']*''.*?-join\s+''[^']*''/gi) || [];
+    rev.forEach(m => results.push({ hint: "Possible string reversal/join obfuscation", snippet: m.slice(0, 80) }));
+    return results;
+  }
+
+  // ── Threat indicator DB ──
+  const THREAT_INDICATORS = {
+    powershell: [
+      // Download & Execute
+      { pattern: /\bDownloadString\b/gi,          sev: "critical", label: "Downloads & executes remote string",         mitre: ["T1059.001","T1105"] },
+      { pattern: /\bDownloadFile\b/gi,             sev: "high",    label: "Downloads file from remote URL",             mitre: ["T1105"] },
+      { pattern: /\bDownloadData\b/gi,             sev: "high",    label: "Downloads raw data from remote",             mitre: ["T1105"] },
+      { pattern: /\bWebClient\b/gi,                sev: "medium",  label: "Creates WebClient object (network activity)",mitre: ["T1071","T1105"] },
+      { pattern: /\bInvoke-WebRequest\b|\biwr\b/gi,sev: "medium",  label: "Web request via Invoke-WebRequest",          mitre: ["T1105","T1071"] },
+      { pattern: /\bcurl\b|\bwget\b/gi,            sev: "low",     label: "curl/wget download attempt",                 mitre: ["T1105"] },
+      // Execution
+      { pattern: /\bIEX\b|\bInvoke-Expression\b/gi,sev: "critical",label: "IEX — executes arbitrary string as code",    mitre: ["T1059.001"] },
+      { pattern: /\bInvoke-Command\b|\bicm\b/gi,   sev: "high",    label: "Remote command execution",                   mitre: ["T1059.001","T1021"] },
+      { pattern: /\bStart-Process\b/gi,            sev: "medium",  label: "Spawns a new process",                       mitre: ["T1059","T1204"] },
+      { pattern: /\bShellExecute\b/gi,             sev: "high",    label: "ShellExecute — launches external process",   mitre: ["T1059","T1204"] },
+      { pattern: /\bcmd\.exe\b|\bcmd\s*\/[ck]/gi,  sev: "medium",  label: "Spawns cmd.exe subprocess",                  mitre: ["T1059.003"] },
+      { pattern: /\bwscript\b|\bcscript\b/gi,      sev: "high",    label: "Executes via WScript/CScript host",          mitre: ["T1059.005"] },
+      { pattern: /\bmshta\.exe\b|\bmshta\b/gi,     sev: "critical",label: "mshta — HTML Application host abuse (LOLBin)",mitre: ["T1218.005"] },
+      { pattern: /\bregsvr32\b/gi,                 sev: "high",    label: "regsvr32 — COM scriptlet abuse",             mitre: ["T1218.010"] },
+      { pattern: /\brundll32\b/gi,                 sev: "high",    label: "rundll32 — DLL proxy execution",             mitre: ["T1218.011"] },
+      // Obfuscation
+      { pattern: /\-enc\b|\-EncodedCommand\b/gi,   sev: "high",    label: "Base64-encoded command (-enc)",              mitre: ["T1027","T1059.001"] },
+      { pattern: /\-w\s*hidden|\-WindowStyle\s*[Hh]idden/gi, sev: "high", label: "Hidden window — anti-visibility",    mitre: ["T1564.003"] },
+      { pattern: /\-nop\b|\-NonInteractive\b/gi,   sev: "medium",  label: "-nop/-NonInteractive — evasion flag",        mitre: ["T1059.001"] },
+      { pattern: /\-ExecutionPolicy\s*[Bb]ypass/gi,sev: "critical",label: "Execution policy bypass",                    mitre: ["T1059.001","T1562"] },
+      { pattern: /\[Convert\]::FromBase64String/gi, sev: "high",   label: "Manual Base64 decode",                       mitre: ["T1027"] },
+      { pattern: /\[char\]\s*\d+/gi,               sev: "medium",  label: "Char-array obfuscation",                     mitre: ["T1027"] },
+      { pattern: /\$env:/gi,                       sev: "low",     label: "References environment variables",           mitre: ["T1082"] },
+      // Persistence
+      { pattern: /\bNew-ScheduledTask\b|\bRegister-ScheduledTask\b/gi, sev: "high", label: "Creates scheduled task (persistence)", mitre: ["T1053.005"] },
+      { pattern: /\bSet-ItemProperty.*Run\b/gi,    sev: "critical",label: "Writes to Run registry key (autostart)",     mitre: ["T1547.001"] },
+      { pattern: /HKCU:\\|HKLM:\\/gi,             sev: "medium",  label: "Modifies registry keys",                     mitre: ["T1547","T1112"] },
+      { pattern: /\bNew-Service\b|\bsc\.exe\b/gi,  sev: "high",    label: "Creates or modifies a Windows service",      mitre: ["T1543.003"] },
+      // Defense evasion
+      { pattern: /\bAdd-MpPreference\s+-Exclusion/gi,sev:"critical",label:"Adds AV/Defender exclusion (disables protection)",mitre:["T1562.001"] },
+      { pattern: /\bSet-MpPreference.*Disable/gi,  sev: "critical",label: "Disables Windows Defender",                  mitre: ["T1562.001"] },
+      { pattern: /\bDisable-WindowsOptionalFeature\b/gi,sev:"high",label:"Disables Windows security feature",           mitre: ["T1562"] },
+      { pattern: /\bwevtutil\b.*cl\b/gi,           sev: "critical",label: "Clears Windows event logs",                  mitre: ["T1070.001"] },
+      { pattern: /\bClear-EventLog\b/gi,           sev: "critical",label: "Clears event log (covers tracks)",           mitre: ["T1070.001"] },
+      { pattern: /\bSleep\b|\bStart-Sleep\b/gi,    sev: "low",     label: "Sleep delay — possible sandbox evasion",     mitre: ["T1497"] },
+      // Credential access
+      { pattern: /\bMimikatz\b|\bInvoke-Mimikatz\b/gi, sev:"critical",label:"Mimikatz credential dumping tool",        mitre:["T1003"] },
+      { pattern: /\blsass\b/gi,                    sev: "critical",label: "References lsass (credential dump target)",  mitre: ["T1003.001"] },
+      { pattern: /\bGet-Credential\b/gi,           sev: "medium",  label: "Credential harvesting attempt",              mitre: ["T1056"] },
+      { pattern: /\bSecureString\b/gi,             sev: "low",     label: "Uses SecureString (credential handling)",    mitre: ["T1078"] },
+      // Discovery
+      { pattern: /\bGet-Process\b|\bGet-Service\b/gi,sev:"low",    label: "Process/service enumeration",                mitre: ["T1057","T1007"] },
+      { pattern: /\bGet-NetAdapter\b|\bipconfig\b/gi,sev:"low",    label: "Network interface discovery",                mitre: ["T1016"] },
+      { pattern: /\bGet-ADUser\b|\bGet-ADComputer\b/gi,sev:"medium",label:"Active Directory enumeration",              mitre: ["T1087.002"] },
+      { pattern: /\bnet\s+user\b|\bnet\s+group\b/gi,sev:"medium", label: "User/group enumeration",                     mitre: ["T1087"] },
+      // Lateral movement / C2
+      { pattern: /\bEnter-PSSession\b|\bNew-PSSession\b/gi,sev:"high",label:"PS remoting — lateral movement",          mitre:["T1021.006"] },
+      { pattern: /\bInvoke-WMIMethod\b|\bGet-WMIObject\b/gi,sev:"high",label:"WMI execution",                         mitre:["T1047"] },
+      { pattern: /\bwmic\b/gi,                     sev: "high",    label: "WMIC — WMI command-line abuse",              mitre: ["T1047"] },
+      // Exfiltration
+      { pattern: /\bSend-MailMessage\b/gi,         sev: "high",    label: "Email exfiltration attempt",                 mitre: ["T1048","T1567"] },
+      { pattern: /\bUploadString\b|\bUploadData\b/gi,sev:"high",   label: "Uploads data to remote server",              mitre: ["T1041","T1048"] },
+    ],
+
+    cmdline: [
+      { pattern: /certutil\s+.*(-urlcache|-decode|-encode)/gi,sev:"critical",label:"certutil LOLBin — download or decode payload",mitre:["T1105","T1140","T1218"] },
+      { pattern: /\bbitsadmin\b.*\/transfer/gi,    sev: "critical",label: "BITSAdmin — background download (LOLBin)",   mitre: ["T1197"] },
+      { pattern: /\bpowershell\b.*-[eE]nc/gi,      sev: "critical",label: "Spawns PowerShell with encoded command",     mitre: ["T1059.001","T1027"] },
+      { pattern: /\bpowershell\b.*-[wW]\s*[hH]idden/gi,sev:"high",label:"Hidden PowerShell window",                    mitre: ["T1564.003"] },
+      { pattern: /\bpowershell\b.*bypass/gi,       sev: "critical",label: "PowerShell execution policy bypass via CMD", mitre: ["T1059.001","T1562"] },
+      { pattern: /\bwscript\b|\bcscript\b/gi,      sev: "high",    label: "Script host execution",                      mitre: ["T1059.005"] },
+      { pattern: /\bmshta\b/gi,                    sev: "critical",label: "mshta LOLBin execution",                     mitre: ["T1218.005"] },
+      { pattern: /\bregsvr32\b/gi,                 sev: "high",    label: "regsvr32 LOLBin",                            mitre: ["T1218.010"] },
+      { pattern: /\brundll32\b/gi,                 sev: "high",    label: "rundll32 proxy execution",                   mitre: ["T1218.011"] },
+      { pattern: /\bschtasks\b.*\/create/gi,       sev: "high",    label: "Scheduled task creation",                    mitre: ["T1053.005"] },
+      { pattern: /\breg\s+add\b/gi,                sev: "medium",  label: "Registry key modification",                  mitre: ["T1547","T1112"] },
+      { pattern: /\bnet\s+user\b.*\/add/gi,        sev: "critical",label: "Creates new user account (backdoor)",        mitre: ["T1136"] },
+      { pattern: /\bnet\s+localgroup\s+administrators\b/gi,sev:"critical",label:"Adds user to Administrators group",   mitre:["T1136","T1078"] },
+      { pattern: /\bwevtutil\b.*cl\b/gi,           sev: "critical",label: "Clears event logs",                          mitre: ["T1070.001"] },
+      { pattern: /\bsc\s+(create|config|start)\b/gi,sev:"high",   label: "Service creation/modification",              mitre: ["T1543.003"] },
+      { pattern: /\bnetsh\b.*firewall/gi,          sev: "high",    label: "Firewall rule modification",                  mitre: ["T1562.004"] },
+      { pattern: /\bat\b|\bschtasks\b/gi,          sev: "medium",  label: "Task scheduling",                            mitre: ["T1053"] },
+      { pattern: /\bwmic\b.*process.*call.*create/gi,sev:"critical",label:"WMIC remote process creation",              mitre:["T1047"] },
+      { pattern: /\bftp\b.*-[si]:/gi,             sev: "high",    label: "FTP scripted transfer",                      mitre: ["T1048","T1105"] },
+      { pattern: /echo\s+.+>>/gi,                  sev: "low",     label: "File write via echo redirect",               mitre: ["T1027"] },
+    ],
+
+    bash: [
+      { pattern: /\bcurl\b.*(-o|-O|sh\b|\|\s*bash)/gi,sev:"critical",label:"curl piped to bash — remote exec pattern",mitre:["T1059.004","T1105"] },
+      { pattern: /\bwget\b.*(-O\s*-|\|\s*bash|\|\s*sh)/gi,sev:"critical",label:"wget piped to shell",                 mitre:["T1059.004","T1105"] },
+      { pattern: /\bchmod\b.*\+x/gi,              sev: "medium",  label: "Makes file executable",                      mitre: ["T1059"] },
+      { pattern: /\bcrontab\b/gi,                  sev: "high",    label: "Cron job modification (persistence)",        mitre: ["T1053.003"] },
+      { pattern: /\/etc\/cron/gi,                  sev: "high",    label: "Cron directory modification",               mitre: ["T1053.003"] },
+      { pattern: /\.bashrc|\.profile|\.bash_profile/gi,sev:"high",label:"Shell profile modification (persistence)",    mitre:["T1546.004"] },
+      { pattern: /\bbase64\b.*-d/gi,              sev: "high",    label: "Base64 decode in shell",                     mitre: ["T1027","T1140"] },
+      { pattern: /\bnc\b.*-[el]|\bnetcat\b/gi,    sev: "critical",label: "Netcat reverse/bind shell",                  mitre: ["T1059","T1071"] },
+      { pattern: /\/dev\/tcp\//gi,                 sev: "critical",label: "Bash TCP redirect — reverse shell indicator",mitre: ["T1059.004"] },
+      { pattern: /\bsudo\b.*-[si]/gi,             sev: "high",    label: "sudo privilege escalation attempt",          mitre: ["T1068","T1548"] },
+      { pattern: /\bpasswd\b|\bshadow\b/gi,       sev: "critical",label: "References password/shadow file",            mitre: ["T1003.008"] },
+      { pattern: /\bssh\b.*-R\b/gi,              sev: "high",    label: "SSH reverse tunnel",                          mitre: ["T1572","T1021.004"] },
+      { pattern: /\biptables\b.*-[FXZ]/gi,        sev: "high",    label: "Flushes firewall rules",                     mitre: ["T1562.004"] },
+      { pattern: /\bHistory\b|\bhistory\s+-c/gi,  sev: "medium",  label: "Clears shell history",                       mitre: ["T1070.003"] },
+      { pattern: /\buname\b|\bwhoami\b|\bid\b/gi, sev: "low",     label: "System/user discovery",                      mitre: ["T1082","T1033"] },
+      { pattern: /\bpython\b.*-c\b|\bpython3\b.*-c\b/gi,sev:"high",label:"Python one-liner execution",               mitre:["T1059.006"] },
+      { pattern: /\benv\b.*python|\/usr\/bin\/python/gi,sev:"medium",label:"Python invocation via env",               mitre:["T1059.006"] },
+    ],
+
+    vbs: [
+      { pattern: /\bCreateObject\s*\(\s*["']WScript\.Shell["']\)/gi,sev:"critical",label:"WScript.Shell — command execution",mitre:["T1059.005"] },
+      { pattern: /\bCreateObject\s*\(\s*["']MSXML2\.XMLHTTP["']/gi, sev:"critical",label:"XMLHTTP — remote download",      mitre:["T1105","T1071"] },
+      { pattern: /\bCreateObject\s*\(\s*["']Scripting\.FileSystemObject["']/gi,sev:"medium",label:"FileSystemObject access",mitre:["T1083"] },
+      { pattern: /\bCreateObject\s*\(\s*["']Shell\.Application["']/gi,sev:"high",label:"Shell.Application — LOLBin exec",  mitre:["T1218"] },
+      { pattern: /\bWScript\.Run\b/gi,            sev: "critical",label: "WScript.Run — executes command",               mitre: ["T1059.005"] },
+      { pattern: /\.Run\s*\([^)]*,\s*0/gi,        sev: "high",    label: "Hidden window execution (,0 parameter)",      mitre: ["T1564.003"] },
+      { pattern: /\bExecute\b|\bEval\b/gi,         sev: "high",    label: "Dynamic code evaluation",                     mitre: ["T1059.005","T1027"] },
+      { pattern: /Chr\s*\(\s*\d+\s*\)/gi,         sev: "medium",  label: "Chr() obfuscation",                           mitre: ["T1027"] },
+      { pattern: /\bRegWrite\b/gi,                 sev: "high",    label: "Registry write operation",                    mitre: ["T1547","T1112"] },
+      { pattern: /\bSendKeys\b/gi,                 sev: "medium",  label: "SendKeys — keyboard simulation",              mitre: ["T1056"] },
+    ],
+
+    js: [
+      { pattern: /\bWScript\.Shell\b|\bWScript\.CreateObject\b/gi,sev:"critical",label:"WScript.Shell via JScript",    mitre:["T1059.007"] },
+      { pattern: /\bnew\s+ActiveXObject\s*\(\s*["']WScript/gi,    sev:"critical",label:"ActiveX WScript object",       mitre:["T1059.007"] },
+      { pattern: /\bnew\s+ActiveXObject\s*\(\s*["']MSXML/gi,      sev:"critical",label:"MSXML HTTP request (download)",mitre:["T1105","T1071"] },
+      { pattern: /\beval\s*\(/gi,                  sev: "critical",label: "eval() — dynamic code execution",            mitre: ["T1059.007","T1027"] },
+      { pattern: /\bFunction\s*\(\s*['"].*['"]\s*\)/gi,sev:"high",label:"Function constructor code exec",              mitre:["T1059.007"] },
+      { pattern: /document\.write\s*\(/gi,         sev: "medium",  label: "document.write — DOM injection",             mitre: ["T1059.007"] },
+      { pattern: /\bunescape\s*\(/gi,              sev: "high",    label: "unescape() — string deobfuscation",          mitre: ["T1027"] },
+      { pattern: /String\.fromCharCode\s*\(/gi,    sev: "high",    label: "fromCharCode — char-code obfuscation",       mitre: ["T1027"] },
+      { pattern: /\btop\[.+\]\s*\(/gi,             sev: "high",    label: "Property access obfuscation",                mitre: ["T1027"] },
+      { pattern: /\\\d{3}|\\\x[0-9a-f]{2}/gi,     sev: "medium",  label: "Octal/hex escape obfuscation",               mitre: ["T1027"] },
+    ],
+  };
+
+  // Auto-detect script type
+  function autoDetectMode(text) {
+    const t = text.toLowerCase();
+    const scores = { powershell: 0, cmdline: 0, bash: 0, vbs: 0, js: 0 };
+    if (/\biex\b|\binvoke-expression\b|\bdownloadstring\b|\bpowershell\b|-enc\b/.test(t)) scores.powershell += 5;
+    if (/\$[a-z_]\w*\s*=/.test(t)) scores.powershell += 2;
+    if (/\bcertutil\b|\bschtasks\b|\bwevtutil\b|\bcmd\s*\/[ck]/.test(t)) scores.cmdline += 5;
+    if (/@echo\s+off|echo\s+.*>>/.test(t)) scores.cmdline += 3;
+    if (/\bcurl\b|\bwget\b|\/dev\/tcp|\.bashrc|\bchmod\b/.test(t)) scores.bash += 5;
+    if (/#!/.test(t)) scores.bash += 3;
+    if (/\bwscript\b|\bcreateobject\b|\bvbscript\b/.test(t)) scores.vbs += 5;
+    if (/\bactivexobject\b|\bwscript\.shell\b|\beval\s*\(/.test(t)) scores.js += 4;
+    return Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
+  }
+
+  // ── Extract IOCs from script ──
+  function extractScriptIOCs(text) {
+    const refanged = refangSmart(text);
+    const urls     = [...new Set((refanged.match(/https?:\/\/[^\s"'`>)]+/gi) || []))];
+    const ips      = [...new Set((refanged.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/g) || []).filter(isValidIPv4))];
+    const domains  = [...new Set((refanged.match(/\b([a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+\.[a-zA-Z]{2,})\b/g) || [])
+      .filter(d => !/^\d+\.\d+\.\d+/.test(d) && !urls.some(u => u.includes(d))))];
+    const regKeys  = [...new Set((text.match(/(?:HKCU|HKLM|HKEY_LOCAL_MACHINE|HKEY_CURRENT_USER)[\\\/][^\s"'`,;)]+/gi) || []))];
+    const paths    = [...new Set((text.match(/[A-Za-z]:\\[^\s"'`<>|,;]+/g) || []))];
+    const unixPaths= [...new Set((text.match(/\/(?:etc|tmp|var|home|usr|bin|dev)\/[^\s"'`]+/g) || []))];
+    const emails   = [...new Set((text.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g) || []))];
+    return { urls, ips, domains, regKeys, paths, unixPaths, emails };
+  }
+
+  // ── Run indicators against text ──
+  function runIndicators(text, mode) {
+    const indicators = THREAT_INDICATORS[mode] || [];
+    const hits = [];
+    const allMitre = new Set();
+    indicators.forEach(ind => {
+      const matches = [...new Set((text.match(ind.pattern) || []).map(m => m.trim()))];
+      if (matches.length) {
+        hits.push({ ...ind, matches });
+        ind.mitre.forEach(t => allMitre.add(t));
+      }
+    });
+    return { hits, mitre: [...allMitre] };
+  }
+
+  // ── Severity order ──
+  const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
+  const SEV_CONFIG = {
+    critical: { color: "#f87171", bg: "rgba(248,113,113,0.10)", label: "CRITICAL", icon: "🔴" },
+    high:     { color: "#fb923c", bg: "rgba(251,146,60,0.10)",  label: "HIGH",     icon: "🟠" },
+    medium:   { color: "#fbbf24", bg: "rgba(251,191,36,0.10)",  label: "MEDIUM",   icon: "🟡" },
+    low:      { color: "#34d399", bg: "rgba(52,211,153,0.10)",  label: "LOW",      icon: "🟢" },
+  };
+
+  // ── Overall verdict from hits ──
+  function calcVerdict(hits) {
+    if (!hits.length) return { label: "✅ CLEAN", color: "#34d399", score: 0 };
+    if (hits.some(h => h.sev === "critical")) return { label: "🔴 MALICIOUS", color: "#f87171", score: hits.length };
+    if (hits.some(h => h.sev === "high"))     return { label: "🟠 HIGH RISK",  color: "#fb923c", score: hits.length };
+    if (hits.some(h => h.sev === "medium"))   return { label: "🟡 SUSPICIOUS", color: "#fbbf24", score: hits.length };
+    return { label: "🟢 LOW RISK", color: "#34d399", score: hits.length };
+  }
+
+  // ── Render full analysis result ──
+  function renderSAResults(text, mode) {
+    const saResults = $("sa-results");
+    if (!saResults) return;
+    if (!text.trim()) { saResults.innerHTML = ""; return; }
+
+    const effectiveMode = mode === "auto" ? autoDetectMode(text) : mode;
+    const { hits, mitre } = runIndicators(text, effectiveMode);
+    const iocs = extractScriptIOCs(text);
+    const charArrays = decodeCharArray(text);
+    const { final: decoded, layers } = deepDecode(text);
+    const verdict = calcVerdict(hits);
+    const entropy = calcEntropy(text.replace(/\s/g, ""));
+
+    hits.sort((a, b) => SEV_ORDER[a.sev] - SEV_ORDER[b.sev]);
+
+    const critCount = hits.filter(h => h.sev === "critical").length;
+    const highCount = hits.filter(h => h.sev === "high").length;
+    const medCount  = hits.filter(h => h.sev === "medium").length;
+    const lowCount  = hits.filter(h => h.sev === "low").length;
+
+    let html = `
+    <!-- VERDICT HEADER -->
+    <div class="sa-verdict" style="border-color:${verdict.color}44;background:${verdict.color}0d">
+      <div class="sa-verdict-left">
+        <div class="sa-verdict-label" style="color:${verdict.color}">${verdict.label}</div>
+        <div class="sa-verdict-meta">
+          Mode: <strong>${effectiveMode.toUpperCase()}</strong>
+          &nbsp;·&nbsp; Indicators: <strong>${hits.length}</strong>
+          &nbsp;·&nbsp; Entropy: <strong>${entropy.toFixed(2)}</strong>${entropy > 5.5 ? " ⚠️ High" : ""}
+          &nbsp;·&nbsp; Lines: <strong>${text.split("\n").length}</strong>
+        </div>
+      </div>
+      <div class="sa-sev-pills">
+        ${critCount ? `<span class="sa-sev-pill" style="background:rgba(248,113,113,0.15);color:#f87171;border-color:#f8717144">${critCount} CRITICAL</span>` : ""}
+        ${highCount ? `<span class="sa-sev-pill" style="background:rgba(251,146,60,0.15);color:#fb923c;border-color:#fb923c44">${highCount} HIGH</span>` : ""}
+        ${medCount  ? `<span class="sa-sev-pill" style="background:rgba(251,191,36,0.15);color:#fbbf24;border-color:#fbbf2444">${medCount} MEDIUM</span>` : ""}
+        ${lowCount  ? `<span class="sa-sev-pill" style="background:rgba(52,211,153,0.15);color:#34d399;border-color:#34d39944">${lowCount} LOW</span>` : ""}
+      </div>
+    </div>`;
+
+    // THREAT INDICATORS
+    if (hits.length) {
+      html += `<div class="sa-section">
+        <div class="sa-section-head">🚨 Threat Indicators <span class="sa-section-count">${hits.length}</span></div>
+        <div class="sa-indicators">`;
+      hits.forEach(h => {
+        const sc = SEV_CONFIG[h.sev];
+        const mitreTags = h.mitre.map(t =>
+          `<a href="https://attack.mitre.org/techniques/${t.replace(".","/")}" target="_blank" class="sa-mitre-tag">${t}</a>`
+        ).join("");
+        const matchSnippets = h.matches.slice(0, 3).map(m =>
+          `<code class="sa-match">${m.replace(/</g,"&lt;").slice(0,60)}${m.length>60?"…":""}</code>`
+        ).join(" ");
+        html += `<div class="sa-indicator" style="border-left-color:${sc.color};background:${sc.bg}">
+          <div class="sa-ind-head">
+            <span class="sa-ind-sev" style="color:${sc.color}">${sc.icon} ${sc.label}</span>
+            <span class="sa-ind-label">${h.label}</span>
+          </div>
+          <div class="sa-ind-matches">${matchSnippets}</div>
+          <div class="sa-ind-mitre">${mitreTags}</div>
+        </div>`;
+      });
+      html += `</div></div>`;
+    } else {
+      html += `<div class="sa-section"><div class="sa-section-head">✅ No Threat Indicators Found</div></div>`;
+    }
+
+    // MITRE ATT&CK MAPPING
+    if (mitre.length) {
+      html += `<div class="sa-section">
+        <div class="sa-section-head">🧩 MITRE ATT&CK Mapping <span class="sa-section-count">${mitre.length}</span></div>
+        <div class="sa-mitre-grid">`;
+      mitre.forEach(t => {
+        html += `<a href="https://attack.mitre.org/techniques/${t.replace(".","/")}" target="_blank" class="sa-mitre-card">
+          <div class="sa-mitre-tid">${t}</div>
+          <div class="sa-mitre-name">${getMitreName(t)}</div>
+        </a>`;
+      });
+      html += `</div></div>`;
+    }
+
+    // DECODED LAYERS
+    if (layers.length || charArrays.length) {
+      html += `<div class="sa-section">
+        <div class="sa-section-head">🔓 Decoded / Deobfuscated Content</div>`;
+
+      if (layers.length) {
+        layers.forEach((l, i) => {
+          html += `<div class="sa-decode-layer">
+            <div class="sa-decode-label">Layer ${i + 1} — Base64 decoded</div>
+            <pre class="sa-code">${l.to.replace(/</g,"&lt;").slice(0, 400)}${l.to.length > 400 ? "\n… (truncated)" : ""}</pre>
+          </div>`;
+        });
+        if (layers.length > 0) {
+          html += `<div class="sa-decode-layer">
+            <div class="sa-decode-label">✅ Final decoded output</div>
+            <pre class="sa-code">${decoded.replace(/</g,"&lt;").slice(0, 800)}${decoded.length > 800 ? "\n… (truncated)" : ""}</pre>
+          </div>`;
+        }
+      }
+
+      if (charArrays.length) {
+        charArrays.slice(0, 5).forEach(ca => {
+          html += `<div class="sa-decode-layer">
+            <div class="sa-decode-label">[char] array → <code>${ca.decoded.replace(/</g,"&lt;")}</code></div>
+            <pre class="sa-code" style="font-size:10px;opacity:0.6">${ca.original.replace(/</g,"&lt;").slice(0,100)}</pre>
+          </div>`;
+        });
+      }
+      html += `</div>`;
+    }
+
+    // EXTRACTED IOCs
+    const hasIOCs = Object.values(iocs).some(arr => arr.length > 0);
+    if (hasIOCs) {
+      html += `<div class="sa-section">
+        <div class="sa-section-head">🎯 Extracted IOCs</div>
+        <div class="sa-ioc-grid">`;
+
+      const iocTypes = [
+        { key: "urls",       label: "URLs",            icon: "🔗", pivot: (v) => `https://urlscan.io/search/#page.url:${enc(v)}` },
+        { key: "ips",        label: "IP Addresses",    icon: "🌐", pivot: (v) => `https://www.virustotal.com/gui/ip-address/${enc(v)}` },
+        { key: "domains",    label: "Domains",         icon: "🏠", pivot: (v) => `https://www.virustotal.com/gui/domain/${enc(v)}` },
+        { key: "emails",     label: "Emails",          icon: "📧", pivot: (v) => `https://haveibeenpwned.com/account/${enc(v)}` },
+        { key: "regKeys",    label: "Registry Keys",   icon: "🗝", pivot: (v) => `https://www.google.com/search?q=${enc(v)}` },
+        { key: "paths",      label: "File Paths (Win)",icon: "📁", pivot: (v) => `https://www.google.com/search?q=${enc(v + " malware")}` },
+        { key: "unixPaths",  label: "File Paths (Unix)",icon:"📂", pivot: (v) => `https://www.google.com/search?q=${enc(v + " malware")}` },
+      ];
+
+      iocTypes.forEach(({ key, label, icon, pivot }) => {
+        if (!iocs[key].length) return;
+        html += `<div class="sa-ioc-group">
+          <div class="sa-ioc-group-label">${icon} ${label} (${iocs[key].length})</div>`;
+        iocs[key].forEach(v => {
+          html += `<div class="sa-ioc-row">
+            <code class="sa-ioc-val">${v.replace(/</g,"&lt;").slice(0,80)}${v.length>80?"…":""}</code>
+            <a href="${pivot(v)}" target="_blank" class="sa-pivot-link">↗ Pivot</a>
+          </div>`;
+        });
+        html += `</div>`;
+      });
+
+      html += `</div></div>`;
+    }
+
+    // ENTROPY NOTE
+    if (entropy > 5.5) {
+      html += `<div class="sa-section sa-entropy-warn">
+        <div class="sa-section-head">⚠️ High Entropy Detected (${entropy.toFixed(2)})</div>
+        <p style="margin:8px 14px 14px;font-size:13px;color:var(--muted);">
+          Entropy above 5.5 typically indicates encoded, compressed, or encrypted content. This script likely contains obfuscated payloads. Use <strong>Deep Decode</strong> to attempt extraction.
+        </p>
+      </div>`;
+    }
+
+    saResults.innerHTML = html;
+
+    // Auto-check MITRE checkboxes in main panel
+    mitre.forEach(t => {
+      const tid = t.split(".")[0]; // parent technique
+      const cb = document.querySelector(`#mitre-panel input[value="${tid}"]`);
+      if (cb) cb.checked = true;
+    });
+  }
+
+  // ── MITRE technique name lookup ──
+  function getMitreName(tid) {
+    const names = {
+      "T1059":    "Command & Scripting Interpreter",
+      "T1059.001":"PowerShell",
+      "T1059.003":"Windows Command Shell",
+      "T1059.004":"Unix Shell",
+      "T1059.005":"Visual Basic",
+      "T1059.006":"Python",
+      "T1059.007":"JavaScript",
+      "T1027":    "Obfuscated Files or Info",
+      "T1140":    "Deobfuscate / Decode",
+      "T1105":    "Ingress Tool Transfer",
+      "T1071":    "Application Layer Protocol",
+      "T1562":    "Impair Defenses",
+      "T1562.001":"Disable/Modify AV",
+      "T1562.004":"Disable/Modify Firewall",
+      "T1547":    "Boot/Logon Autostart",
+      "T1547.001":"Registry Run Keys",
+      "T1053":    "Scheduled Task/Job",
+      "T1053.003":"Cron",
+      "T1053.005":"Scheduled Task",
+      "T1003":    "Credential Dumping",
+      "T1003.001":"LSASS Memory",
+      "T1003.008":"/etc/passwd & Shadow",
+      "T1218":    "Signed Binary Proxy Exec",
+      "T1218.005":"Mshta",
+      "T1218.010":"Regsvr32",
+      "T1218.011":"Rundll32",
+      "T1112":    "Modify Registry",
+      "T1082":    "System Info Discovery",
+      "T1033":    "System Owner Discovery",
+      "T1016":    "Network Config Discovery",
+      "T1087":    "Account Discovery",
+      "T1087.002":"Domain Account",
+      "T1057":    "Process Discovery",
+      "T1007":    "System Service Discovery",
+      "T1083":    "File & Dir Discovery",
+      "T1021":    "Remote Services",
+      "T1021.004":"SSH",
+      "T1021.006":"Windows Remote Management",
+      "T1047":    "WMI",
+      "T1197":    "BITS Jobs",
+      "T1041":    "Exfil Over C2 Channel",
+      "T1048":    "Exfil Over Alt Protocol",
+      "T1567":    "Exfil Over Web Service",
+      "T1564.003":"Hidden Window",
+      "T1546.004":"Unix Shell Config Mod",
+      "T1572":    "Protocol Tunneling",
+      "T1136":    "Create Account",
+      "T1078":    "Valid Accounts",
+      "T1068":    "Exploit for Priv Escalation",
+      "T1548":    "Abuse Elevation Control",
+      "T1543.003":"Windows Service",
+      "T1070":    "Indicator Removal",
+      "T1070.001":"Clear Windows Event Logs",
+      "T1070.003":"Clear Command History",
+      "T1056":    "Input Capture",
+      "T1204":    "User Execution",
+      "T1497":    "Virtualization/Sandbox Evasion",
+    };
+    return names[tid] || tid;
+  }
+
+  // ── Report generator ──
+  function generateSAReport(text, mode) {
+    const effectiveMode = mode === "auto" ? autoDetectMode(text) : mode;
+    const { hits, mitre } = runIndicators(text, effectiveMode);
+    const iocs = extractScriptIOCs(text);
+    const verdict = calcVerdict(hits);
+    const entropy = calcEntropy(text.replace(/\s/, ""));
+    const now = new Date().toISOString();
+
+    const lines = [
+      "═══════════════════════════════════════════════════",
+      "  SCRIPT / COMMAND ANALYSIS REPORT",
+      "═══════════════════════════════════════════════════",
+      `Analyzed At : ${now}`,
+      `Script Type : ${effectiveMode.toUpperCase()}`,
+      `Verdict     : ${verdict.label}`,
+      `Entropy     : ${entropy.toFixed(2)}${entropy > 5.5 ? " ⚠ HIGH — likely obfuscated" : ""}`,
+      `Indicators  : ${hits.length}`,
+      "",
+      "───────────────────────────────────────────────────",
+      "THREAT INDICATORS",
+      "───────────────────────────────────────────────────",
+    ];
+
+    if (hits.length) {
+      hits.forEach(h => {
+        lines.push(`[${h.sev.toUpperCase()}] ${h.label}`);
+        lines.push(`  MITRE: ${h.mitre.join(", ")}`);
+        lines.push(`  Matches: ${h.matches.slice(0,3).join(" | ")}`);
+        lines.push("");
+      });
+    } else {
+      lines.push("No threat indicators detected.");
+      lines.push("");
+    }
+
+    lines.push("───────────────────────────────────────────────────");
+    lines.push("MITRE ATT&CK TECHNIQUES");
+    lines.push("───────────────────────────────────────────────────");
+    if (mitre.length) {
+      mitre.forEach(t => lines.push(`  ${t.padEnd(14)} ${getMitreName(t)}`));
+    } else {
+      lines.push("  None mapped.");
+    }
+
+    lines.push("");
+    lines.push("───────────────────────────────────────────────────");
+    lines.push("EXTRACTED IOCs");
+    lines.push("───────────────────────────────────────────────────");
+    if (iocs.urls.length)     lines.push("URLs:\n" + iocs.urls.map(v => "  " + v).join("\n"));
+    if (iocs.ips.length)      lines.push("IPs:\n" + iocs.ips.map(v => "  " + v).join("\n"));
+    if (iocs.domains.length)  lines.push("Domains:\n" + iocs.domains.map(v => "  " + v).join("\n"));
+    if (iocs.regKeys.length)  lines.push("Registry Keys:\n" + iocs.regKeys.map(v => "  " + v).join("\n"));
+    if (iocs.paths.length)    lines.push("File Paths:\n" + iocs.paths.map(v => "  " + v).join("\n"));
+    if (!iocs.urls.length && !iocs.ips.length && !iocs.domains.length) lines.push("  None found.");
+
+    lines.push("");
+    lines.push("═══════════════════════════════════════════════════");
+    lines.push("END OF REPORT");
+
+    return lines.join("\n");
+  }
+
+  // ── Wire up Script Analyzer buttons ──
+  const saInput      = $("sa-input");
+  const saAnalyzeBtn = $("sa-analyze-btn");
+  const saClearBtn   = $("sa-clear-btn");
+  const saCopyBtn    = $("sa-copy-btn");
+  const saDecodeBtn  = $("sa-decode-btn");
+  const saStatusEl   = $("sa-status");
+
+  function setSAStatus(msg) {
+    if (saStatusEl) saStatusEl.querySelector("span").textContent = msg;
+  }
+
+  if (saAnalyzeBtn) {
+    saAnalyzeBtn.addEventListener("click", () => {
+      const text = (saInput?.value || "").trim();
+      if (!text) { setSAStatus("Paste a script first."); return; }
+      renderSAResults(text, saCurrentMode);
+      const effectiveMode = saCurrentMode === "auto" ? autoDetectMode(text) : saCurrentMode;
+      const { hits } = runIndicators(text, effectiveMode);
+      const verdict = calcVerdict(hits);
+      setSAStatus(`Analysis complete — ${verdict.label} · ${hits.length} indicators`);
+      addToHistory("script", `[${effectiveMode}] ${text.slice(0, 40).replace(/\n/g, " ")}…`);
+    });
+  }
+
+  if (saClearBtn) {
+    saClearBtn.addEventListener("click", () => {
+      if (saInput) saInput.value = "";
+      const saResults = $("sa-results");
+      if (saResults) saResults.innerHTML = "";
+      setSAStatus("Paste a script above and click Analyze");
+    });
+  }
+
+  if (saCopyBtn) {
+    saCopyBtn.addEventListener("click", async () => {
+      const text = (saInput?.value || "").trim();
+      if (!text) return setSAStatus("Nothing to copy — run analysis first.");
+      const report = generateSAReport(text, saCurrentMode);
+      try { await navigator.clipboard.writeText(report); setSAStatus("Report copied to clipboard"); }
+      catch { setSAStatus("Copy failed — try manually"); }
+    });
+  }
+
+  if (saDecodeBtn) {
+    saDecodeBtn.addEventListener("click", () => {
+      const text = (saInput?.value || "").trim();
+      if (!text) return setSAStatus("Paste a script first.");
+      const { final, layers } = deepDecode(text);
+      const saResults = $("sa-results");
+      if (!layers.length) {
+        setSAStatus("No Base64 layers found to decode.");
+        return;
+      }
+      if (saResults) {
+        let html = `<div class="sa-section"><div class="sa-section-head">🔓 Deep Decode — ${layers.length} layer(s) found</div>`;
+        layers.forEach((l, i) => {
+          html += `<div class="sa-decode-layer">
+            <div class="sa-decode-label">Layer ${i+1}</div>
+            <pre class="sa-code">${l.to.replace(/</g,"&lt;").slice(0,600)}</pre>
+          </div>`;
+        });
+        html += `<div class="sa-decode-layer">
+          <div class="sa-decode-label">✅ Final output</div>
+          <pre class="sa-code">${final.replace(/</g,"&lt;").slice(0,800)}</pre>
+        </div></div>`;
+        saResults.innerHTML = html;
+      }
+      setSAStatus(`Deep decode complete — ${layers.length} layer(s) unwrapped`);
+    });
+  }
+
+  // Also trigger on Enter in sa-input with Ctrl
+  if (saInput) {
+    saInput.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        saAnalyzeBtn?.click();
+      }
+    });
+  }
+
   // ─── Startup ─────────────────────────────────────────────────
   syncSearchboxState();
   setSearchMode(false);
