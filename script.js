@@ -1672,6 +1672,946 @@ Tip: Use Extract IOCs for an investigation-ready summary.`;
     });
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── ALERT WRITE-UP ENGINE ──────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  // ── Template database — sourced from CrowdStrike Falcon, Microsoft Sentinel,
+  //    Splunk, Defender, and real SOC practitioner patterns ──────────────────
+
+  const AW_TEMPLATES = [
+    // ─ CrowdStrike ─────────────────────────────────────────────
+    {
+      id: "cs_encoded_ps",
+      platform: "crowdstrike",
+      icon: "⚡",
+      name: "Base64 Encoded PowerShell Download Cradle",
+      desc: "Fires when CrowdStrike Falcon detects a PowerShell script attempting to download and execute Base64-encoded commands. Common in phishing payloads, malicious macros, and LOLBin abuse.",
+      severity: "high",
+      mitre: ["T1059.001","T1027","T1105"],
+      fields: ["alert_id","alert_time","hostname","username","process","cmdline","parent_process","encoded_string","decoded_string","src_ip","dest_url","verdict","analyst","notes"],
+      triage_steps: [
+        "Decode the Base64 string and analyze for malicious cmdlets (IEX, DownloadString, WebClient)",
+        "Identify the parent process that spawned PowerShell",
+        "Check if the destination URL or IP is known-malicious (VT, URLScan, Cisco Talos)",
+        "Review process tree in Falcon for lateral movement indicators",
+        "Scope the environment for similar command-lines on other endpoints",
+        "Isolate host if payload execution is confirmed"
+      ],
+      recommendations: [
+        "Block execution of encoded PowerShell via AppLocker or WDAC policy",
+        "Enable PowerShell Script Block Logging (Event ID 4104)",
+        "Block or sinkhole identified malicious URLs/IPs at proxy/firewall",
+        "Reset credentials if user context is involved"
+      ]
+    },
+    {
+      id: "cs_cobalt_strike",
+      platform: "crowdstrike",
+      icon: "🕸",
+      name: "Cobalt Strike Beacon / C2 Communication",
+      desc: "CrowdStrike detects HTTP headers matching default or custom Cobalt Strike malleable profiles, indicating a likely C2 communication channel.",
+      severity: "critical",
+      mitre: ["T1071.001","T1055","T1036","T1059"],
+      fields: ["alert_id","alert_time","hostname","username","process","src_ip","dest_ip","dest_port","http_headers","beacon_config","verdict","analyst","notes"],
+      triage_steps: [
+        "Examine HTTP headers against known Cobalt Strike malleable profile signatures",
+        "Identify the process responsible for the outbound connection",
+        "Check VirusTotal / Hybrid Analysis for associated hashes",
+        "Pivot on destination IP/domain across all endpoints for scope",
+        "Determine initial access vector (phishing, exploit, insider)",
+        "Immediately isolate the affected host(s)"
+      ],
+      recommendations: [
+        "Isolate host immediately and revoke active sessions",
+        "Block C2 IP/domain at all perimeter controls",
+        "Hunt for beacon persistence mechanisms (scheduled tasks, registry Run keys, services)",
+        "Initiate full IR process — Cobalt Strike indicates hands-on attacker"
+      ]
+    },
+    {
+      id: "cs_malware_hash",
+      platform: "crowdstrike",
+      icon: "☣",
+      name: "Malware / Intelligence Indicator Detection",
+      desc: "Falcon Intelligence or NGAV flagged a file hash matching a known malicious artifact. Commonly triggered by archive-based loaders, RATs, infostealers, or ransomware droppers.",
+      severity: "high",
+      mitre: ["T1204.002","T1059","T1027","T1053"],
+      fields: ["alert_id","alert_time","hostname","username","file_path","file_hash_sha256","file_hash_md5","process_tree","verdict_confidence","family","campaign","analyst","verdict","notes"],
+      triage_steps: [
+        "Cross-reference hash in VirusTotal, MalwareBazaar, Hybrid Analysis",
+        "Review the full process tree in Falcon Behavioral Graph",
+        "Identify how the file arrived (email, download, lateral movement)",
+        "Check if file executed or was blocked pre-execution",
+        "Scope across environment for same hash or similar file paths",
+        "Review network connections made by the process"
+      ],
+      recommendations: [
+        "Quarantine the malicious file and block hash at EDR level",
+        "Block associated IOCs (domains, IPs, hashes) across all controls",
+        "If executed: isolate host, initiate IR, credential reset",
+        "Review and close the initial access vector"
+      ]
+    },
+    {
+      id: "cs_lsass_dump",
+      platform: "crowdstrike",
+      icon: "🔑",
+      name: "LSASS Memory Access / Credential Dumping",
+      desc: "Falcon detects a process opening a handle to lsass.exe with suspicious access rights, indicating credential dumping activity (Mimikatz, ProcDump, Task Manager, or custom tooling).",
+      severity: "critical",
+      mitre: ["T1003.001","T1078"],
+      fields: ["alert_id","alert_time","hostname","username","src_process","access_rights","lsass_pid","tool_indicator","verdict","analyst","notes"],
+      triage_steps: [
+        "Identify the process and whether it is a known tool (mimikatz, procdump, comsvcs.dll)",
+        "Check parent process and execution chain",
+        "Determine if dump file was written to disk",
+        "Assess if attacker already used dumped credentials (lateral movement, remote logins)",
+        "Review all recent authentication events from this host"
+      ],
+      recommendations: [
+        "Isolate host immediately",
+        "Force reset of all domain credentials accessible from this host",
+        "Enable Credential Guard on all applicable endpoints",
+        "Add lsass.exe to Protected Process Light (PPL) via registry"
+      ]
+    },
+    {
+      id: "cs_ransomware",
+      platform: "crowdstrike",
+      icon: "🔒",
+      name: "Ransomware / Mass File Encryption",
+      desc: "Falcon detects rapid file modification events consistent with ransomware encryption, including volume shadow copy deletion and ransom note creation.",
+      severity: "critical",
+      mitre: ["T1486","T1490","T1059","T1070"],
+      fields: ["alert_id","alert_time","hostname","username","process","files_encrypted_count","extensions_modified","vss_deletion","ransom_note_path","network_shares_impacted","verdict","analyst","notes"],
+      triage_steps: [
+        "Immediately network-isolate the affected host",
+        "Identify the ransomware family via hash / ransom note / extension",
+        "Check if VSS / Shadow Copies were deleted",
+        "Scope lateral spread to mapped drives and network shares",
+        "Determine initial access vector",
+        "Preserve forensic evidence before any remediation"
+      ],
+      recommendations: [
+        "Isolate all impacted hosts from network immediately",
+        "Do NOT restart systems — may destroy evidence",
+        "Escalate to senior IR / management immediately",
+        "Activate incident response plan and backup recovery procedures",
+        "Contact legal and compliance teams"
+      ]
+    },
+    {
+      id: "cs_privilege_esc",
+      platform: "crowdstrike",
+      icon: "⬆",
+      name: "Privilege Escalation / Token Impersonation",
+      desc: "CrowdStrike detects a process attempting to impersonate tokens, abuse named pipes, or exploit a local privilege escalation vulnerability to gain elevated access.",
+      severity: "high",
+      mitre: ["T1068","T1134","T1548"],
+      fields: ["alert_id","alert_time","hostname","username","src_process","target_privilege","technique_detail","cve","verdict","analyst","notes"],
+      triage_steps: [
+        "Identify the source process and privilege target",
+        "Determine if escalation succeeded (check resulting process token)",
+        "Cross-reference CVE if exploit-based",
+        "Review subsequent actions taken with elevated privileges",
+        "Check for persistence established post-escalation"
+      ],
+      recommendations: [
+        "Patch the exploited vulnerability immediately",
+        "Review and restrict excessive local admin rights",
+        "Deploy UAC enforcement and Credential Guard",
+        "Reset credentials if account was compromised"
+      ]
+    },
+
+    // ─ Microsoft Sentinel ────────────────────────────────────────
+    {
+      id: "ms_impossible_travel",
+      platform: "sentinel",
+      icon: "✈",
+      name: "Impossible Travel / Atypical Sign-in Location",
+      desc: "Sentinel / Entra ID Protection flags a user signing in from two geographically distant locations within a timeframe physically impossible to travel — indicating credential compromise or VPN/proxy use.",
+      severity: "medium",
+      mitre: ["T1078","T1110"],
+      fields: ["alert_id","alert_time","username","upn","location_1","location_2","ip_1","ip_2","time_diff_minutes","asn_1","asn_2","user_agent","mfa_status","verdict","analyst","notes"],
+      triage_steps: [
+        "Confirm the two sign-in events and calculate travel impossibility",
+        "Check if user uses VPN, proxy, or travel frequently",
+        "Review IP reputation (VT, AbuseIPDB, Shodan) for both IPs",
+        "Contact user to confirm or deny the sign-in",
+        "Review all activity performed during the suspicious session",
+        "Check for inbox rule modifications or MFA changes"
+      ],
+      recommendations: [
+        "Revoke all active sessions for the user account",
+        "Force password reset and MFA re-enrollment",
+        "Block suspicious IP at identity provider if confirmed malicious",
+        "Enable Conditional Access policies based on location / risk"
+      ]
+    },
+    {
+      id: "ms_brute_force",
+      platform: "sentinel",
+      icon: "🔨",
+      name: "Brute Force / Password Spray Attack",
+      desc: "Sentinel detects multiple failed authentication attempts against one or more accounts from a single source IP or distributed sources within a short time window.",
+      severity: "medium",
+      mitre: ["T1110.001","T1110.003"],
+      fields: ["alert_id","alert_time","target_account","src_ip","src_asn","country","failed_attempts","timespan_minutes","targeted_accounts_count","any_success","successful_account","mfa_status","verdict","analyst","notes"],
+      triage_steps: [
+        "Determine if attack is password spray (many accounts, few attempts) or brute force (one account, many attempts)",
+        "Check if any authentication succeeded",
+        "Investigate source IP — proxy, botnet, or legitimate infrastructure?",
+        "Review successful session activity if any login succeeded",
+        "Check for password reuse across other services"
+      ],
+      recommendations: [
+        "Block attacking IP(s) at firewall / identity provider",
+        "Enforce MFA for all targeted accounts",
+        "Implement account lockout policies and CAPTCHA on portals",
+        "If success: reset password, revoke sessions, review activity"
+      ]
+    },
+    {
+      id: "ms_inbox_rule",
+      platform: "sentinel",
+      icon: "📬",
+      name: "Suspicious Inbox Manipulation Rule",
+      desc: "Sentinel detects an anomalous inbox forwarding or deletion rule created after a suspicious sign-in event. Commonly used to silently exfiltrate email or hide security notifications.",
+      severity: "high",
+      mitre: ["T1114.003","T1078"],
+      fields: ["alert_id","alert_time","username","upn","rule_name","rule_action","forward_address","src_ip","sign_in_time","sign_in_ip","mfa_bypass","verdict","analyst","notes"],
+      triage_steps: [
+        "Document the exact rule created (name, conditions, actions)",
+        "Determine if email is being forwarded externally",
+        "Identify the sign-in event associated with the rule creation",
+        "Review all mail sent from the account after the rule was created",
+        "Check for other BEC indicators: vendor impersonation, finance emails, payroll changes"
+      ],
+      recommendations: [
+        "Delete the malicious inbox rule immediately",
+        "Revoke all active sessions and reset credentials",
+        "Alert user and relevant managers (potential BEC)",
+        "Notify finance/payroll if money transfers may be involved",
+        "Implement block on external auto-forwarding at org level"
+      ]
+    },
+    {
+      id: "ms_data_exfil",
+      platform: "sentinel",
+      icon: "📤",
+      name: "Data Exfiltration / Large SharePoint Download",
+      desc: "Sentinel detects anomalously large file downloads or bulk sharing events in SharePoint/OneDrive, especially from unusual IPs or following a suspicious sign-in.",
+      severity: "high",
+      mitre: ["T1020","T1078","T1534"],
+      fields: ["alert_id","alert_time","username","upn","files_downloaded","total_size_mb","dest_ip","sharepoint_site","src_ip","country","preceded_by_signin_alert","verdict","analyst","notes"],
+      triage_steps: [
+        "Identify what data was accessed/downloaded — classify sensitivity",
+        "Confirm if the activity was authorized (backup, project work, offboarding)",
+        "Review user's recent activity for other anomalies",
+        "Identify if the destination IP is personal or corporate",
+        "Check if this correlates with a suspicious sign-in or other alerts"
+      ],
+      recommendations: [
+        "Revoke all sessions and reset credentials",
+        "Disable external sharing on implicated SharePoint sites",
+        "Notify data owner and DLP/compliance team",
+        "Initiate data breach assessment per policy",
+        "Implement DLP rules for large-volume downloads"
+      ]
+    },
+    {
+      id: "ms_lateral_smb",
+      platform: "sentinel",
+      icon: "↔",
+      name: "Lateral Movement via SMB / Pass-the-Hash",
+      desc: "Sentinel detects internal SMB authentication events on port 445 across multiple endpoints from a single source, potentially indicating worm propagation or Pass-the-Hash lateral movement.",
+      severity: "high",
+      mitre: ["T1021.002","T1550.002","T1570"],
+      fields: ["alert_id","alert_time","src_host","src_ip","dest_hosts","auth_type","account_used","event_ids","timespan","any_success","verdict","analyst","notes"],
+      triage_steps: [
+        "Map out all destination hosts contacted from source",
+        "Identify authentication type — NTLM (suspicious) vs Kerberos",
+        "Check if same hash is being replayed (Pass-the-Hash indicator)",
+        "Review NetLogon and Security event logs (4624, 4625, 4648)",
+        "Determine initial compromise point on source host"
+      ],
+      recommendations: [
+        "Isolate source host immediately",
+        "Force NTLM restrictions via Group Policy",
+        "Reset credentials for involved accounts",
+        "Enable SMB signing on all endpoints",
+        "Patch any exploitable SMB vulnerabilities"
+      ]
+    },
+    {
+      id: "ms_azure_resource",
+      platform: "sentinel",
+      icon: "☁",
+      name: "Suspicious Azure Resource Deployment",
+      desc: "Sentinel detects unusual or unauthorized Azure resource creation, often indicating cloud account compromise used to deploy crypto miners, exfiltration pipelines, or persistence infrastructure.",
+      severity: "high",
+      mitre: ["T1578","T1578.002","T1098"],
+      fields: ["alert_id","alert_time","subscription","resource_group","resource_type","resource_name","deploying_user","src_ip","location","mfa_status","verdict","analyst","notes"],
+      triage_steps: [
+        "Identify resource type and purpose (VM, storage, function, etc.)",
+        "Confirm if deployment was authorized by the user",
+        "Review the deploying account's recent sign-in activity",
+        "Check if any cost spikes are visible in Azure Cost Management",
+        "Review deployed resource for malicious workloads (miners, backdoors)"
+      ],
+      recommendations: [
+        "Delete unauthorized resources immediately",
+        "Revoke and rotate all credentials for the account",
+        "Review and restrict IAM/RBAC permissions",
+        "Enable Azure Defender / Defender for Cloud",
+        "Implement Azure Policy to restrict allowed resource types/regions"
+      ]
+    },
+
+    // ─ Splunk ───────────────────────────────────────────────────
+    {
+      id: "sp_scheduled_task",
+      platform: "splunk",
+      icon: "⏰",
+      name: "Suspicious Scheduled Task Creation (Living-off-the-Land)",
+      desc: "Splunk detects Event ID 4698 for a newly created scheduled task using LOLBin tools (certutil, mshta, bitsadmin, powershell) to download and execute a payload — a classic persistence mechanism.",
+      severity: "high",
+      mitre: ["T1053.005","T1197","T1218"],
+      fields: ["alert_id","alert_time","hostname","username","task_name","task_action","task_trigger","process_created_by","cmdline","parent_process","dest_url","verdict","analyst","notes"],
+      triage_steps: [
+        "Review the scheduled task command-line for LOLBin abuse",
+        "Identify who created the task and from which process",
+        "Determine if the task has already executed (check task history)",
+        "Investigate the payload URL/file",
+        "Look for related alerts on the same host (brute force, malware, etc.)"
+      ],
+      recommendations: [
+        "Delete the malicious scheduled task",
+        "Block destination URL at proxy/firewall",
+        "Restrict scheduled task creation rights via Group Policy",
+        "Monitor Event ID 4698 / 4702 for future task creation"
+      ]
+    },
+    {
+      id: "sp_webshell",
+      platform: "splunk",
+      icon: "🐚",
+      name: "Web Shell Exploitation",
+      desc: "Splunk detects a web application spawning a system shell (cmd.exe, powershell.exe, sh, bash) — a strong indicator of web shell upload and active exploitation.",
+      severity: "critical",
+      mitre: ["T1505.003","T1059","T1190"],
+      fields: ["alert_id","alert_time","hostname","web_server","web_app","src_ip","country","user_agent","web_shell_path","spawn_process","cmdline","files_created","verdict","analyst","notes"],
+      triage_steps: [
+        "Confirm web server process spawning unexpected child process",
+        "Locate and preserve the web shell file on disk",
+        "Identify how the web shell was uploaded (vulnerability, stolen creds, misconfiguration)",
+        "Review all commands executed via the web shell",
+        "Check for persistence, data access, or lateral movement indicators",
+        "Assess exploited CVE if applicable"
+      ],
+      recommendations: [
+        "Remove the web shell file immediately and patch the upload vector",
+        "Block source IP at WAF and perimeter",
+        "Isolate the web server and conduct forensic analysis",
+        "Rotate all credentials accessible from the server",
+        "Patch exploited vulnerability and harden web application"
+      ]
+    },
+    {
+      id: "sp_ssh_brute",
+      platform: "splunk",
+      icon: "🐧",
+      name: "Linux SSH Brute Force / Successful Login",
+      desc: "Splunk detects a high volume of failed SSH authentication attempts against a Linux host, potentially followed by a successful login indicating a compromised or weak credential.",
+      severity: "medium",
+      mitre: ["T1110.001","T1021.004","T1078"],
+      fields: ["alert_id","alert_time","hostname","src_ip","country","target_user","failed_count","success","success_time","commands_run","new_users_created","verdict","analyst","notes"],
+      triage_steps: [
+        "Confirm if any successful authentication occurred",
+        "Review commands executed after successful login",
+        "Check /etc/passwd for new accounts, /etc/crontab for persistence",
+        "Identify if attacker escalated privileges (sudo history, sudoers changes)",
+        "Review bash_history for lateral movement or data access"
+      ],
+      recommendations: [
+        "Block attacking IP at firewall",
+        "Disable password-based SSH — enforce key-based authentication",
+        "Review and remove unauthorized accounts or cron jobs",
+        "If compromised: isolate, rebuild, rotate all keys and credentials"
+      ]
+    },
+
+    // ─ Microsoft Defender ───────────────────────────────────────
+    {
+      id: "mde_malicious_macro",
+      platform: "defender",
+      icon: "📎",
+      name: "Malicious Office Macro Execution",
+      desc: "Microsoft Defender for Endpoint detects an Office process (Word, Excel, PowerPoint) spawning a suspicious child process (cmd, powershell, wscript) — classic malicious macro behavior.",
+      severity: "high",
+      mitre: ["T1566.001","T1059","T1204.002"],
+      fields: ["alert_id","alert_time","hostname","username","parent_process","child_process","cmdline","document_name","document_hash","email_src","verdict","analyst","notes"],
+      triage_steps: [
+        "Identify the Office document and whether it came via email",
+        "Analyze the macro content if possible (VBA, XLM, Xlm4)",
+        "Trace child process execution chain for full payload delivery",
+        "Check if payload connected to a C2 or dropped additional files",
+        "Pivot to email source to identify other recipients of the same document"
+      ],
+      recommendations: [
+        "Block the document hash and associated email sender",
+        "Disable macros by default via Group Policy / Defender Attack Surface Reduction rules",
+        "Notify other recipients of the malicious document",
+        "Isolate host if payload confirmed executed"
+      ]
+    },
+    {
+      id: "mde_defender_exclusion",
+      platform: "defender",
+      icon: "🛑",
+      name: "Defender Exclusion / AV Tampering",
+      desc: "Defender detects a process adding Windows Defender exclusions or disabling real-time protection — a strong indicator of active attacker presence attempting to disable defenses.",
+      severity: "critical",
+      mitre: ["T1562.001","T1059.001"],
+      fields: ["alert_id","alert_time","hostname","username","process","cmdline","exclusion_path","exclusion_extension","av_disabled","verdict","analyst","notes"],
+      triage_steps: [
+        "Identify the process that made the AV configuration change",
+        "Check parent process — was it spawned by malware or a script?",
+        "Review what was excluded and whether malware was already present",
+        "Check if other defenses were also disabled",
+        "Treat this as active attacker until proven otherwise"
+      ],
+      recommendations: [
+        "Isolate host immediately",
+        "Re-enable Defender and remove exclusions via Intune/Group Policy",
+        "Full endpoint investigation — assume compromise",
+        "Restrict Defender configuration rights via Tamper Protection"
+      ]
+    },
+
+    // ─ Generic SOC ──────────────────────────────────────────────
+    {
+      id: "gen_phishing",
+      platform: "generic",
+      icon: "🎣",
+      name: "Phishing / Suspicious Email Delivery",
+      desc: "A user received an email with malicious links or attachments. Alert triggered by email gateway, DMARC failure, or user report. Common initial access vector across all platforms.",
+      severity: "medium",
+      mitre: ["T1566.001","T1566.002","T1598"],
+      fields: ["alert_id","alert_time","recipient","sender","sender_domain","subject","attachment_name","attachment_hash","malicious_url","spf_result","dkim_result","dmarc_result","user_clicked","verdict","analyst","notes"],
+      triage_steps: [
+        "Analyze email headers for spoofing (SPF/DKIM/DMARC failures)",
+        "Inspect attachment in sandbox (AnyRun, Hybrid Analysis, Joe Sandbox)",
+        "Check malicious URL in URLScan, VirusTotal, PhishTank",
+        "Determine if user clicked link or opened attachment",
+        "Identify other recipients in the organization for the same campaign",
+        "Review user activity post-click (new processes, outbound connections)"
+      ],
+      recommendations: [
+        "Block sender domain and malicious URLs at email gateway and proxy",
+        "Delete email from all affected mailboxes",
+        "Notify user and conduct phishing awareness",
+        "If user clicked: investigate endpoint and potentially isolate",
+        "Implement DMARC/DKIM/SPF enforcement"
+      ]
+    },
+    {
+      id: "gen_c2_traffic",
+      platform: "generic",
+      icon: "📡",
+      name: "Suspicious C2 / Beaconing Network Traffic",
+      desc: "Network or endpoint alert detects regular, periodic outbound connections to a suspicious or known-malicious external IP/domain — indicative of command-and-control beaconing.",
+      severity: "high",
+      mitre: ["T1071","T1095","T1571","T1008"],
+      fields: ["alert_id","alert_time","hostname","src_ip","dest_ip","dest_domain","dest_port","protocol","beacon_interval","bytes_sent","bytes_recv","process","jitter","verdict","analyst","notes"],
+      triage_steps: [
+        "Analyze beacon pattern: interval, jitter, data size (low = C2 keepalive)",
+        "Check dest IP/domain reputation across VT, Shodan, AbuseIPDB",
+        "Identify the process making outbound connections",
+        "Review DNS queries associated with the domain",
+        "Check if HTTPS is used to hide C2 payload content",
+        "Scope across environment for same destination"
+      ],
+      recommendations: [
+        "Block destination IP/domain at all network controls",
+        "Isolate affected host",
+        "Identify and remove the malicious process/service",
+        "Hunt for persistence mechanisms left by the implant"
+      ]
+    },
+    {
+      id: "gen_account_compromise",
+      platform: "generic",
+      icon: "👤",
+      name: "Account Compromise / Unauthorized Access",
+      desc: "General account compromise alert: unexpected login from new device/location, MFA bypass, multiple failed attempts followed by success, or user reports unauthorized access.",
+      severity: "high",
+      mitre: ["T1078","T1556","T1621"],
+      fields: ["alert_id","alert_time","username","upn","src_ip","country","device","auth_method","mfa_bypassed","prior_failed_count","activity_after_login","data_accessed","verdict","analyst","notes"],
+      triage_steps: [
+        "Confirm legitimacy of the sign-in with the user",
+        "Review all activity performed in the session",
+        "Identify if any sensitive data was accessed or modified",
+        "Check for post-compromise persistence (new MFA methods, inbox rules, OAuth apps)",
+        "Determine initial access method — phishing, credential stuffing, password spray"
+      ],
+      recommendations: [
+        "Revoke all active sessions immediately",
+        "Force password reset and re-enroll MFA",
+        "Remove any unauthorized OAuth app grants or MFA methods",
+        "Review and revert any configuration changes made during the session",
+        "Implement Conditional Access / risk-based authentication"
+      ]
+    },
+    {
+      id: "gen_vuln_exploit",
+      platform: "generic",
+      icon: "💥",
+      name: "Vulnerability / CVE Exploitation Attempt",
+      desc: "IDS/WAF/EDR detects exploitation attempt against a known CVE — buffer overflow, SQL injection, command injection, or deserialization attack targeting a specific service or application.",
+      severity: "high",
+      mitre: ["T1190","T1203","T1211"],
+      fields: ["alert_id","alert_time","target_host","target_service","target_port","cve","src_ip","country","payload_snippet","exploited","rce_confirmed","process_spawned","verdict","analyst","notes"],
+      triage_steps: [
+        "Confirm if exploitation was successful or blocked",
+        "Identify the CVE and cross-reference patch status on the target",
+        "If RCE confirmed: treat as full compromise and investigate process tree",
+        "Check src IP for prior scanning/enumeration activity",
+        "Scope — are other hosts with same vulnerability also targeted?"
+      ],
+      recommendations: [
+        "Patch the exploited CVE immediately across all affected assets",
+        "If exploited: isolate host, conduct full forensic analysis",
+        "Block source IP at perimeter",
+        "Apply virtual patching via WAF/IPS until patch is deployed"
+      ]
+    },
+  ];
+
+  // ── Field label map ──────────────────────────────────────────
+  const AW_FIELD_LABELS = {
+    alert_id: "Alert ID / Ticket #",
+    alert_time: "Alert Timestamp (UTC)",
+    hostname: "Affected Hostname",
+    username: "Username",
+    upn: "User Principal Name (UPN)",
+    process: "Malicious Process",
+    cmdline: "Command Line",
+    parent_process: "Parent Process",
+    encoded_string: "Encoded String (Base64)",
+    decoded_string: "Decoded String",
+    src_ip: "Source IP",
+    dest_ip: "Destination IP",
+    dest_url: "Destination URL",
+    dest_domain: "Destination Domain",
+    dest_port: "Destination Port",
+    http_headers: "Suspicious HTTP Headers",
+    beacon_config: "Beacon Config Notes",
+    file_path: "File Path",
+    file_hash_sha256: "SHA256 Hash",
+    file_hash_md5: "MD5 Hash",
+    process_tree: "Process Tree",
+    verdict_confidence: "Falcon Confidence Score",
+    family: "Malware Family",
+    campaign: "Threat Campaign",
+    src_process: "Source Process",
+    access_rights: "Access Rights",
+    lsass_pid: "LSASS PID",
+    tool_indicator: "Tool / Technique Indicator",
+    cve: "CVE Reference",
+    files_encrypted_count: "Files Encrypted (count)",
+    extensions_modified: "Modified File Extensions",
+    vss_deletion: "VSS / Shadow Copy Deleted?",
+    ransom_note_path: "Ransom Note Path",
+    network_shares_impacted: "Network Shares Impacted",
+    target_privilege: "Target Privilege Level",
+    technique_detail: "Technique Detail",
+    location_1: "Location 1 (IP / Country)",
+    location_2: "Location 2 (IP / Country)",
+    ip_1: "IP Address 1",
+    ip_2: "IP Address 2",
+    time_diff_minutes: "Time Between Sign-ins (mins)",
+    asn_1: "ASN 1",
+    asn_2: "ASN 2",
+    user_agent: "User-Agent",
+    mfa_status: "MFA Status",
+    target_account: "Target Account",
+    src_asn: "Source ASN",
+    country: "Country",
+    failed_attempts: "Failed Attempts Count",
+    timespan_minutes: "Timespan (minutes)",
+    targeted_accounts_count: "Targeted Accounts Count",
+    any_success: "Any Successful Login?",
+    successful_account: "Account that Succeeded",
+    rule_name: "Inbox Rule Name",
+    rule_action: "Rule Action",
+    forward_address: "Forward-to Address",
+    sign_in_time: "Associated Sign-in Time",
+    sign_in_ip: "Associated Sign-in IP",
+    mfa_bypass: "MFA Bypassed?",
+    files_downloaded: "Files Downloaded (count)",
+    total_size_mb: "Total Data Size (MB)",
+    sharepoint_site: "SharePoint Site",
+    preceded_by_signin_alert: "Preceded by Suspicious Sign-in?",
+    src_host: "Source Host",
+    dest_hosts: "Destination Hosts",
+    auth_type: "Auth Type (NTLM/Kerberos)",
+    account_used: "Account Used",
+    event_ids: "Relevant Event IDs",
+    timespan: "Timespan",
+    subscription: "Azure Subscription",
+    resource_group: "Resource Group",
+    resource_type: "Resource Type",
+    resource_name: "Resource Name",
+    deploying_user: "Deploying User",
+    location: "Deployment Location",
+    task_name: "Scheduled Task Name",
+    task_action: "Task Action / Command",
+    task_trigger: "Task Trigger",
+    process_created_by: "Process That Created Task",
+    web_server: "Web Server",
+    web_app: "Web Application",
+    user_agent: "User-Agent String",
+    web_shell_path: "Web Shell File Path",
+    spawn_process: "Spawned Process",
+    files_created: "Files Created on Disk",
+    target_user: "Target Username",
+    failed_count: "Failed Attempts",
+    success: "Authentication Succeeded?",
+    success_time: "Success Timestamp",
+    commands_run: "Commands Run Post-Login",
+    new_users_created: "New Users/Crons Created?",
+    parent_process: "Parent Process",
+    child_process: "Child Process",
+    document_name: "Document Name",
+    document_hash: "Document Hash",
+    email_src: "Email Source",
+    exclusion_path: "Exclusion Path Added",
+    exclusion_extension: "Exclusion Extension",
+    av_disabled: "AV Disabled?",
+    recipient: "Recipient(s)",
+    sender: "Sender Email",
+    sender_domain: "Sender Domain",
+    subject: "Email Subject",
+    attachment_name: "Attachment Name",
+    attachment_hash: "Attachment Hash",
+    malicious_url: "Malicious URL",
+    spf_result: "SPF Result",
+    dkim_result: "DKIM Result",
+    dmarc_result: "DMARC Result",
+    user_clicked: "User Clicked / Opened?",
+    protocol: "Protocol",
+    beacon_interval: "Beacon Interval (seconds)",
+    bytes_sent: "Bytes Sent",
+    bytes_recv: "Bytes Received",
+    jitter: "Jitter",
+    device: "Device / User-Agent",
+    auth_method: "Auth Method",
+    mfa_bypassed: "MFA Bypassed?",
+    prior_failed_count: "Prior Failed Count",
+    activity_after_login: "Activity After Login",
+    data_accessed: "Data Accessed",
+    target_host: "Target Host",
+    target_service: "Target Service",
+    target_port: "Target Port",
+    payload_snippet: "Payload Snippet",
+    exploited: "Exploitation Successful?",
+    rce_confirmed: "RCE Confirmed?",
+    process_spawned: "Process Spawned After Exploit",
+    verdict: "Analyst Verdict",
+    analyst: "Analyst Name",
+    notes: "Investigation Notes",
+  };
+
+  const AW_PLAT_COLORS = {
+    crowdstrike: { bg: "rgba(255,57,57,0.12)", border: "rgba(255,57,57,0.30)", text: "#f87171", label: "CrowdStrike Falcon" },
+    sentinel:    { bg: "rgba(56,189,248,0.10)", border: "rgba(56,189,248,0.30)", text: "#38bdf8", label: "Microsoft Sentinel" },
+    splunk:      { bg: "rgba(251,146,60,0.10)", border: "rgba(251,146,60,0.30)", text: "#fb923c", label: "Splunk" },
+    defender:    { bg: "rgba(96,165,250,0.10)", border: "rgba(96,165,250,0.30)", text: "#60a5fa", label: "Microsoft Defender" },
+    generic:     { bg: "rgba(167,139,250,0.10)", border: "rgba(167,139,250,0.30)", text: "#a78bfa", label: "Generic SOC" },
+  };
+
+  const AW_SEV = {
+    critical: { color: "#f87171", label: "CRITICAL" },
+    high:     { color: "#fb923c", label: "HIGH" },
+    medium:   { color: "#fbbf24", label: "MEDIUM" },
+    low:      { color: "#34d399", label: "LOW" },
+  };
+
+  let awCurrentTemplate = null;
+  let awCurrentOut = "structured";
+  let awCurrentPlat = "all";
+
+  function renderAWTemplateList(plat) {
+    const list = $("aw-template-list");
+    if (!list) return;
+    const filtered = plat === "all" ? AW_TEMPLATES : AW_TEMPLATES.filter(t => t.platform === plat);
+    list.innerHTML = filtered.map(t => {
+      const pc = AW_PLAT_COLORS[t.platform];
+      const sev = AW_SEV[t.severity];
+      return `<div class="aw-tpl-item${awCurrentTemplate?.id === t.id ? " active" : ""}" data-id="${t.id}" role="button" tabindex="0">
+        <span class="aw-tpl-icon">${t.icon}</span>
+        <div class="aw-tpl-meta">
+          <div class="aw-tpl-name">${t.name}</div>
+          <div class="aw-tpl-tags">
+            <span class="aw-tpl-plat" style="color:${pc.text};border-color:${pc.border};background:${pc.bg}">${pc.label}</span>
+            <span class="aw-tpl-sev" style="color:${sev.color}">${sev.label}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join("") || `<div style="padding:16px;font-size:12px;color:var(--muted);text-align:center">No templates for this platform</div>`;
+
+    list.querySelectorAll(".aw-tpl-item").forEach(el => {
+      el.addEventListener("click", () => selectAWTemplate(el.dataset.id));
+    });
+  }
+
+  function selectAWTemplate(id) {
+    awCurrentTemplate = AW_TEMPLATES.find(t => t.id === id);
+    if (!awCurrentTemplate) return;
+
+    // Update sidebar active state
+    document.querySelectorAll(".aw-tpl-item").forEach(el => {
+      el.classList.toggle("active", el.dataset.id === id);
+    });
+
+    // Update template info
+    const pc = AW_PLAT_COLORS[awCurrentTemplate.platform];
+    const sev = AW_SEV[awCurrentTemplate.severity];
+    const ti = $("aw-template-info");
+    if (ti) {
+      $("aw-ti-icon").textContent = awCurrentTemplate.icon;
+      $("aw-ti-name").textContent = awCurrentTemplate.name;
+      $("aw-ti-plat").innerHTML = `<span style="color:${pc.text}">${pc.label}</span> &nbsp;·&nbsp; <span style="color:${sev.color}">${sev.label}</span>`;
+      $("aw-ti-desc").textContent = awCurrentTemplate.desc;
+      $("aw-ti-mitre").innerHTML = awCurrentTemplate.mitre.map(t =>
+        `<a href="https://attack.mitre.org/techniques/${t.replace(".","/")}" target="_blank" class="sa-mitre-tag">${t}</a>`
+      ).join("");
+      ti.style.display = "block";
+    }
+
+    // Build form fields
+    const form = $("aw-form");
+    if (form) {
+      form.innerHTML = `
+        <div class="aw-form-grid">
+          ${awCurrentTemplate.fields.map(f => `
+            <div class="aw-field">
+              <label class="aw-label">${AW_FIELD_LABELS[f] || f}</label>
+              ${f === "notes" ? `<textarea id="awf_${f}" class="aw-input aw-textarea" placeholder="${AW_FIELD_LABELS[f] || f}..." rows="3"></textarea>`
+                : `<input id="awf_${f}" class="aw-input" type="text" placeholder="${AW_FIELD_LABELS[f] || f}..." autocomplete="off" spellcheck="false">`}
+            </div>`).join("")}
+        </div>`;
+    }
+
+    const bar = $("aw-action-bar");
+    if (bar) bar.style.display = "flex";
+    const out = $("aw-output");
+    if (out) out.style.display = "none";
+  }
+
+  function getAWFormData() {
+    if (!awCurrentTemplate) return {};
+    const data = {};
+    awCurrentTemplate.fields.forEach(f => {
+      const el = $(`awf_${f}`);
+      data[f] = el ? el.value.trim() : "";
+    });
+    return data;
+  }
+
+  function getAWField(data, key, fallback = "[not provided]") {
+    return data[key] || fallback;
+  }
+
+  function generateAWReport(data, mode) {
+    const t = awCurrentTemplate;
+    const pc = AW_PLAT_COLORS[t.platform];
+    const sev = AW_SEV[t.severity];
+    const now = new Date().toISOString();
+    const analyst = getAWField(data, "analyst", "SOC Analyst");
+
+    if (mode === "structured") {
+      return [
+        "═══════════════════════════════════════════════════════════",
+        `  SECURITY ALERT INVESTIGATION REPORT`,
+        "═══════════════════════════════════════════════════════════",
+        `Alert Name   : ${t.name}`,
+        `Platform     : ${pc.label}`,
+        `Severity     : ${sev.label}`,
+        `Alert ID     : ${getAWField(data, "alert_id")}`,
+        `Alert Time   : ${getAWField(data, "alert_time")}`,
+        `Report Time  : ${now}`,
+        `Analyst      : ${analyst}`,
+        `Verdict      : ${getAWField(data, "verdict", "PENDING")}`,
+        "",
+        "───────────────────────────────────────────────────────────",
+        "ALERT DESCRIPTION",
+        "───────────────────────────────────────────────────────────",
+        t.desc,
+        "",
+        "───────────────────────────────────────────────────────────",
+        "KEY INDICATORS / IOCs",
+        "───────────────────────────────────────────────────────────",
+        ...t.fields.filter(f => !["verdict","analyst","notes"].includes(f)).map(f => {
+          const val = data[f];
+          if (!val) return null;
+          return `  ${(AW_FIELD_LABELS[f] || f).padEnd(35)} : ${val}`;
+        }).filter(Boolean),
+        "",
+        "───────────────────────────────────────────────────────────",
+        "MITRE ATT&CK TECHNIQUES",
+        "───────────────────────────────────────────────────────────",
+        ...t.mitre.map(m => `  ${m.padEnd(14)} ${getMitreName(m)}`),
+        "",
+        "───────────────────────────────────────────────────────────",
+        "TRIAGE STEPS PERFORMED",
+        "───────────────────────────────────────────────────────────",
+        ...t.triage_steps.map((s, i) => `  ${i + 1}. ${s}`),
+        "",
+        "───────────────────────────────────────────────────────────",
+        "RECOMMENDATIONS",
+        "───────────────────────────────────────────────────────────",
+        ...t.recommendations.map((r, i) => `  ${i + 1}. ${r}`),
+        "",
+        "───────────────────────────────────────────────────────────",
+        "ANALYST NOTES",
+        "───────────────────────────────────────────────────────────",
+        `  ${getAWField(data, "notes", "No additional notes.")}`,
+        "",
+        "═══════════════════════════════════════════════════════════",
+        "END OF REPORT",
+        "═══════════════════════════════════════════════════════════",
+      ].join("\n");
+    }
+
+    if (mode === "ticket") {
+      const host = getAWField(data, "hostname", getAWField(data, "target_host", "N/A"));
+      const user = getAWField(data, "username", getAWField(data, "upn", "N/A"));
+      return [
+        `[${sev.label}] ${t.name}`,
+        ``,
+        `Alert ID : ${getAWField(data, "alert_id")} | ${getAWField(data, "alert_time")}`,
+        `Platform : ${pc.label} | Analyst: ${analyst}`,
+        `Host     : ${host} | User: ${user}`,
+        `Verdict  : ${getAWField(data, "verdict", "PENDING")}`,
+        ``,
+        `SUMMARY`,
+        `${t.desc}`,
+        ``,
+        `KEY IOCs`,
+        ...t.fields.filter(f => ["src_ip","dest_ip","dest_url","file_hash_sha256","cmdline","process","sender","malicious_url","cve"].includes(f)).map(f => {
+          const val = data[f]; return val ? `- ${AW_FIELD_LABELS[f]}: ${val}` : null;
+        }).filter(Boolean),
+        ``,
+        `MITRE: ${t.mitre.join(" | ")}`,
+        ``,
+        `NEXT STEPS`,
+        ...t.recommendations.slice(0, 3).map((r, i) => `${i + 1}. ${r}`),
+        ``,
+        `NOTES: ${getAWField(data, "notes", "N/A")}`,
+      ].join("\n");
+    }
+
+    if (mode === "exec") {
+      const sev_desc = { critical: "requires immediate executive attention and incident response activation", high: "requires urgent investigation and containment", medium: "requires timely investigation by the security team", low: "is informational and under routine review" };
+      return [
+        `EXECUTIVE SECURITY ALERT SUMMARY`,
+        ``,
+        `Date     : ${getAWField(data, "alert_time", now)}`,
+        `Severity : ${sev.label}`,
+        `Prepared by: ${analyst}`,
+        ``,
+        `WHAT HAPPENED`,
+        `Our security monitoring platform (${pc.label}) detected a ${t.name.toLowerCase()} alert that ${sev_desc[t.severity] || "requires investigation"}.`,
+        ``,
+        `AFFECTED SYSTEMS`,
+        `  - Host   : ${getAWField(data, "hostname", getAWField(data, "target_host", "Under Investigation"))}`,
+        `  - User   : ${getAWField(data, "username", getAWField(data, "upn", "Under Investigation"))}`,
+        ``,
+        `WHAT THIS MEANS`,
+        `${t.desc}`,
+        ``,
+        `CURRENT STATUS`,
+        `Analyst Verdict: ${getAWField(data, "verdict", "Investigation In Progress")}`,
+        ``,
+        `IMMEDIATE ACTIONS RECOMMENDED`,
+        ...t.recommendations.slice(0, 3).map((r, i) => `  ${i + 1}. ${r}`),
+        ``,
+        `This summary is based on initial findings. A full technical report is available upon request.`,
+      ].join("\n");
+    }
+
+    return "";
+  }
+
+  // Wire up platform filter buttons
+  document.querySelectorAll(".aw-plat-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".aw-plat-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      awCurrentPlat = btn.dataset.plat;
+      renderAWTemplateList(awCurrentPlat);
+    });
+  });
+
+  // Wire up output tab buttons
+  document.querySelectorAll(".aw-out-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".aw-out-tab").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      awCurrentOut = btn.dataset.out;
+    });
+  });
+
+  // Generate
+  const awGenerateBtn = $("aw-generate-btn");
+  if (awGenerateBtn) {
+    awGenerateBtn.addEventListener("click", () => {
+      if (!awCurrentTemplate) return;
+      const data = getAWFormData();
+      const report = generateAWReport(data, awCurrentOut);
+      const out = $("aw-output");
+      const outText = $("aw-output-text");
+      if (out && outText) {
+        outText.textContent = report;
+        out.style.display = "block";
+        out.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
+  // Copy report
+  const awCopyBtn = $("aw-copy-btn");
+  if (awCopyBtn) {
+    awCopyBtn.addEventListener("click", async () => {
+      const outText = $("aw-output-text");
+      if (!outText || !outText.textContent.trim()) {
+        const data = getAWFormData();
+        if (!awCurrentTemplate) return;
+        const report = generateAWReport(data, awCurrentOut);
+        try { await navigator.clipboard.writeText(report); } catch {}
+        return;
+      }
+      try { await navigator.clipboard.writeText(outText.textContent); } catch {}
+    });
+  }
+
+  // Clear
+  const awClearBtn = $("aw-clear-btn");
+  if (awClearBtn) {
+    awClearBtn.addEventListener("click", () => {
+      document.querySelectorAll(".aw-input").forEach(el => { el.value = ""; });
+      const out = $("aw-output");
+      if (out) out.style.display = "none";
+    });
+  }
+
+  // Init
+  renderAWTemplateList("all");
+
   // ─── Startup ─────────────────────────────────────────────────
   syncSearchboxState();
   setSearchMode(false);
