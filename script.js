@@ -1673,12 +1673,13 @@ Tip: Use Extract IOCs for an investigation-ready summary.`;
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // ─── ALERT WRITE-UP ENGINE ──────────────────────────────────
+  // ─── ALERT WRITE-UP ENGINE (v2 — clean rewrite) ─────────────
   // ═══════════════════════════════════════════════════════════════
 
-  // ── Template database — sourced from CrowdStrike Falcon, Microsoft Sentinel,
-  //    Splunk, Defender, and real SOC practitioner patterns ──────────────────
-
+  // ─────────────────────────────────────────────────────────────
+  // Template data (sourced from CrowdStrike Falcon, MS Sentinel,
+  // Splunk, Defender, and real SOC practitioner patterns)
+  // ─────────────────────────────────────────────────────────────
   const AW_TEMPLATES = [
     // ─ CrowdStrike ─────────────────────────────────────────────
     {
