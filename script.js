@@ -1532,33 +1532,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const toggleDark = $("toggle-dark");
   if (toggleDark) toggleDark.addEventListener("click", () => document.body.classList.toggle("light"));
 
-    setHref("dom_sucuri",         `https://sitecheck.sucuri.net/results/${enc(domain)}`);
-    setHref("dom_urlvoid",        `https://www.urlvoid.com/scan/${enc(domain)}/`);
-    setHref("dom_urlhaus",        `https://urlhaus.abuse.ch/browse.php?search=${enc(domain)}`);
-    setHref("dom_whois",          `https://www.whois.com/whois/${enc(domain)}`);
-    setHref("dom_dnslytics",      `https://dnslytics.com/domain/${enc(domain)}`);
-    setHref("dom_netcraft",       `https://searchdns.netcraft.com/?host=${enc(domain)}`);
-    setHref("dom_webcheck",       `https://webcheck.spiderlabs.io/?q=${enc(domain)}`);
-    setHref("dom_securitytrails", `https://securitytrails.com/domain/${enc(domain)}`);
-    setHref("dom_hudsonrock_info",`https://intel.hudsonrock.com/?q=${enc(domain)}`);
-    setHref("dom_hudsonrock_urls",`https://cavalier.hudsonrock.com/?q=${enc(domain)}`);
-    setHref("dom_socradar",       gsearch(`SOCRadar dark web report ${domain}`));
-    setHref("dom_wayback",        `https://web.archive.org/web/*/${enc(domain)}`);
-    setHref("dom_wayback_save",   `https://web.archive.org/save/${enc(domain)}`);
-    setHref("dom_browserling",    `https://www.browserling.com/browse/${enc(domain)}`);
-    setHref("dom_anyrun",         anyrunLookupGeneral(domain));
-    setHref("dom_anyrun_safe",    `https://any.run/submit/?url=${enc("http://" + domain)}`);
-    setHref("dom_phishing_checker",`https://phishing.finsin.cl/list.php?search=${enc(domain)}`);
-    setHref("dom_clickfix",       `https://clickfix.carsonww.com/?q=${enc(domain)}`);
-    setHref("dom_nitter",         `https://nitter.net/search?q=${enc(domain)}`);
-    setHref("dom_netlas",         `https://app.netlas.io/domains/?q=${enc(domain)}`);
-    setHref("dom_censys",         `https://search.censys.io/search?resource=hosts&q=${enc(domain)}`);
-    setHref("dom_shodan",         `https://www.shodan.io/search?query=${enc(domain)}`);
-    setHref("dom_dnstools",       `https://whois.domaintools.com/${enc(domain)}`);
-    setHref("dom_crtsh",          `https://crt.sh/?q=${enc(domain)}`);
-    setHref("dom_dnsdumpster",    `https://dnsdumpster.com/`);
-  }
-
 
   // ─── BULK IOC Analyzer ───────────────────────────────────────
   const bulkInput   = $("bulk-input");
