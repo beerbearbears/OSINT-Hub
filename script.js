@@ -660,7 +660,7 @@ QUICK PIVOTS:
   function buildLinksForHash(hash) {
     setHref("h_vt",           `https://www.virustotal.com/gui/file/${enc(hash)}`);
     setHref("h_hybrid",       `https://www.hybrid-analysis.com/search?query=${enc(hash)}`);
-    setHref("h_joesandbox",   `https://www.joesandbox.com/search?q=${enc(hash)}`);
+    setHref("h_joesandbox",   `https://www.joesandbox.com/analysis/search?q=${enc(hash)}`);
     setHref("h_triage",       `https://tria.ge/s?q=${enc(hash)}`);
     setHref("h_malshare",     `https://malshare.com/sample.php?action=detail&hash=${enc(hash)}`);
     setHref("h_malwarebazaar",`https://bazaar.abuse.ch/browse.php?search=${enc(hash)}`);
