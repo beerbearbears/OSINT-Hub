@@ -637,7 +637,7 @@ QUICK PIVOTS:
     setHref("url_phishtank",    `https://www.phishtank.com/`);
     setHref("url_checkphish",   `https://checkphish.ai/?url=${enc(url)}`);
     setHref("url_safebrowsing", `https://transparencyreport.google.com/safe-browsing/search?url=${enc(url)}`);
-    setHref("url_sucuri",       `https://sitecheck.sucuri.net/results/${enc(url)}`);
+    setHref("url_sucuri",       `https://sitecheck.sucuri.net/results/${enc(urlHost)}`);
     setHref("url_browserling",  `https://www.browserling.com/browse/${enc(url)}`);
     setHref("url_wayback",      `https://web.archive.org/web/*/${enc(url)}`);
     setHref("url_anyrun",       `https://any.run/submit/?url=${enc(url)}`);
