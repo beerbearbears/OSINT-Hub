@@ -169,7 +169,7 @@
         </div>
       </div>
 
-      <!-- ===================== URL ANALYSIS (NEW) ===================== -->
+      <!-- ===================== URL ANALYSIS ===================== -->
       <div class="tool-section" data-type="url">
         <div class="section-head">
           <h2>🔗 URL Analysis</h2>
@@ -188,6 +188,19 @@
           <a id="url_wayback" target="_blank"><div class="title">🕰 Wayback Machine <span class="lock">🔒</span></div><div class="meta" data-meta="url_wayback"></div></a>
           <a id="url_anyrun" target="_blank"><div class="title">🏃 AnyRun (Submit) <span class="lock">🔒</span></div><div class="meta" data-meta="url_anyrun"></div></a>
           <a id="url_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="url_otx"></div></a>
+          <!-- NEW ADDITIONS -->
+          <a id="url_threatfox" target="_blank"><div class="title">🦊 ThreatFox <span class="lock">🔒</span></div><div class="meta" data-meta="url_threatfox"></div></a>
+          <a id="url_netcraft" target="_blank"><div class="title">🏗 Netcraft <span class="lock">🔒</span></div><div class="meta" data-meta="url_netcraft"></div></a>
+          <a id="url_webcheck" target="_blank"><div class="title">🧪 Web Check <span class="lock">🔒</span></div><div class="meta" data-meta="url_webcheck"></div></a>
+          <a id="url_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails <span class="lock">🔒</span></div><div class="meta" data-meta="url_securitytrails"></div></a>
+          <a id="url_hudsonrock_info" target="_blank"><div class="title">🧯 HudsonRock Infostealer <span class="lock">🔒</span></div><div class="meta" data-meta="url_hudsonrock_info"></div></a>
+          <a id="url_hudsonrock_urls" target="_blank"><div class="title">🧾 HudsonRock URL Discovery <span class="lock">🔒</span></div><div class="meta" data-meta="url_hudsonrock_urls"></div></a>
+          <a id="url_socradar" target="_blank"><div class="title">🕳 SOCRadar DarkWebReport <span class="lock">🔒</span></div><div class="meta" data-meta="url_socradar"></div></a>
+          <a id="url_wayback_save" target="_blank"><div class="title">💾 Wayback (Save) <span class="lock">🔒</span></div><div class="meta" data-meta="url_wayback_save"></div></a>
+          <a id="url_phishing_checker" target="_blank"><div class="title">🎣 Phishing Checker <span class="lock">🔒</span></div><div class="meta" data-meta="url_phishing_checker"></div></a>
+          <a id="url_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="url_clickfix"></div></a>
+          <a id="url_cyberchef" target="_blank"><div class="title">🧪 CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="url_cyberchef"></div></a>
+          <a id="url_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="url_nitter"></div></a>
         </div>
       </div>
 
@@ -370,51 +383,37 @@
           <div id="mitre-suggested-tags" class="mitre-suggested-tags"></div>
         </div>
         <div id="mitre-panel">
-          <!-- Initial Recon -->
           <label><input type="checkbox" value="T1595"> T1595 – Active Scanning</label>
           <label><input type="checkbox" value="T1592"> T1592 – Gather Victim Host Info</label>
-          <!-- Resource Development -->
           <label><input type="checkbox" value="T1583"> T1583 – Acquire Infrastructure</label>
           <label><input type="checkbox" value="T1584"> T1584 – Compromise Infrastructure</label>
-          <!-- Initial Access -->
           <label><input type="checkbox" value="T1566"> T1566 – Phishing</label>
           <label><input type="checkbox" value="T1190"> T1190 – Exploit Public-Facing App</label>
           <label><input type="checkbox" value="T1078"> T1078 – Valid Accounts</label>
           <label><input type="checkbox" value="T1133"> T1133 – External Remote Services</label>
-          <!-- Execution -->
           <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
           <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
           <label><input type="checkbox" value="T1204"> T1204 – User Execution</label>
           <label><input type="checkbox" value="T1047"> T1047 – Windows Management Instrumentation</label>
-          <!-- Persistence -->
           <label><input type="checkbox" value="T1053"> T1053 – Scheduled Task / Job</label>
           <label><input type="checkbox" value="T1547"> T1547 – Boot or Logon Autostart</label>
-          <!-- Privilege Escalation -->
           <label><input type="checkbox" value="T1055"> T1055 – Process Injection</label>
           <label><input type="checkbox" value="T1068"> T1068 – Exploitation for Privilege Escalation</label>
-          <!-- Defense Evasion -->
           <label><input type="checkbox" value="T1027"> T1027 – Obfuscated Files or Info</label>
           <label><input type="checkbox" value="T1218"> T1218 – Signed Binary Proxy Execution</label>
           <label><input type="checkbox" value="T1036"> T1036 – Masquerading</label>
-          <!-- Credential Access -->
           <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
           <label><input type="checkbox" value="T1003"> T1003 – OS Credential Dumping</label>
           <label><input type="checkbox" value="T1557"> T1557 – Adversary-in-the-Middle</label>
-          <!-- Discovery -->
           <label><input type="checkbox" value="T1082"> T1082 – System Information Discovery</label>
           <label><input type="checkbox" value="T1046"> T1046 – Network Service Discovery</label>
-          <!-- Lateral Movement -->
           <label><input type="checkbox" value="T1021"> T1021 – Remote Services</label>
-          <!-- Collection -->
           <label><input type="checkbox" value="T1114"> T1114 – Email Collection</label>
-          <!-- C2 -->
           <label><input type="checkbox" value="T1071"> T1071 – Application Layer Protocol</label>
           <label><input type="checkbox" value="T1095"> T1095 – Non-Application Layer Protocol</label>
           <label><input type="checkbox" value="T1105"> T1105 – Ingress Tool Transfer</label>
-          <!-- Exfiltration -->
           <label><input type="checkbox" value="T1041"> T1041 – Exfiltration Over C2 Channel</label>
           <label><input type="checkbox" value="T1567"> T1567 – Exfiltration Over Web Service</label>
-          <!-- Impact -->
           <label><input type="checkbox" value="T1486"> T1486 – Data Encrypted for Impact (Ransomware)</label>
           <label><input type="checkbox" value="T1489"> T1489 – Service Stop</label>
         </div>
@@ -449,8 +448,6 @@
 
     <!-- ===== SCRIPT ANALYZER TAB ===== -->
     <div id="tab-script" class="tab-panel">
-
-      <!-- Mode selector -->
       <div class="sa-mode-bar">
         <button class="sa-mode-btn active" data-mode="powershell" type="button">⚡ PowerShell</button>
         <button class="sa-mode-btn" data-mode="cmdline" type="button">🖥 Command Line</button>
@@ -459,7 +456,6 @@
         <button class="sa-mode-btn" data-mode="js" type="button">🌐 JS / JScript</button>
         <button class="sa-mode-btn" data-mode="auto" type="button">🤖 Auto-Detect</button>
       </div>
-
       <div class="input-panel" style="margin-top:12px;">
         <div class="sa-input-header">
           <div>
@@ -480,22 +476,14 @@
           <span class="badge" id="sa-mode-badge">POWERSHELL</span>
         </div>
       </div>
-
-      <!-- Results area -->
       <div id="sa-results" class="sa-results"></div>
-
     </div><!-- end tab-script -->
 
     <!-- ===== ALERT WRITE-UP TAB ===== -->
     <div id="tab-writeup" class="tab-panel">
-
       <div class="aw-layout">
-
-        <!-- LEFT: Template picker -->
         <div class="aw-sidebar">
           <div class="aw-sidebar-head">🛡 Alert Templates</div>
-
-          <!-- Platform filter -->
           <div class="aw-platform-bar">
             <button class="aw-plat-btn active" data-plat="all" type="button">All</button>
             <button class="aw-plat-btn" data-plat="crowdstrike" type="button">CrowdStrike</button>
@@ -504,16 +492,9 @@
             <button class="aw-plat-btn" data-plat="defender" type="button">Defender</button>
             <button class="aw-plat-btn" data-plat="generic" type="button">Generic SOC</button>
           </div>
-
-          <div id="aw-template-list" class="aw-template-list">
-            <!-- populated by JS -->
-          </div>
+          <div id="aw-template-list" class="aw-template-list"></div>
         </div>
-
-        <!-- RIGHT: Form + output -->
         <div class="aw-main">
-
-          <!-- Selected template info -->
           <div id="aw-template-info" class="aw-template-info">
             <div class="aw-ti-head">
               <span id="aw-ti-icon">📋</span>
@@ -525,13 +506,9 @@
             </div>
             <div id="aw-ti-desc" style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;"></div>
           </div>
-
-          <!-- Dynamic fields form -->
           <div id="aw-form" class="aw-form">
             <div class="aw-form-placeholder">← Pick an alert template to begin</div>
           </div>
-
-          <!-- Action bar -->
           <div class="aw-action-bar" id="aw-action-bar" style="display:none">
             <div class="aw-output-tabs">
               <button class="aw-out-tab active" data-out="structured" type="button">📄 Full Report</button>
@@ -544,12 +521,9 @@
               <button id="aw-clear-btn" type="button">🗑 Clear</button>
             </div>
           </div>
-
-          <!-- Output -->
           <div id="aw-output" class="aw-output" style="display:none">
             <pre id="aw-output-text"></pre>
           </div>
-
         </div>
       </div>
     </div><!-- end tab-writeup -->
