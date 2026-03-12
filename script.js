@@ -125,13 +125,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (/^T\d{4,5}(\.\d{3})?$/i.test(v)) return { type: "mitre", q: v.toUpperCase() };
     if (/^CVE-\d{4}-\d{4,}$/i.test(v)) return { type: "cve", q: v.toUpperCase() };
     if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return { type: "email", q: v.toLowerCase() };
-    if (/^\+?[\d\s\-().]{7,20}$/.test(v) && (v.match(/\d/g)||[]).length >= 7 && /\+|\b\d{3}/.test(v)) return { type: "phone", q: v.replace(/\s/g,"") };
+    if (isValidIPv4(v) || isValidIPv6(v)) return { type: "ip", q: v };
     if (/^([0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}$/.test(v)) return { type: "mac", q: v.toUpperCase() };
     if (/^AS\d{1,10}$/i.test(v)) return { type: "asn", q: v.toUpperCase() };
     if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/.test(v)) return { type: "btc", q: v };
     if (/^0x[a-fA-F0-9]{40}$/.test(v)) return { type: "eth", q: v };
     if (/^\d{3,5}$/.test(v)) return { type: "eventid", q: v };
-    if (isValidIPv4(v) || isValidIPv6(v)) return { type: "ip", q: v };
+    if (/^\+?[\d\s\-().]{7,20}$/.test(v) && (v.match(/\d/g)||[]).length >= 7 && /\+|\b\d{3}/.test(v) && !isValidIPv4(v)) return { type: "phone", q: v.replace(/\s/g,"") };
     if (/^[a-fA-F0-9]{32}$/.test(v) || /^[a-fA-F0-9]{40}$/.test(v) || /^[a-fA-F0-9]{64}$/.test(v) || /^[a-fA-F0-9]{96}$/.test(v) || /^[a-fA-F0-9]{128}$/.test(v))
       return { type: "hash", q: v.toLowerCase() };
     if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v) && v.includes(".") && !/\s/.test(v)) return { type: "domain", q: v.toLowerCase() };
