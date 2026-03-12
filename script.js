@@ -1597,6 +1597,8 @@ document.addEventListener("DOMContentLoaded", () => {
     ip_nitter:"https://nitter.net/", ip_threatminer:"https://www.threatminer.org/",
     ip_urlscan:"https://urlscan.io/", ip_viewdns:"https://viewdns.info/",
     ip_scamalytics:"https://scamalytics.com/",
+    ip_threatfox:"https://threatfox.abuse.ch/", ip_pulsedive:"https://pulsedive.com/",
+    ip_securitytrails:"https://securitytrails.com/",
     dom_vt:"https://www.virustotal.com/", dom_talos:"https://talosintelligence.com/",
     dom_ibmxf:"https://exchange.xforce.ibmcloud.com/", dom_otx:"https://otx.alienvault.com/",
     dom_urlscan:"https://urlscan.io/", dom_mxtoolbox:"https://mxtoolbox.com/",
@@ -1614,6 +1616,8 @@ document.addEventListener("DOMContentLoaded", () => {
     dom_netlas:"https://netlas.io/", dom_censys:"https://search.censys.io/",
     dom_shodan:"https://www.shodan.io/", dom_dnstools:"https://whois.domaintools.com/",
     dom_crtsh:"https://crt.sh/", dom_dnsdumpster:"https://dnsdumpster.com/",
+    dom_threatfox:"https://threatfox.abuse.ch/", dom_pulsedive:"https://pulsedive.com/",
+    dom_passivedns:"https://securitytrails.com/", dom_rdap:"https://www.rdap.net/",
     url_vt:"https://www.virustotal.com/", url_urlscan:"https://urlscan.io/",
     url_urlvoid:"https://www.urlvoid.com/", url_urlhaus:"https://urlhaus.abuse.ch/",
     url_phishtank:"https://www.phishtank.com/", url_checkphish:"https://checkphish.ai/",
@@ -2216,17 +2220,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (toggleDark) toggleDark.addEventListener("click", () => {
     document.body.classList.toggle("light");
     try { localStorage.setItem("osint_theme", document.body.classList.contains("light") ? "light" : "dark"); } catch {}
-  });
-
-  // ── Keyboard shortcuts (Ctrl+Enter=search, Ctrl+K=focus) ─────
-  document.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      if (document.querySelector(".tab-panel.active")?.id === "tab-single") doSearch({ silent: false });
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-      e.preventDefault(); if (input) { switchTab("single"); input.focus(); input.select(); }
-    }
   });
 
   // ── Clipboard auto-detect on focus ───────────────────────────
