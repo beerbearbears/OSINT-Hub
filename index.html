@@ -64,6 +64,7 @@
         <button class="tab-btn" data-tab="logtriage" type="button">🧾 Log Triage</button>
         <button class="tab-btn" data-tab="threat" type="button">🕵 Threat Actor</button>
         <button class="tab-btn" data-tab="custom" type="button">⚙ Custom Tools</button>
+        <button class="tab-btn" data-tab="utils" type="button">🛠 SOC Utils</button>
       </div>
     </div>
 
@@ -258,14 +259,88 @@
 
       <!-- ===================== USERNAME ===================== -->
       <div class="tool-section" data-type="username">
-        <div class="section-head"><h2>👤 Username Lookup</h2><div class="pill">Account pivots</div></div>
+        <div class="section-head"><h2>👤 Username / Account OSINT</h2><div class="pill">Account pivots</div></div>
         <div class="tool-grid">
           <a id="usr_namechk" target="_blank"><div class="title">🧾 Namechk <span class="lock">🔒</span></div><div class="meta" data-meta="usr_namechk"></div></a>
           <a id="usr_whatsmyname" target="_blank"><div class="title">🕵️ WhatsMyName <span class="lock">🔒</span></div><div class="meta" data-meta="usr_whatsmyname"></div></a>
+          <a id="usr_maigret" target="_blank"><div class="title">🔭 Maigret (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="usr_maigret"></div></a>
           <a id="usr_sherlock" target="_blank"><div class="title">🔍 Sherlock (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="usr_sherlock"></div></a>
           <a id="usr_socialsearcher" target="_blank"><div class="title">📡 Social Searcher <span class="lock">🔒</span></div><div class="meta" data-meta="usr_socialsearcher"></div></a>
           <a id="usr_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="usr_dehashed"></div></a>
           <a id="usr_intelx" target="_blank"><div class="title">📡 IntelX <span class="lock">🔒</span></div><div class="meta" data-meta="usr_intelx"></div></a>
+          <a id="usr_breachdir" target="_blank"><div class="title">🧯 Breach Directory <span class="lock">🔒</span></div><div class="meta" data-meta="usr_breachdir"></div></a>
+          <a id="usr_leakcheck" target="_blank"><div class="title">💧 LeakCheck <span class="lock">🔒</span></div><div class="meta" data-meta="usr_leakcheck"></div></a>
+          <a id="usr_spiderfoot" target="_blank"><div class="title">🕷 SpiderFoot HX <span class="lock">🔒</span></div><div class="meta" data-meta="usr_spiderfoot"></div></a>
+          <a id="usr_github" target="_blank"><div class="title">🐙 GitHub Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_github"></div></a>
+          <a id="usr_twitter" target="_blank"><div class="title">🐦 Twitter / X <span class="lock">🔒</span></div><div class="meta" data-meta="usr_twitter"></div></a>
+          <a id="usr_reddit" target="_blank"><div class="title">🔴 Reddit Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_reddit"></div></a>
+          <a id="usr_tiktok" target="_blank"><div class="title">🎵 TikTok Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_tiktok"></div></a>
+          <a id="usr_instagram" target="_blank"><div class="title">📸 Instagram <span class="lock">🔒</span></div><div class="meta" data-meta="usr_instagram"></div></a>
+          <a id="usr_linkedin" target="_blank"><div class="title">💼 LinkedIn Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_linkedin"></div></a>
+          <a id="usr_snapchat" target="_blank"><div class="title">👻 Snapchat <span class="lock">🔒</span></div><div class="meta" data-meta="usr_snapchat"></div></a>
+          <a id="usr_telegram" target="_blank"><div class="title">✈️ Telegram <span class="lock">🔒</span></div><div class="meta" data-meta="usr_telegram"></div></a>
+          <a id="usr_discord" target="_blank"><div class="title">🎮 Discord Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="usr_discord"></div></a>
+          <a id="usr_pastebin" target="_blank"><div class="title">📋 Pastebin Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_pastebin"></div></a>
+          <a id="usr_nitter" target="_blank"><div class="title">🐦 Nitter Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_nitter"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== PHONE ===================== -->
+      <div class="tool-section" data-type="phone">
+        <div class="section-head"><h2>📞 Phone Number OSINT</h2><div class="pill">Phone pivots</div></div>
+        <div class="tool-grid">
+          <a id="ph_truecaller" target="_blank"><div class="title">📞 Truecaller <span class="lock">🔒</span></div><div class="meta" data-meta="ph_truecaller"></div></a>
+          <a id="ph_numverify" target="_blank"><div class="title">🔢 NumVerify <span class="lock">🔒</span></div><div class="meta" data-meta="ph_numverify"></div></a>
+          <a id="ph_phoneinfoga" target="_blank"><div class="title">🕵️ PhoneInfoga (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="ph_phoneinfoga"></div></a>
+          <a id="ph_eyecon" target="_blank"><div class="title">👁 Eyecon Caller ID <span class="lock">🔒</span></div><div class="meta" data-meta="ph_eyecon"></div></a>
+          <a id="ph_calleridtest" target="_blank"><div class="title">🆔 CallerID Test <span class="lock">🔒</span></div><div class="meta" data-meta="ph_calleridtest"></div></a>
+          <a id="ph_intelx" target="_blank"><div class="title">📡 IntelX Search <span class="lock">🔒</span></div><div class="meta" data-meta="ph_intelx"></div></a>
+          <a id="ph_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="ph_dehashed"></div></a>
+          <a id="ph_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="ph_google"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== MAC ADDRESS ===================== -->
+      <div class="tool-section" data-type="mac">
+        <div class="section-head"><h2>🖧 MAC Address Lookup</h2><div class="pill">Hardware pivots</div></div>
+        <div class="tool-grid">
+          <a id="mac_macvendors" target="_blank"><div class="title">🏭 MAC Vendors <span class="lock">🔒</span></div><div class="meta" data-meta="mac_macvendors"></div></a>
+          <a id="mac_maclookup" target="_blank"><div class="title">🔍 MAC Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="mac_maclookup"></div></a>
+          <a id="mac_wireshark_oui" target="_blank"><div class="title">🦈 Wireshark OUI DB <span class="lock">🔒</span></div><div class="meta" data-meta="mac_wireshark_oui"></div></a>
+          <a id="mac_google" target="_blank"><div class="title">🔎 Google OUI Search <span class="lock">🔒</span></div><div class="meta" data-meta="mac_google"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== ASN ===================== -->
+      <div class="tool-section" data-type="asn">
+        <div class="section-head"><h2>🌐 ASN / BGP Lookup</h2><div class="pill">Network pivots</div></div>
+        <div class="tool-grid">
+          <a id="asn_bgphe" target="_blank"><div class="title">🌐 BGP.he.net <span class="lock">🔒</span></div><div class="meta" data-meta="asn_bgphe"></div></a>
+          <a id="asn_ripestat" target="_blank"><div class="title">🗃 RIPEstat <span class="lock">🔒</span></div><div class="meta" data-meta="asn_ripestat"></div></a>
+          <a id="asn_asnlookup" target="_blank"><div class="title">🔭 ASN Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="asn_asnlookup"></div></a>
+          <a id="asn_ipinfo" target="_blank"><div class="title">🗺 IPinfo ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_ipinfo"></div></a>
+          <a id="asn_shodan" target="_blank"><div class="title">🛰 Shodan ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_shodan"></div></a>
+          <a id="asn_greynoise" target="_blank"><div class="title">🌫 GreyNoise ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_greynoise"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== CRYPTO WALLET ===================== -->
+      <div class="tool-section" data-type="btc">
+        <div class="section-head"><h2>₿ Crypto Wallet Lookup</h2><div class="pill">Blockchain pivots</div></div>
+        <div class="tool-grid">
+          <a id="btc_blockchain" target="_blank"><div class="title">⛓ Blockchain.com <span class="lock">🔒</span></div><div class="meta" data-meta="btc_blockchain"></div></a>
+          <a id="btc_blockchair" target="_blank"><div class="title">🪑 Blockchair <span class="lock">🔒</span></div><div class="meta" data-meta="btc_blockchair"></div></a>
+          <a id="btc_walletexplorer" target="_blank"><div class="title">🔍 WalletExplorer <span class="lock">🔒</span></div><div class="meta" data-meta="btc_walletexplorer"></div></a>
+          <a id="btc_otx" target="_blank"><div class="title">👽 OTX Search <span class="lock">🔒</span></div><div class="meta" data-meta="btc_otx"></div></a>
+          <a id="btc_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="btc_google"></div></a>
+        </div>
+      </div>
+      <div class="tool-section" data-type="eth">
+        <div class="section-head"><h2>Ξ ETH Wallet Lookup</h2><div class="pill">Ethereum pivots</div></div>
+        <div class="tool-grid">
+          <a id="eth_etherscan" target="_blank"><div class="title">🔬 Etherscan <span class="lock">🔒</span></div><div class="meta" data-meta="eth_etherscan"></div></a>
+          <a id="eth_blockchair" target="_blank"><div class="title">🪑 Blockchair ETH <span class="lock">🔒</span></div><div class="meta" data-meta="eth_blockchair"></div></a>
+          <a id="eth_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="eth_google"></div></a>
         </div>
       </div>
 
@@ -725,7 +800,175 @@
       <div id="ct-list" class="ct-list"></div>
     </div>
 
-  </div><!-- end main -->
+    <!-- ===== SOC UTILITIES TAB ===== -->
+    <div id="tab-utils" class="tab-panel">
+      <div class="utils-grid">
+
+        <!-- Quick Base64 Encode/Decode -->
+        <div class="utils-card">
+          <div class="utils-card-head">🔓 Quick Base64 Decode / Encode</div>
+          <textarea id="util-b64-input" spellcheck="false" placeholder="Paste Base64 to decode, or plain text to encode..."></textarea>
+          <div class="utils-actions">
+            <button id="util-b64-decode" type="button">🔓 Decode</button>
+            <button id="util-b64-encode" type="button">🔒 Encode</button>
+            <button id="util-b64-deep" type="button" title="Recursively decode multiple layers">🔁 Deep Decode</button>
+            <button id="util-b64-copy" type="button">📋 Copy</button>
+            <button id="util-b64-pivot" type="button" title="Send decoded result to Single IOC search">🔍 Pivot</button>
+          </div>
+          <textarea id="util-b64-output" spellcheck="false" readonly placeholder="Result..."></textarea>
+        </div>
+
+        <!-- URL Decoder / Encoder -->
+        <div class="utils-card">
+          <div class="utils-card-head">🔗 URL Decode / Encode</div>
+          <textarea id="util-url-input" spellcheck="false" placeholder="Paste URL-encoded string or plain text..."></textarea>
+          <div class="utils-actions">
+            <button id="util-url-decode" type="button">🔓 URL Decode</button>
+            <button id="util-url-encode" type="button">🔒 URL Encode</button>
+            <button id="util-url-double-decode" type="button">🔁 Double Decode</button>
+            <button id="util-url-copy" type="button">📋 Copy</button>
+          </div>
+          <textarea id="util-url-output" spellcheck="false" readonly placeholder="Result..."></textarea>
+        </div>
+
+        <!-- Regex IOC Hunter -->
+        <div class="utils-card utils-card-wide">
+          <div class="utils-card-head">🎯 Regex IOC Hunter</div>
+          <div class="regex-hunter-layout">
+            <div class="regex-hunter-left">
+              <textarea id="util-regex-input" spellcheck="false" placeholder="Paste any text — threat report, alert, email body, log..."></textarea>
+              <div class="utils-actions">
+                <button id="util-regex-run" type="button">🔍 Extract All IOCs</button>
+                <button id="util-regex-copy" type="button">📋 Copy IOCs</button>
+                <button id="util-regex-clear" type="button">🗑 Clear</button>
+                <button id="util-regex-bulk" type="button">📋 Send to Bulk Analyzer</button>
+              </div>
+            </div>
+            <div id="util-regex-results" class="regex-results"></div>
+          </div>
+        </div>
+
+        <!-- IOC Normalizer / Defang Detector -->
+        <div class="utils-card">
+          <div class="utils-card-head">🧹 IOC Normalizer</div>
+          <p class="utils-card-desc">Normalizes any defanged/mixed IOC: strips hxxp, [.], (@), brackets, trailing punctuation. One IOC per line.</p>
+          <textarea id="util-norm-input" spellcheck="false" placeholder="hxxps://evil[.]com&#10;192[.]168[.]1[.]1&#10;user[@]domain.com&#10;44d88612fea8a8f36de82e1278abb02f"></textarea>
+          <div class="utils-actions">
+            <button id="util-norm-run" type="button">🧹 Normalize</button>
+            <button id="util-norm-copy" type="button">📋 Copy</button>
+            <button id="util-norm-pivot" type="button">📤 Send to Bulk</button>
+            <button id="util-norm-clear" type="button">🗑 Clear</button>
+          </div>
+          <textarea id="util-norm-output" spellcheck="false" readonly placeholder="Normalized output..."></textarea>
+        </div>
+
+        <!-- Hex / Octal Decoder -->
+        <div class="utils-card">
+          <div class="utils-card-head">🔢 Hex / Octal / Char Decoder</div>
+          <textarea id="util-hex-input" spellcheck="false" placeholder="Examples:&#10;\x68\x65\x6c\x6c\x6f&#10;0x48 0x65 0x6c&#10;72 101 108&#10;\150\145\154"></textarea>
+          <div class="utils-actions">
+            <button id="util-hex-decode-hex" type="button">HEX → Text</button>
+            <button id="util-hex-decode-oct" type="button">OCT → Text</button>
+            <button id="util-hex-decode-dec" type="button">DEC → Text</button>
+            <button id="util-hex-copy" type="button">📋 Copy</button>
+          </div>
+          <textarea id="util-hex-output" spellcheck="false" readonly placeholder="Decoded text..."></textarea>
+        </div>
+
+        <!-- Epoch / Timestamp Converter -->
+        <div class="utils-card">
+          <div class="utils-card-head">⏱ Timestamp Converter</div>
+          <p class="utils-card-desc">Convert Unix epoch ↔ human-readable date. Supports seconds, milliseconds, and ISO 8601.</p>
+          <input id="util-ts-input" class="aw-input" type="text" placeholder="e.g. 1714000000 or 2024-04-25T00:00:00Z" />
+          <div class="utils-actions" style="margin-top:8px">
+            <button id="util-ts-todate" type="button">🕒 Epoch → Date</button>
+            <button id="util-ts-toepoch" type="button">🔢 Date → Epoch</button>
+            <button id="util-ts-now" type="button">📍 Now</button>
+            <button id="util-ts-copy" type="button">📋 Copy</button>
+          </div>
+          <div id="util-ts-output" class="utils-output-box"></div>
+        </div>
+
+        <!-- Hash Calculator (text input) -->
+        <div class="utils-card">
+          <div class="utils-card-head">🔑 Text Hasher</div>
+          <p class="utils-card-desc">Hash any text string (useful for indicator comparison, password checks, or signature generation).</p>
+          <textarea id="util-hash-input" spellcheck="false" placeholder="Enter text to hash..." rows="3"></textarea>
+          <div class="utils-actions">
+            <button id="util-hash-run" type="button">⚡ Hash It</button>
+            <button id="util-hash-copy" type="button">📋 Copy SHA256</button>
+            <button id="util-hash-pivot" type="button">🔍 Pivot SHA256</button>
+          </div>
+          <div id="util-hash-output" class="utils-output-box"></div>
+        </div>
+
+        <!-- Analyst Scratchpad -->
+        <div class="utils-card utils-card-wide">
+          <div class="utils-card-head">📝 Analyst Scratchpad <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px">— auto-saved to browser storage</span></div>
+          <textarea id="util-notes" spellcheck="false" placeholder="Use this as a working notepad during investigations. Notes auto-save every keystroke...&#10;&#10;Tip: Use <!-- CASE-001 --> markers to organize findings."></textarea>
+          <div class="utils-actions">
+            <button id="util-notes-copy" type="button">📋 Copy Notes</button>
+            <button id="util-notes-export" type="button">📤 Export .txt</button>
+            <button id="util-notes-clear" type="button">🗑 Clear Notes</button>
+          </div>
+          <div class="utils-note-count"><span id="util-notes-chars">0</span> chars · <span id="util-notes-words">0</span> words</div>
+        </div>
+
+        <!-- String Reverse / ROT13 / Caesar -->
+        <div class="utils-card">
+          <div class="utils-card-head">🔄 String Transforms</div>
+          <textarea id="util-str-input" spellcheck="false" placeholder="Enter text to transform..."></textarea>
+          <div class="utils-actions">
+            <button id="util-str-reverse" type="button">↩ Reverse</button>
+            <button id="util-str-rot13" type="button">🔄 ROT13</button>
+            <button id="util-str-upper" type="button">▲ Upper</button>
+            <button id="util-str-lower" type="button">▼ Lower</button>
+            <button id="util-str-hex" type="button">HEX</button>
+            <button id="util-str-copy" type="button">📋 Copy</button>
+          </div>
+          <textarea id="util-str-output" spellcheck="false" readonly placeholder="Result..."></textarea>
+        </div>
+
+        <!-- JWT Decoder -->
+        <div class="utils-card">
+          <div class="utils-card-head">🪙 JWT Decoder</div>
+          <p class="utils-card-desc">Decode a JWT token (header + payload). Validates structure only — does not verify signature.</p>
+          <textarea id="util-jwt-input" spellcheck="false" placeholder="Paste JWT token: eyJhbGc..." rows="3"></textarea>
+          <div class="utils-actions">
+            <button id="util-jwt-decode" type="button">🔓 Decode JWT</button>
+            <button id="util-jwt-copy" type="button">📋 Copy</button>
+          </div>
+          <pre id="util-jwt-output" class="utils-output-box" style="white-space:pre-wrap;word-break:break-all;font-size:11px;"></pre>
+        </div>
+
+        <!-- Whois quick reference -->
+        <div class="utils-card">
+          <div class="utils-card-head">📡 Quick Pivot Launcher</div>
+          <p class="utils-card-desc">Daily-use intelligence links. Opens in a new tab — no IOC needed.</p>
+          <div class="quicklinks-grid">
+            <a href="https://www.virustotal.com/" target="_blank" class="quicklink-btn">🧪 VirusTotal</a>
+            <a href="https://urlscan.io/" target="_blank" class="quicklink-btn">🔎 URLScan</a>
+            <a href="https://bazaar.abuse.ch/" target="_blank" class="quicklink-btn">🦠 MalwareBazaar</a>
+            <a href="https://threatfox.abuse.ch/" target="_blank" class="quicklink-btn">🦊 ThreatFox</a>
+            <a href="https://any.run/" target="_blank" class="quicklink-btn">🏃 AnyRun</a>
+            <a href="https://www.hybrid-analysis.com/" target="_blank" class="quicklink-btn">🧫 Hybrid Analysis</a>
+            <a href="https://attack.mitre.org/" target="_blank" class="quicklink-btn">🧩 ATT&CK</a>
+            <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" class="quicklink-btn">🧨 CISA KEV</a>
+            <a href="https://otx.alienvault.com/" target="_blank" class="quicklink-btn">👽 OTX</a>
+            <a href="https://viz.greynoise.io/" target="_blank" class="quicklink-btn">🌫 GreyNoise</a>
+            <a href="https://search.censys.io/" target="_blank" class="quicklink-btn">🔭 Censys</a>
+            <a href="https://www.shodan.io/" target="_blank" class="quicklink-btn">🛰 Shodan</a>
+            <a href="https://intelx.io/" target="_blank" class="quicklink-btn">📡 IntelX</a>
+            <a href="https://haveibeenpwned.com/" target="_blank" class="quicklink-btn">🧨 HIBP</a>
+            <a href="https://gchq.github.io/CyberChef/" target="_blank" class="quicklink-btn">🧪 CyberChef</a>
+            <a href="https://uncoder.io/" target="_blank" class="quicklink-btn">⚙️ Uncoder</a>
+            <a href="https://lolbas-project.github.io/" target="_blank" class="quicklink-btn">🧰 LOLBAS</a>
+            <a href="https://gtfobins.github.io/" target="_blank" class="quicklink-btn">🧰 GTFOBins</a>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- end tab-utils -->
 
   <script src="script.js"></script>
 </body>
