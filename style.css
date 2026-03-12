@@ -718,3 +718,124 @@ select.aw-input { cursor:pointer; }
   text-decoration: none; white-space: nowrap;
 }
 .quicklink-btn:hover { background: rgba(56,189,248,0.10); border-color: rgba(56,189,248,0.30); color: var(--accent); }
+
+/* ═══════════════════════════════════════════════════════════════
+   DOMAIN AGE BADGE
+   ═══════════════════════════════════════════════════════════════ */
+.domain-age-badge {
+  font-size: 12px; padding: 8px 12px; border-radius: 8px;
+  border: 1px solid; background: rgba(56,189,248,0.07);
+  border-color: rgba(56,189,248,0.25); color: #7dd3fc;
+  margin-bottom: 8px; line-height: 1.6;
+}
+.domain-age-new { border-color: rgba(248,113,113,0.4) !important; background: rgba(248,113,113,0.08) !important; color: #fca5a5 !important; }
+.verdict-critical { display:flex; flex-direction:column; gap:6px; }
+.verdict-critical span { font-size:12px; color:#f87171; font-weight:700; }
+
+/* ═══════════════════════════════════════════════════════════════
+   BULK IMPROVEMENTS — per-item pivot + export bar
+   ═══════════════════════════════════════════════════════════════ */
+.bulk-ioc-row-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
+.bulk-ioc-row-head .bulk-ioc-val { flex:1; font-size:12px; font-family:var(--mono); word-break:break-all; }
+.bulk-export-bar { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.bulk-exp-btn {
+  font-size:11px; padding:4px 10px; border-radius:7px;
+  border:1px solid var(--border); background:rgba(255,255,255,0.04);
+  color:var(--text); cursor:pointer; transition:all 0.13s;
+}
+.bulk-exp-btn:hover { background:rgba(56,189,248,0.10); border-color:rgba(56,189,248,0.30); color:var(--accent); }
+
+/* ═══════════════════════════════════════════════════════════════
+   CTI FEED TAB
+   ═══════════════════════════════════════════════════════════════ */
+.cti-subtab-bar {
+  display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; padding-bottom:4px;
+}
+.cti-sub-btn {
+  font-size:12px; padding:7px 14px; border-radius:20px;
+  border:1px solid var(--border); background:transparent;
+  color:var(--muted); cursor:pointer; transition:all 0.15s; white-space:nowrap;
+}
+.cti-sub-btn.active, .cti-sub-btn:hover {
+  background:var(--accent); color:#0f172a; border-color:var(--accent); font-weight:700;
+}
+.cti-panel { margin-top:16px; }
+
+/* Feeds grid */
+.cti-feed-controls { display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+.cti-feed-status { font-size:11px; color:var(--muted); }
+.cti-feeds-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px;
+}
+.cti-feed-card {
+  background:var(--card); border:1px solid; border-radius:10px; padding:14px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.cti-feed-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.cti-feed-icon { font-size:18px; }
+.cti-feed-name { font-weight:700; font-size:13px; flex:1; }
+.cti-feed-badge { font-size:10px; padding:2px 8px; border-radius:20px; border:1px solid; white-space:nowrap; }
+.cti-feed-meta { font-size:11px; color:var(--muted); line-height:1.5; }
+.cti-feed-meta code { font-size:10px; color:var(--text); background:rgba(255,255,255,0.05); padding:1px 4px; border-radius:4px; }
+.cti-feed-actions { display:flex; gap:6px; }
+
+/* Actor intel */
+.cti-search-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.cti-actor-results { display:flex; flex-direction:column; gap:14px; }
+.cti-actor-card {
+  background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px;
+  display:flex; flex-direction:column; gap:10px;
+}
+.cti-actor-head { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; }
+.cti-actor-name { font-size:18px; font-weight:800; color:var(--text); }
+.cti-actor-aliases { font-size:11px; color:var(--muted); margin-top:2px; }
+.cti-actor-badges { display:flex; flex-wrap:wrap; gap:5px; }
+.cti-actor-badge { font-size:10px; padding:3px 10px; border-radius:20px; border:1px solid; font-weight:700; white-space:nowrap; }
+.cti-actor-desc { font-size:12px; color:var(--text-muted); line-height:1.65; }
+.cti-actor-grid { display:flex; flex-direction:column; gap:5px; }
+.cti-actor-row { font-size:12px; display:flex; gap:8px; }
+.cti-actor-label { color:var(--muted); min-width:80px; font-weight:700; }
+.cti-actor-ttps { display:flex; flex-wrap:wrap; gap:6px; }
+.cti-actor-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+/* IOC intel check */
+.cti-ioc-check-layout { margin-bottom:14px; }
+.cti-ioc-results { margin-top:12px; }
+.cti-ioc-header {
+  display:flex; align-items:center; gap:10px; padding:10px 14px;
+  border:1px solid; border-radius:10px; margin-bottom:12px; flex-wrap:wrap;
+}
+.cti-ioc-links-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; margin-bottom:14px;
+}
+.cti-ioc-link-card {
+  background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 12px;
+  text-decoration:none; color:var(--text); transition:all 0.13s; cursor:pointer;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.cti-ioc-link-card:hover { border-color:var(--accent); background:rgba(56,189,248,0.07); }
+.cti-ioc-link-name { font-size:12px; font-weight:700; }
+.cti-ioc-link-action { font-size:11px; color:var(--muted); }
+.cti-ioc-hints { margin-top:8px; display:flex; flex-direction:column; gap:4px; }
+.cti-ioc-hint-head { font-size:12px; font-weight:700; color:var(--muted); margin-bottom:4px; }
+
+/* Campaign tracker */
+.cti-campaigns-header { margin-bottom:14px; }
+.cti-campaigns-header h4 { margin:0 0 4px; font-size:15px; }
+.cti-campaigns-list { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+.cti-camp-card {
+  background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.cti-camp-head { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:6px; }
+.cti-camp-name { font-weight:700; font-size:14px; }
+.cti-camp-actor { font-size:11px; color:var(--muted); }
+.cti-camp-iocs { font-size:11px; }
+.cti-camp-ioc-label { font-weight:700; color:var(--muted); font-size:10px; text-transform:uppercase; margin-bottom:4px; }
+.cti-camp-add-ioc { display:flex; gap:6px; }
+.cti-camp-actions { display:flex; gap:8px; padding-top:4px; }
+
+/* Resources grid */
+.cti-resources-grid { display:flex; flex-direction:column; gap:20px; }
+.cti-res-section {}
+.cti-res-head { font-size:13px; font-weight:700; color:var(--text); margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border); }
