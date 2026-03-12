@@ -65,6 +65,7 @@
         <button class="tab-btn" data-tab="threat" type="button">🕵 Threat Actor</button>
         <button class="tab-btn" data-tab="custom" type="button">⚙ Custom Tools</button>
         <button class="tab-btn" data-tab="utils" type="button">🛠 SOC Utils</button>
+        <button class="tab-btn" data-tab="cti" type="button">🌐 CTI Feed</button>
       </div>
     </div>
 
@@ -134,6 +135,9 @@
           <a id="ip_urlscan" target="_blank"><div class="title">🔎 urlscan.io <span class="lock">🔒</span></div><div class="meta" data-meta="ip_urlscan"></div></a>
           <a id="ip_viewdns" target="_blank"><div class="title">🧩 ViewDNS IP History <span class="lock">🔒</span></div><div class="meta" data-meta="ip_viewdns"></div></a>
           <a id="ip_scamalytics" target="_blank"><div class="title">🎭 Scamalytics <span class="lock">🔒</span></div><div class="meta" data-meta="ip_scamalytics"></div></a>
+          <a id="ip_threatfox" target="_blank"><div class="title">🦊 ThreatFox (C2) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_threatfox"></div></a>
+          <a id="ip_pulsedive" target="_blank"><div class="title">📡 Pulsedive <span class="lock">🔒</span></div><div class="meta" data-meta="ip_pulsedive"></div></a>
+          <a id="ip_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails (rDNS) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_securitytrails"></div></a>
         </div>
       </div>
 
@@ -175,6 +179,10 @@
           <a id="dom_dnstools" target="_blank"><div class="title">📇 WHOIS DomainTools <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnstools"></div></a>
           <a id="dom_crtsh" target="_blank"><div class="title">🔐 crt.sh (Cert Transparency) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_crtsh"></div></a>
           <a id="dom_dnsdumpster" target="_blank"><div class="title">🗺 DNSDumpster <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnsdumpster"></div></a>
+          <a id="dom_threatfox" target="_blank"><div class="title">🦊 ThreatFox <span class="lock">🔒</span></div><div class="meta" data-meta="dom_threatfox"></div></a>
+          <a id="dom_pulsedive" target="_blank"><div class="title">📡 Pulsedive <span class="lock">🔒</span></div><div class="meta" data-meta="dom_pulsedive"></div></a>
+          <a id="dom_passivedns" target="_blank"><div class="title">🕰 Passive DNS History <span class="lock">🔒</span></div><div class="meta" data-meta="dom_passivedns"></div></a>
+          <a id="dom_rdap" target="_blank"><div class="title">📇 RDAP (Reg Age) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_rdap"></div></a>
         </div>
       </div>
 
@@ -970,6 +978,181 @@
       </div>
     </div><!-- end tab-utils -->
 
-  <script src="script.js"></script>
+    <!-- ===== CTI FEED TAB ===== -->
+    <div id="tab-cti" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>🌐 CTI — Cyber Threat Intelligence</h3>
+          <p class="sub">Live threat feeds, actor profiles, campaign tracking, and intelligence sharing. Pull current intel from open sources without leaving the toolkit.</p>
+        </div>
+
+        <!-- CTI sub-tabs -->
+        <div class="cti-subtab-bar">
+          <button class="cti-sub-btn active" data-ctitab="feeds" type="button">📡 Live Feeds</button>
+          <button class="cti-sub-btn" data-ctitab="actors" type="button">🕵 Actor Intel</button>
+          <button class="cti-sub-btn" data-ctitab="ioc-check" type="button">🎯 IOC Intel Check</button>
+          <button class="cti-sub-btn" data-ctitab="campaigns" type="button">📊 Campaign Tracker</button>
+          <button class="cti-sub-btn" data-ctitab="resources" type="button">📚 Intel Resources</button>
+        </div>
+      </div>
+
+      <!-- FEEDS PANEL -->
+      <div id="cti-panel-feeds" class="cti-panel active">
+        <div class="cti-feed-controls">
+          <button id="cti-feeds-refresh" type="button">🔄 Refresh All Feeds</button>
+          <span id="cti-feed-status" class="cti-feed-status">Click Refresh to load latest threat intelligence</span>
+        </div>
+        <div class="cti-feeds-grid" id="cti-feeds-grid">
+          <!-- Feed cards injected by JS -->
+        </div>
+      </div>
+
+      <!-- ACTOR INTEL PANEL -->
+      <div id="cti-panel-actors" class="cti-panel" style="display:none">
+        <div class="cti-search-row">
+          <input id="cti-actor-input" class="aw-input" type="text" placeholder="Actor name, alias, or group (e.g. APT29, Lazarus, FIN7, Scattered Spider)" />
+          <button id="cti-actor-search-btn" type="button">🔍 Search</button>
+          <button id="cti-actor-random" type="button" title="Show a random known threat actor">🎲 Random Actor</button>
+        </div>
+        <div id="cti-actor-results" class="cti-actor-results"></div>
+      </div>
+
+      <!-- IOC INTEL CHECK PANEL -->
+      <div id="cti-panel-ioc-check" class="cti-panel" style="display:none">
+        <div class="cti-ioc-check-layout">
+          <div class="cti-ioc-check-left">
+            <p class="utils-card-desc">Check any IOC against open-source CTI databases. Enter one IOC then click Check — results show known threat context, associated campaigns, and related indicators.</p>
+            <div class="cti-search-row">
+              <input id="cti-ioc-input" class="aw-input" type="text" placeholder="IP, domain, hash, URL, email, CVE..." style="flex:1" />
+              <button id="cti-ioc-check-btn" type="button">🎯 Check Intel</button>
+            </div>
+            <div id="cti-ioc-status" class="status" style="margin-top:8px;">
+              <span>Enter an IOC above to check threat context</span><span class="badge">CTI</span>
+            </div>
+          </div>
+        </div>
+        <div id="cti-ioc-results" class="cti-ioc-results"></div>
+      </div>
+
+      <!-- CAMPAIGNS PANEL -->
+      <div id="cti-panel-campaigns" class="cti-panel" style="display:none">
+        <div class="cti-campaigns-header">
+          <h4>📊 Active Campaign Tracker</h4>
+          <p class="utils-card-desc">Track ongoing campaigns and associate IOCs from your investigations. Add entries manually or import from triage results.</p>
+          <div class="cti-search-row">
+            <input id="cti-camp-name" class="aw-input" type="text" placeholder="Campaign name (e.g. Operation ShadowBroker, INC-2025-042)" />
+            <input id="cti-camp-actor" class="aw-input" type="text" placeholder="Attributed actor (optional)" style="max-width:200px" />
+            <select id="cti-camp-status" class="aw-input" style="max-width:140px">
+              <option value="active">🔴 Active</option>
+              <option value="monitoring">🟡 Monitoring</option>
+              <option value="closed">🟢 Closed</option>
+            </select>
+            <button id="cti-camp-add" type="button">➕ Add Campaign</button>
+          </div>
+        </div>
+        <div id="cti-campaigns-list" class="cti-campaigns-list"></div>
+        <div class="cti-camp-actions">
+          <button id="cti-camp-export" type="button">📤 Export Campaigns</button>
+          <button id="cti-camp-clear" type="button">🗑 Clear All</button>
+        </div>
+      </div>
+
+      <!-- RESOURCES PANEL -->
+      <div id="cti-panel-resources" class="cti-panel" style="display:none">
+        <div class="cti-resources-grid">
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">📡 Open Threat Intelligence Platforms</div>
+            <div class="quicklinks-grid">
+              <a href="https://otx.alienvault.com/" target="_blank" class="quicklink-btn">👽 OTX AlienVault</a>
+              <a href="https://threatfox.abuse.ch/" target="_blank" class="quicklink-btn">🦊 ThreatFox</a>
+              <a href="https://bazaar.abuse.ch/" target="_blank" class="quicklink-btn">🦠 MalwareBazaar</a>
+              <a href="https://urlhaus.abuse.ch/" target="_blank" class="quicklink-btn">🏚 URLhaus</a>
+              <a href="https://feodotracker.abuse.ch/" target="_blank" class="quicklink-btn">🎣 FeodoTracker</a>
+              <a href="https://sslbl.abuse.ch/" target="_blank" class="quicklink-btn">🔐 SSL Blacklist</a>
+              <a href="https://pulsedive.com/" target="_blank" class="quicklink-btn">📡 Pulsedive</a>
+              <a href="https://intelx.io/" target="_blank" class="quicklink-btn">📡 IntelX</a>
+              <a href="https://www.virustotal.com/gui/home/search" target="_blank" class="quicklink-btn">🧪 VirusTotal</a>
+              <a href="https://viz.greynoise.io/" target="_blank" class="quicklink-btn">🌫 GreyNoise</a>
+              <a href="https://www.shodan.io/" target="_blank" class="quicklink-btn">🛰 Shodan</a>
+              <a href="https://search.censys.io/" target="_blank" class="quicklink-btn">🔭 Censys</a>
+            </div>
+          </div>
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">🧩 MITRE & Framework Resources</div>
+            <div class="quicklinks-grid">
+              <a href="https://attack.mitre.org/" target="_blank" class="quicklink-btn">🧩 ATT&CK Enterprise</a>
+              <a href="https://attack.mitre.org/software/" target="_blank" class="quicklink-btn">🛠 ATT&CK Software</a>
+              <a href="https://attack.mitre.org/groups/" target="_blank" class="quicklink-btn">🕵 ATT&CK Groups</a>
+              <a href="https://attack.mitre.org/campaigns/" target="_blank" class="quicklink-btn">📊 ATT&CK Campaigns</a>
+              <a href="https://d3fend.mitre.org/" target="_blank" class="quicklink-btn">🛡 D3FEND</a>
+              <a href="https://car.mitre.org/" target="_blank" class="quicklink-btn">🚗 CAR Analytic Repo</a>
+              <a href="https://mitre-engenuity.org/cybersecurity/center-for-threat-informed-defense/" target="_blank" class="quicklink-btn">🏛 CTID</a>
+              <a href="https://navigator.attack.mitre.org/" target="_blank" class="quicklink-btn">🗺 ATT&CK Navigator</a>
+            </div>
+          </div>
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">📰 Threat Reports & Blogs</div>
+            <div class="quicklinks-grid">
+              <a href="https://www.mandiant.com/resources/blog" target="_blank" class="quicklink-btn">🔥 Mandiant Blog</a>
+              <a href="https://research.checkpoint.com/" target="_blank" class="quicklink-btn">🔬 Check Point Research</a>
+              <a href="https://unit42.paloaltonetworks.com/" target="_blank" class="quicklink-btn">🎯 Unit42</a>
+              <a href="https://talos-intelligence-site.s3.amazonaws.com/production/document_files/files/000/095/591/original/062823_Annual_Report.pdf" target="_blank" class="quicklink-btn">🕵️ Talos Blog</a>
+              <a href="https://blog.malwarebytes.com/threat-intelligence/" target="_blank" class="quicklink-btn">🦠 Malwarebytes TI</a>
+              <a href="https://www.secureworks.com/research" target="_blank" class="quicklink-btn">🔐 Secureworks</a>
+              <a href="https://thedfirreport.com/" target="_blank" class="quicklink-btn">🔍 DFIR Report</a>
+              <a href="https://www.cisa.gov/news-events/cybersecurity-advisories" target="_blank" class="quicklink-btn">🧨 CISA Advisories</a>
+              <a href="https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/" target="_blank" class="quicklink-btn">🪟 MSTIC Blog</a>
+              <a href="https://symantec-enterprise-blogs.security.com/threat-intelligence" target="_blank" class="quicklink-btn">🔵 Symantec TI</a>
+            </div>
+          </div>
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">📦 IOC Feed Subscriptions (Free)</div>
+            <div class="quicklinks-grid">
+              <a href="https://feodotracker.abuse.ch/downloads/ipblocklist.csv" target="_blank" class="quicklink-btn">📥 Feodo IP List</a>
+              <a href="https://urlhaus.abuse.ch/downloads/csv/" target="_blank" class="quicklink-btn">📥 URLhaus CSV</a>
+              <a href="https://bazaar.abuse.ch/export/" target="_blank" class="quicklink-btn">📥 MalwareBazaar Export</a>
+              <a href="https://threatfox-api.abuse.ch/api/v1/" target="_blank" class="quicklink-btn">📥 ThreatFox API</a>
+              <a href="https://rules.emergingthreats.net/open/suricata/rules/" target="_blank" class="quicklink-btn">📥 Emerging Threats Rules</a>
+              <a href="https://github.com/stamparm/ipsum" target="_blank" class="quicklink-btn">📥 ipsum IP Blocklist</a>
+              <a href="https://www.dan.me.uk/torlist/" target="_blank" class="quicklink-btn">📥 TOR Exit Nodes</a>
+              <a href="https://cinsscore.com/list/ci-badguys.txt" target="_blank" class="quicklink-btn">📥 CI BadGuys List</a>
+            </div>
+          </div>
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">🔬 Sandbox & Dynamic Analysis</div>
+            <div class="quicklinks-grid">
+              <a href="https://any.run/" target="_blank" class="quicklink-btn">🏃 AnyRun</a>
+              <a href="https://www.hybrid-analysis.com/" target="_blank" class="quicklink-btn">🧫 Hybrid Analysis</a>
+              <a href="https://www.joesandbox.com/" target="_blank" class="quicklink-btn">🧪 JOE Sandbox</a>
+              <a href="https://tria.ge/" target="_blank" class="quicklink-btn">🧯 Triage</a>
+              <a href="https://analyze.intezer.com/" target="_blank" class="quicklink-btn">🧬 Intezer Analyze</a>
+              <a href="https://cuckoo.cert.ee/" target="_blank" class="quicklink-btn">🐦 Cuckoo (CERT-EE)</a>
+              <a href="https://www.virustotal.com/gui/home/upload" target="_blank" class="quicklink-btn">📤 VT File Upload</a>
+            </div>
+          </div>
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">📜 Detection Engineering</div>
+            <div class="quicklinks-grid">
+              <a href="https://github.com/SigmaHQ/sigma" target="_blank" class="quicklink-btn">⚡ Sigma Rules</a>
+              <a href="https://uncoder.io/" target="_blank" class="quicklink-btn">⚙️ Uncoder.io</a>
+              <a href="https://github.com/elastic/detection-rules" target="_blank" class="quicklink-btn">🔵 Elastic Rules</a>
+              <a href="https://github.com/splunk/security_content" target="_blank" class="quicklink-btn">🔍 Splunk Content</a>
+              <a href="https://github.com/microsoft/Microsoft-365-Defender-Hunting-Queries" target="_blank" class="quicklink-btn">🪟 M365D Hunting</a>
+              <a href="https://car.mitre.org/analytics/" target="_blank" class="quicklink-btn">🚗 MITRE CAR</a>
+              <a href="https://tdm.socprime.com/" target="_blank" class="quicklink-btn">🎯 SOC Prime TDM</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- end tab-cti -->
+
+  </div><!-- end main -->
 </body>
 </html>
