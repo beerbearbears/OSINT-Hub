@@ -1099,7 +1099,109 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 12. FALLBACK — generic syslog/text extraction
+    // 12. MICROSOFT 365 / AZURE AD AUDIT LOG
+    if (/Operation|UserId|ClientIP|Workload|AuditLogRecordType|RecordType|UserType|ResultStatus/i.test(t) && /azure|m365|microsoft|sharepoint|exchange|teams|onedrive|entra/i.test(t)) {
+      results.eventType = "Microsoft 365 / Azure AD Log";
+      const op       = (t.match(/(?:"?Operation"?\s*[:,]\s*"?)([^",\n\r]{3,60})/i)||[])[1]||"";
+      const user     = (t.match(/(?:"?UserId"?\s*[:,]\s*"?)([^",\n\r@]{2,60}@[^",\n\r]{2,60})/i)||[])[1]||"";
+      const ip       = (t.match(/(?:"?ClientIP"?\s*[:,]\s*"?)(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const workload = (t.match(/(?:"?Workload"?\s*[:,]\s*"?)([^",\n\r]{2,40})/i)||[])[1]||"";
+      const result   = (t.match(/(?:"?ResultStatus"?\s*[:,]\s*"?)([^",\n\r]{2,20})/i)||[])[1]||"";
+      if (op)       { results.indicators.push(`Operation: ${op}`); results.prefillData.operation = op; }
+      if (user)     { results.indicators.push(`User: ${user}`); results.prefillData.username = user; }
+      if (ip)       { results.indicators.push(`ClientIP: ${ip}`); results.prefillData.src_ip = ip; }
+      if (workload)   results.indicators.push(`Workload: ${workload}`);
+      if (result)     results.indicators.push(`Result: ${result}`);
+      // Suspicious operations
+      if (/FileDeleted|FileMalwareDetected|AnonymousLinkCreated/i.test(op)) { results.findings.push(`⚠️ Sensitive SharePoint/OneDrive operation: ${op}`); results.mitre.add("T1567.002"); if(!["critical","high"].includes(results.severity)) results.severity="medium"; }
+      if (/UserLoggedIn.*fail|UserLoginFailed|PasswordSpray/i.test(op||t)) { results.findings.push("⚠️ Failed M365 login — possible brute force"); results.mitre.add("T1110"); results.severity="high"; }
+      if (/Add member to role|Add app role|Grant delegated permission/i.test(op)) { results.findings.push("🚨 Privilege escalation: role/permission grant"); results.mitre.add("T1098"); results.severity="critical"; }
+      if (/New-InboxRule|Set-InboxRule|New-TransportRule/i.test(op||t)) { results.findings.push("🚨 Mail forwarding/rule created — possible BEC"); results.mitre.add("T1114.003"); results.severity="critical"; }
+      if (/Set-MailboxPermission|Add-MailboxPermission/i.test(op||t)) { results.findings.push("⚠️ Mailbox permission change"); results.mitre.add("T1098.002"); if(results.severity!=="critical") results.severity="high"; }
+      if (ip && !isPrivateIPv4(ip) && result && /fail/i.test(result)) { results.findings.push(`🚨 Failed auth from external IP ${ip}`); results.severity="high"; }
+      return _finalizeTriage(results);
+    }
+
+    // 13. AWS CLOUDTRAIL
+    if (/eventName|eventSource|userIdentity|sourceIPAddress|awsRegion|errorCode|requestParameters/i.test(t) && /amazonaws|cloudtrail|aws/i.test(t)) {
+      results.eventType = "AWS CloudTrail Log";
+      const eventName  = (t.match(/(?:"?eventName"?\s*[:,]\s*"?)([^",\n\r]{2,60})/i)||[])[1]||"";
+      const eventSrc   = (t.match(/(?:"?eventSource"?\s*[:,]\s*"?)([^",\n\r]{2,60})/i)||[])[1]||"";
+      const srcIp      = (t.match(/(?:"?sourceIPAddress"?\s*[:,]\s*"?)(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const userType   = (t.match(/(?:"?type"?\s*[:,]\s*"?)(IAMUser|AssumedRole|Root|AWSService|FederatedUser)/i)||[])[1]||"";
+      const userName   = (t.match(/(?:"?userName"?\s*[:,]\s*"?)([^",\n\r]{2,60})/i)||[])[1]||"";
+      const errorCode  = (t.match(/(?:"?errorCode"?\s*[:,]\s*"?)([^",\n\r]{2,60})/i)||[])[1]||"";
+      const region     = (t.match(/(?:"?awsRegion"?\s*[:,]\s*"?)([^",\n\r]{2,30})/i)||[])[1]||"";
+      if (eventName)  { results.indicators.push(`Event: ${eventName}`); results.prefillData.operation = eventName; }
+      if (eventSrc)     results.indicators.push(`Source: ${eventSrc}`);
+      if (srcIp)      { results.indicators.push(`SourceIP: ${srcIp}`); results.prefillData.src_ip = srcIp; }
+      if (userName)   { results.indicators.push(`User: ${userName}`); results.prefillData.username = userName; }
+      if (userType)     results.indicators.push(`Type: ${userType}`);
+      if (region)       results.indicators.push(`Region: ${region}`);
+      if (errorCode)    results.indicators.push(`Error: ${errorCode}`);
+      // Risk detections
+      if (userType === "Root") { results.findings.push("🚨 Root account activity detected — should never be used for normal operations"); results.mitre.add("T1078.004"); results.severity="critical"; }
+      if (/ConsoleLogin/i.test(eventName) && errorCode) { results.findings.push(`⚠️ Failed console login: ${errorCode}`); results.mitre.add("T1110"); if(results.severity!=="critical") results.severity="high"; }
+      if (/CreateUser|AttachUserPolicy|AttachRolePolicy|AddUserToGroup/i.test(eventName)) { results.findings.push(`🚨 IAM privilege action: ${eventName}`); results.mitre.add("T1136.003"); results.mitre.add("T1098"); results.severity="critical"; }
+      if (/StopLogging|DeleteTrail|UpdateTrail|PutEventSelectors/i.test(eventName)) { results.findings.push(`🚨 CloudTrail tampering: ${eventName} — anti-forensics`); results.mitre.add("T1562.008"); results.severity="critical"; }
+      if (/GetSecretValue|GetParameter|DescribeSecret/i.test(eventName)) { results.findings.push(`⚠️ Secret/credential access: ${eventName}`); results.mitre.add("T1552.001"); if(results.severity!=="critical") results.severity="high"; }
+      if (/RunInstances|CreateInstance/i.test(eventName)) { results.findings.push(`ℹ️ EC2 instance creation — verify legitimacy`); results.mitre.add("T1578"); }
+      if (srcIp && !isPrivateIPv4(srcIp) && !srcIp.startsWith("0.")) results.findings.push(`ℹ️ External source IP: ${srcIp} — verify expected region`);
+      return _finalizeTriage(results);
+    }
+
+    // 14. OKTA / SSO IDENTITY LOG
+    if (/eventType|actor\.alternateId|outcome\.result|displayMessage|debugContext|authenticationContext|okta/i.test(t)) {
+      results.eventType = "Okta / SSO Identity Log";
+      const evType  = (t.match(/(?:"?eventType"?\s*[:,]\s*"?)([a-zA-Z_.]{4,80})/i)||[])[1]||"";
+      const outcome = (t.match(/(?:"?result"?\s*[:,]\s*"?)(SUCCESS|FAILURE|SKIPPED|ALLOW|DENY|UNKNOWN)/i)||[])[1]||"";
+      const user    = (t.match(/(?:"?alternateId"?\s*[:,]\s*"?)([^",\n\r@]{2,}@[^",\n\r]{2,})/i)||[])[1]||"";
+      const ip      = (t.match(/(?:"?ipAddress"?\s*[:,]\s*"?)(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const msg     = (t.match(/(?:"?displayMessage"?\s*[:,]\s*"?)([^",\n\r]{4,120})/i)||[])[1]||"";
+      const ua      = (t.match(/(?:"?userAgent"?\s*?,\s*?"?rawUserAgent"?\s*[:,]\s*"?)([^",\n\r]{4,200})/i)||[])[1]||"";
+      if (evType)    results.indicators.push(`Event: ${evType}`);
+      if (user)    { results.indicators.push(`User: ${user}`); results.prefillData.username = user; }
+      if (outcome)   results.indicators.push(`Outcome: ${outcome}`);
+      if (ip)      { results.indicators.push(`IP: ${ip}`); results.prefillData.src_ip = ip; }
+      if (msg)       results.findings.push(`ℹ️ ${msg}`);
+      if (ua && /curl|python|go-http|okhttp/i.test(ua)) results.findings.push(`⚠️ Suspicious client: ${ua.slice(0,80)}`);
+      if (outcome === "FAILURE") { results.findings.push("⚠️ Authentication failure"); results.mitre.add("T1110"); if(!["critical","high"].includes(results.severity)) results.severity="medium"; }
+      if (/user\.mfa\.factor\.deactivate|MFA.*bypass|mfa.*reset/i.test(evType||t)) { results.findings.push("🚨 MFA deactivation or bypass detected"); results.mitre.add("T1621"); results.severity="critical"; }
+      if (/policy\.evaluate_sign_on/i.test(evType) && /DENY/i.test(outcome)) { results.findings.push("⚠️ Sign-on policy denied access"); results.mitre.add("T1078"); }
+      if (/session\.impersonation/i.test(evType)) { results.findings.push("🚨 Admin impersonation session — investigate immediately"); results.mitre.add("T1078.004"); results.severity="critical"; }
+      if (/user\.account\.update_password|user\.account\.reset_password/i.test(evType)) { results.findings.push("⚠️ Password change/reset event"); results.mitre.add("T1098"); }
+      return _finalizeTriage(results);
+    }
+
+    // 15. PALO ALTO / FORTINET FIREWALL
+    if (/subtype=|action=allow|action=deny|action=block|app=|dstip=|srcip=|policyname=|logid=|devname=/i.test(t)) {
+      results.eventType = /fortinet|fortigate|logid=/i.test(t) ? "Fortinet FortiGate Log" : "Palo Alto NGFW Log";
+      const src     = (t.match(/(?:srcip|src_ip|sip)[=:]\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const dst     = (t.match(/(?:dstip|dst_ip|dip)[=:]\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const app     = (t.match(/\bapp[=:]\s*([^\s,;]+)/i)||[])[1]||"";
+      const action  = (t.match(/\baction[=:]\s*([^\s,;]+)/i)||[])[1]||"";
+      const policy  = (t.match(/(?:policyname|policy-name|policy_id)[=:]\s*([^\s,;]+)/i)||[])[1]||"";
+      const dport   = (t.match(/(?:dstport|dst_port|dport)[=:]\s*(\d{1,5})/i)||[])[1]||"";
+      const sport   = (t.match(/(?:srcport|src_port|sport)[=:]\s*(\d{1,5})/i)||[])[1]||"";
+      const user    = (t.match(/(?:srcuser|user|username)[=:]\s*([^\s,;]{2,40})/i)||[])[1]||"";
+      const threat  = (t.match(/(?:threat_name|threatid|virus)[=:]\s*([^\s,;]{3,60})/i)||[])[1]||"";
+      if (src)    { results.indicators.push(`SRC: ${src}`); results.prefillData.src_ip = src; }
+      if (dst)    { results.indicators.push(`DST: ${dst}`); results.prefillData.dest_ip = dst; }
+      if (app)      results.indicators.push(`App: ${app}`);
+      if (action)   results.indicators.push(`Action: ${action.toUpperCase()}`);
+      if (policy)   results.indicators.push(`Policy: ${policy}`);
+      if (dport)  { results.indicators.push(`DPort: ${dport}`); if(PORT_HINTS[dport]) results.findings.push(`ℹ️ Port ${dport} = ${PORT_HINTS[dport]}`); }
+      if (user)   { results.indicators.push(`User: ${user}`); results.prefillData.username = user; }
+      if (threat) { results.findings.push(`🚨 Threat detected: ${threat}`); results.severity="critical"; results.mitre.add("T1059"); }
+      if (/allow/i.test(action) && dport === "4444") { results.findings.push("🚨 Allowed traffic on port 4444 (Metasploit default)"); results.mitre.add("T1071"); results.severity="critical"; }
+      if (/allow/i.test(action) && dport === "50050") { results.findings.push("🚨 Allowed traffic on port 50050 (Cobalt Strike)"); results.mitre.add("T1071"); results.severity="critical"; }
+      if (/allow/i.test(action) && dport === "3389") { results.findings.push("⚠️ RDP allowed outbound — verify necessity"); results.mitre.add("T1021.001"); if(results.severity!=="critical") results.severity="high"; }
+      if (src && !isPrivateIPv4(src) && /allow/i.test(action) && dport && !["80","443","53"].includes(dport)) { results.findings.push(`⚠️ Inbound allow on non-standard port ${dport} from external IP`); }
+      results.mitre.add("T1041");
+      return _finalizeTriage(results);
+    }
+
+    // 16. FALLBACK — generic syslog/text extraction
     if (t.length > 20) {
       results.eventType = "Generic Log / Text";
       const seens = (t.match(/(?:error|warning|critical|fail|deny|block|drop|malware|exploit|attack|suspicious|anomalous)/gi)||[]);
@@ -1757,7 +1859,10 @@ document.addEventListener("DOMContentLoaded", () => {
     setHref("ip_threatminer",`https://www.threatminer.org/host.php?q=${enc(ip)}`);
     setHref("ip_urlscan",`https://urlscan.io/search/#ip:${enc(ip)}`);
     setHref("ip_viewdns",`https://viewdns.info/reverseip/?host=${enc(ip)}&t=1`);
-    setHref("ip_scamalytics",`https://scamalytics.com/ip/${enc(ip)}`);
+    setHref("ip_scamalytics",     `https://scamalytics.com/ip/${enc(ip)}`);
+    setHref("ip_threatfox",       `https://threatfox.abuse.ch/browse.php?search=ioc%3A${enc(ip)}`);
+    setHref("ip_pulsedive",       `https://pulsedive.com/indicator/?ioc=${enc(ip)}`);
+    setHref("ip_securitytrails",  `https://securitytrails.com/list/ip/${enc(ip)}`);
     injectCustomTools("ip", ip);
   }
 
@@ -1792,11 +1897,44 @@ document.addEventListener("DOMContentLoaded", () => {
     setHref("dom_nitter",`https://nitter.net/search?q=${enc(domain)}`);
     setHref("dom_netlas",`https://app.netlas.io/domains/?q=${enc(domain)}`);
     setHref("dom_censys",`https://search.censys.io/search?resource=hosts&q=${enc(domain)}`);
-    setHref("dom_shodan",`https://www.shodan.io/search?query=${enc(domain)}`);
-    setHref("dom_dnstools",`https://whois.domaintools.com/${enc(domain)}`);
-    setHref("dom_crtsh",`https://crt.sh/?q=${enc(domain)}`);
-    setHref("dom_dnsdumpster",`https://dnsdumpster.com/`);
+    setHref("dom_shodan",       `https://www.shodan.io/search?query=${enc(domain)}`);
+    setHref("dom_dnstools",     `https://whois.domaintools.com/${enc(domain)}`);
+    setHref("dom_crtsh",        `https://crt.sh/?q=${enc(domain)}`);
+    setHref("dom_dnsdumpster",  `https://dnsdumpster.com/`);
+    setHref("dom_threatfox",    `https://threatfox.abuse.ch/browse.php?search=ioc%3A${enc(domain)}`);
+    setHref("dom_pulsedive",    `https://pulsedive.com/indicator/?ioc=${enc(domain)}`);
+    setHref("dom_passivedns",   `https://securitytrails.com/domain/${enc(domain)}/history/a`);
+    setHref("dom_rdap",         `https://www.rdap.net/domain/${enc(domain)}`);
+    fetchDomainAge(domain);
     injectCustomTools("domain", domain);
+  }
+
+  // ── Domain Age / RDAP enrichment ─────────────────────────────
+  async function fetchDomainAge(domain) {
+    const banner = $("verdict-banner");
+    if (!banner) return;
+    try {
+      const res = await fetch(`https://rdap.org/domain/${domain}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const events = data.events || [];
+      const reg = events.find(e => e.eventAction === "registration");
+      const upd = events.find(e => e.eventAction === "last changed");
+      if (!reg) return;
+      const regDate = new Date(reg.eventDate);
+      const ageMs = Date.now() - regDate.getTime();
+      const ageDays = Math.floor(ageMs / 86400000);
+      const ageLabel = ageDays < 30 ? `⚠️ ${ageDays}d old — NEWLY REGISTERED` : ageDays < 180 ? `${ageDays}d old` : `${Math.floor(ageDays/365)}y ${Math.floor((ageDays%365)/30)}m old`;
+      const isNew = ageDays < 30;
+      const updStr = upd ? ` · Updated: ${new Date(upd.eventDate).toLocaleDateString()}` : "";
+      const registrar = data.entities?.find(e => e.roles?.includes("registrar"))?.vcardArray?.[1]?.find(f=>f[0]==="fn")?.[3] || "";
+      let html = `<div class="domain-age-badge ${isNew?"domain-age-new":"domain-age-ok"}">
+        📅 Registered: ${regDate.toLocaleDateString()} — ${ageLabel}${updStr}
+        ${registrar ? `· Registrar: ${registrar}` : ""}
+      </div>`;
+      if (isNew) html = `<div class="verdict-critical">${html}<span>🚨 Newly registered domain is a common phishing/malware indicator</span></div>`;
+      banner.innerHTML = html; banner.style.display = "block";
+    } catch { /* RDAP not available for all domains */ }
   }
 
   function buildLinksForURL(url) {
@@ -2072,8 +2210,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const sp=$("mitre-suggested"); if(sp) sp.style.display="none";
     const cvePanel=$("cve-enrichment"); if(cvePanel) cvePanel.style.display="none";
   });
+  // ── Dark mode persistence ─────────────────────────────────────
   const toggleDark = $("toggle-dark");
-  if (toggleDark) toggleDark.addEventListener("click", () => document.body.classList.toggle("light"));
+  try { if (localStorage.getItem("osint_theme") === "light") document.body.classList.add("light"); } catch {}
+  if (toggleDark) toggleDark.addEventListener("click", () => {
+    document.body.classList.toggle("light");
+    try { localStorage.setItem("osint_theme", document.body.classList.contains("light") ? "light" : "dark"); } catch {}
+  });
+
+  // ── Keyboard shortcuts (Ctrl+Enter=search, Ctrl+K=focus) ─────
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      if (document.querySelector(".tab-panel.active")?.id === "tab-single") doSearch({ silent: false });
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      e.preventDefault(); if (input) { switchTab("single"); input.focus(); input.select(); }
+    }
+  });
+
+  // ── Clipboard auto-detect on focus ───────────────────────────
+  if (input) {
+    input.addEventListener("focus", async () => {
+      if (input.value.trim()) return;
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text || text.length > 300 || text.includes("\n")) return;
+        const { type } = detectType(text.trim(), "");
+        if (type) { input.value = text.trim(); syncSearchboxState(); setStatus(`Status: clipboard IOC detected (${type}) — press Enter to search`); }
+      } catch { /* clipboard permission denied — silent */ }
+    });
+  }
 
 
   // ─── BULK IOC Analyzer ───────────────────────────────────────
@@ -2176,12 +2343,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function renderBulkResults(iocs) {
     if (!bulkResults) return;
-    if (!iocs.length) { bulkResults.innerHTML = '<div class="bulk-empty">No IOCs detected.</div>'; return; }
+    // Deduplicate
+    const seen = new Set();
+    const deduped = iocs.filter(ioc => { const k = ioc.type+":"+ioc.q; if(seen.has(k)) return false; seen.add(k); return true; });
+    if (!deduped.length) { bulkResults.innerHTML = '<div class="bulk-empty">No IOCs detected.</div>'; return; }
 
     const grouped = {};
-    iocs.forEach(ioc => { if (!grouped[ioc.type]) grouped[ioc.type] = []; grouped[ioc.type].push(ioc); });
+    deduped.forEach(ioc => { if (!grouped[ioc.type]) grouped[ioc.type] = []; grouped[ioc.type].push(ioc); });
 
-    let html = `<div class="bulk-summary">Found <strong>${iocs.length}</strong> IOC${iocs.length !== 1 ? "s" : ""} across ${Object.keys(grouped).length} type${Object.keys(grouped).length !== 1 ? "s" : ""}</div>`;
+    let html = `<div class="bulk-summary">
+      Found <strong>${deduped.length}</strong> unique IOC${deduped.length!==1?"s":""} across ${Object.keys(grouped).length} type${Object.keys(grouped).length!==1?"s":""}
+      <div class="bulk-export-bar">
+        <button class="bulk-exp-btn" id="bulk-exp-csv" type="button">📊 Export CSV</button>
+        <button class="bulk-exp-btn" id="bulk-exp-splunk" type="button">🔍 Splunk format</button>
+        <button class="bulk-exp-btn" id="bulk-exp-sigma" type="button">⚡ Sigma IOC list</button>
+      </div>
+    </div>`;
 
     Object.entries(grouped).forEach(([type, items]) => {
       const color = typeColors[type] || "#9ca3af";
@@ -2194,8 +2371,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const linksHtml = links.map(l =>
           `<a href="${l.url}" target="_blank" class="bulk-link" style="border-color:${color}33;color:${color}">${l.label}</a>`
         ).join("");
+        const escapedQ = ioc.q.replace(/"/g,"&quot;").replace(/</g,"&lt;");
         html += `<div class="bulk-item">
-          <div class="bulk-ioc-val">${ioc.q}</div>
+          <div class="bulk-ioc-row-head">
+            <div class="bulk-ioc-val">${escapedQ}</div>
+            <button class="bulk-pivot-item-btn" data-val="${escapedQ}" data-type="${ioc.type}" type="button">🔍 Pivot</button>
+            <button class="bulk-case-item-btn" data-val="${escapedQ}" data-type="${ioc.type}" type="button">📁 Case</button>
+          </div>
           <div class="bulk-links">${linksHtml}</div>
         </div>`;
       });
@@ -2203,6 +2385,35 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     bulkResults.innerHTML = html;
+    bulkResults.dataset.iocs = JSON.stringify(deduped);
+
+    // Per-item pivot
+    bulkResults.querySelectorAll(".bulk-pivot-item-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (input) { input.value = btn.dataset.val; syncSearchboxState(); switchTab("single"); doSearch({ silent: false }); }
+      });
+    });
+    bulkResults.querySelectorAll(".bulk-case-item-btn").forEach(btn => {
+      btn.addEventListener("click", () => addIOCToCase(btn.dataset.type||"unknown", btn.dataset.val));
+    });
+
+    // Export CSV
+    $("bulk-exp-csv")?.addEventListener("click", () => {
+      const rows = ["type,value",...deduped.map(i=>`${i.type},"${i.q.replace(/"/g,'""')}"`)]
+      const blob = new Blob([rows.join("\n")],{type:"text/csv"});
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+      a.download = `iocs-${Date.now()}.csv`; a.click();
+    });
+    // Export Splunk
+    $("bulk-exp-splunk")?.addEventListener("click", async () => {
+      const lines = deduped.map(i => `| makeresults | eval ${i.type}="${i.q}"`).join("\n");
+      try { await navigator.clipboard.writeText(lines); setBulkStatus("Splunk format copied to clipboard"); } catch {}
+    });
+    // Export Sigma IOC list
+    $("bulk-exp-sigma")?.addEventListener("click", async () => {
+      const lines = ["# Sigma IOC List — paste into detection rules",...deduped.map(i=>`  - '${i.q}'  # ${i.type}`)];
+      try { await navigator.clipboard.writeText(lines.join("\n")); setBulkStatus("Sigma IOC list copied to clipboard"); } catch {}
+    });
   }
 
   const bulkAnalyzeBtn = $("bulk-analyze-btn");
@@ -3609,8 +3820,351 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   $("util-jwt-copy")?.addEventListener("click", async () => { try { await navigator.clipboard.writeText($("util-jwt-output")?.textContent||""); } catch {} });
 
+  // ═══════════════════════════════════════════════════════════════
+  // ─── CTI FEED TAB ─────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+
+  // ── CTI Sub-tab switcher ──────────────────────────────────────
+  document.querySelectorAll(".cti-sub-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".cti-sub-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".cti-panel").forEach(p => p.style.display = "none");
+      btn.classList.add("active");
+      const panel = $(`cti-panel-${btn.dataset.ctitab}`);
+      if (panel) panel.style.display = "block";
+    });
+  });
+
+  // ── CTI Feed definitions ──────────────────────────────────────
+  const CTI_FEEDS = [
+    {
+      id: "feodo", name: "Feodo Tracker — C2 IPs", icon: "🎣", color: "#f87171",
+      url: "https://feodotracker.abuse.ch/downloads/ipblocklist.csv",
+      parse: (text) => {
+        const lines = text.split("\n").filter(l => l && !l.startsWith("#"));
+        return { count: lines.length, sample: lines.slice(0,5).map(l=>l.split(",")[0]).join(", "), label: "C2 IP addresses" };
+      }
+    },
+    {
+      id: "urlhaus", name: "URLhaus — Malware URLs", icon: "🏚", color: "#fb923c",
+      url: "https://urlhaus.abuse.ch/downloads/csv_recent/",
+      parse: (text) => {
+        const lines = text.split("\n").filter(l => l && !l.startsWith("#") && l.includes("http"));
+        return { count: lines.length, sample: lines.slice(0,3).map(l=>(l.split(",")[2]||"").replace(/"/g,"")).join(", "), label: "malware URLs (24h)" };
+      }
+    },
+    {
+      id: "tor", name: "TOR Exit Nodes", icon: "🧅", color: "#a78bfa",
+      url: "https://check.torproject.org/torbulkexitlist",
+      parse: (text) => {
+        const ips = text.split("\n").filter(l => /^\d/.test(l));
+        return { count: ips.length, sample: ips.slice(0,3).join(", "), label: "TOR exit nodes" };
+      }
+    },
+  ];
+
+  const ctiFeedsGrid = $("cti-feeds-grid");
+  const ctiFeedStatus = $("cti-feed-status");
+
+  function renderFeedCard(feed, state) {
+    const existing = document.getElementById(`cti-feed-${feed.id}`);
+    const html = `<div class="cti-feed-card" id="cti-feed-${feed.id}" style="border-color:${feed.color}33">
+      <div class="cti-feed-head">
+        <span class="cti-feed-icon">${feed.icon}</span>
+        <span class="cti-feed-name">${feed.name}</span>
+        <span class="cti-feed-badge" style="background:${feed.color}22;color:${feed.color};border-color:${feed.color}44">${state === "loading" ? "⏳ Loading" : state.count ? `${state.count.toLocaleString()} entries` : "⚠️ Unavailable"}</span>
+      </div>
+      ${state.count ? `<div class="cti-feed-meta">${state.label}: <code>${state.sample}</code>${state.count > 3 ? "..." : ""}</div>` : ""}
+      ${state.count ? `<div class="cti-feed-actions">
+        <a href="${feed.url}" target="_blank" class="quicklink-btn" style="font-size:10px">📥 Raw Feed</a>
+      </div>` : ""}
+    </div>`;
+    if (existing) { existing.outerHTML = html; } else if (ctiFeedsGrid) { ctiFeedsGrid.insertAdjacentHTML("beforeend", html); }
+  }
+
+  // Add static info cards for feeds we can't CORS-fetch directly
+  const STATIC_FEED_CARDS = [
+    { icon:"🦊", color:"#fb923c", name:"ThreatFox — IOC Feed", desc:"Latest C2, malware hashes, URLs from ThreatFox.", url:"https://threatfox.abuse.ch/browse/" },
+    { icon:"👽", color:"#34d399", name:"OTX AlienVault — Pulse Feed", desc:"Open threat exchange pulses from thousands of researchers.", url:"https://otx.alienvault.com/browse/global/pulses" },
+    { icon:"🌫", color:"#38bdf8", name:"GreyNoise — Noise Feed", desc:"Differentiates benign internet noise from targeted attacks.", url:"https://viz.greynoise.io/" },
+    { icon:"🧨", color:"#f87171", name:"CISA KEV — Known Exploited Vulns", desc:"CVEs actively exploited in the wild per CISA.", url:"https://www.cisa.gov/known-exploited-vulnerabilities-catalog" },
+    { icon:"📡", color:"#a78bfa", name:"Pulsedive — Threat Intel", desc:"Community threat intel with IOC enrichment.", url:"https://pulsedive.com/feed/" },
+    { icon:"🔵", color:"#60a5fa", name:"MSTIC Blog — Microsoft TI", desc:"Latest threat actor profiles and campaign reports.", url:"https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/" },
+  ];
+
+  function renderStaticFeedCards() {
+    if (!ctiFeedsGrid) return;
+    STATIC_FEED_CARDS.forEach(c => {
+      ctiFeedsGrid.insertAdjacentHTML("beforeend", `<div class="cti-feed-card" style="border-color:${c.color}33">
+        <div class="cti-feed-head">
+          <span class="cti-feed-icon">${c.icon}</span>
+          <span class="cti-feed-name">${c.name}</span>
+        </div>
+        <div class="cti-feed-meta">${c.desc}</div>
+        <div class="cti-feed-actions"><a href="${c.url}" target="_blank" class="quicklink-btn" style="font-size:10px">🔗 Open Feed</a></div>
+      </div>`);
+    });
+  }
+
+  $("cti-feeds-refresh")?.addEventListener("click", async () => {
+    if (ctiFeedsGrid) ctiFeedsGrid.innerHTML = "";
+    if (ctiFeedStatus) ctiFeedStatus.textContent = "Loading feeds...";
+    renderStaticFeedCards();
+    let loaded = 0;
+    for (const feed of CTI_FEEDS) {
+      renderFeedCard(feed, "loading");
+      try {
+        const res = await fetch(feed.url, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const text = await res.text();
+        renderFeedCard(feed, feed.parse(text));
+        loaded++;
+      } catch(e) {
+        renderFeedCard(feed, { count: 0, label: "Fetch error: " + e.message });
+      }
+    }
+    if (ctiFeedStatus) ctiFeedStatus.textContent = `${loaded}/${CTI_FEEDS.length} live feeds loaded · ${new Date().toLocaleTimeString()}`;
+  });
+
+  // ── Actor Intel Database (built-in profiles) ──────────────────
+  const ACTOR_DB = {
+    "APT29": { aliases:["Cozy Bear","NOBELIUM","Midnight Blizzard","Dark Halo"], origin:"Russia", sponsor:"SVR", type:"Nation-State", tlp:"white", description:"Russian SVR-linked group known for the SolarWinds supply chain attack (SUNBURST), spear-phishing campaigns, and long-term stealthy espionage operations against governments and think tanks.", ttps:["T1566.001","T1190","T1027","T1055","T1071.001","T1078","T1195.002"], tools:["SUNBURST","TEARDROP","BEATDROP","Cobalt Strike","WellMess"], targets:"Government, NGOs, Technology, Healthcare, Think Tanks", mitre:"https://attack.mitre.org/groups/G0016/" },
+    "APT28": { aliases:["Fancy Bear","Sofacy","STRONTIUM","Forest Blizzard"], origin:"Russia", sponsor:"GRU", type:"Nation-State", tlp:"white", description:"Russian GRU Unit 26165 group attributed to DNC hack (2016), NATO phishing, and multiple Western government intrusions.", ttps:["T1566","T1190","T1059.001","T1078","T1003.001","T1071"], tools:["X-Agent","Sofacy","Zebrocy","Drovorub"], targets:"Government, Military, NATO, Think Tanks", mitre:"https://attack.mitre.org/groups/G0007/" },
+    "Lazarus": { aliases:["HIDDEN COBRA","Zinc","Diamond Sleet","APT38"], origin:"North Korea", sponsor:"RGB", type:"Nation-State", tlp:"white", description:"North Korean state-sponsored group responsible for WannaCry, Bangladesh Bank Heist, and numerous cryptocurrency exchange attacks for financial gain.", ttps:["T1566.001","T1204","T1059","T1486","T1041","T1078","T1105"], tools:["WannaCry","BLINDINGCAN","HOPLIGHT","Fallchill"], targets:"Financial, Crypto, Defense, Healthcare", mitre:"https://attack.mitre.org/groups/G0032/" },
+    "FIN7": { aliases:["Carbanak","ITG14","Carbon Spider","Sangria Tempest"], origin:"Russia/Ukraine", sponsor:"Criminal", type:"Financial Crime", tlp:"white", description:"Prolific financially-motivated group targeting hospitality, restaurant, and retail sectors via spear-phishing and JavaScript backdoors. Known for CARBANAK banking malware.", ttps:["T1566.001","T1059.005","T1055","T1027","T1083","T1071"], tools:["CARBANAK","BIRDDOG","POWERPLANT","Cobalt Strike"], targets:"Financial, Hospitality, Retail, Restaurant", mitre:"https://attack.mitre.org/groups/G0046/" },
+    "Scattered Spider": { aliases:["UNC3944","Roasted 0ktapus","StarFraud","Muddled Libra"], origin:"US/UK", sponsor:"Criminal", type:"Financial Crime / BEC", tlp:"white", description:"English-speaking threat actor known for SIM swapping, MFA bypass via help desk social engineering, and high-profile attacks on MGM Resorts and Caesars Entertainment.", ttps:["T1621","T1078","T1534","T1566","T1059","T1598.003"], tools:["OKTAPUS phishing kit","Cobalt Strike","AnyDesk"], targets:"BPO, Telecom, Hospitality, Crypto, Gaming", mitre:"https://attack.mitre.org/groups/G1015/" },
+    "Volt Typhoon": { aliases:["Bronze Silhouette","Vanguard Panda","Dev-0391"], origin:"China", sponsor:"MSS/PLA", type:"Nation-State", tlp:"white", description:"Chinese state-sponsored actor focusing on US critical infrastructure pre-positioning. Known for using LOTL (Living off the Land) techniques to avoid detection.", ttps:["T1190","T1078","T1059","T1021.001","T1560","T1071","T1036"], tools:["FRP","web shells","netsh"], targets:"Critical Infrastructure, Utilities, Communications, Military", mitre:"https://attack.mitre.org/groups/G1017/" },
+    "Sandworm": { aliases:["Voodoo Bear","IRIDIUM","Seashell Blizzard","APT44"], origin:"Russia", sponsor:"GRU", type:"Nation-State / Destructive", tlp:"white", description:"GRU Unit 74455 — responsible for NotPetya (most destructive cyberattack in history), Ukraine power grid attacks, and BlackEnergy campaigns.", ttps:["T1486","T1561","T1190","T1059","T1071","T1570"], tools:["NotPetya","BlackEnergy","Industroyer","Cyclops Blink"], targets:"Ukraine, Energy, Government, Global", mitre:"https://attack.mitre.org/groups/G0034/" },
+    "Kimsuky": { aliases:["Thallium","Velvet Chollima","APT43","TA406"], origin:"North Korea", sponsor:"RGB", type:"Nation-State", tlp:"white", description:"North Korean espionage group focused on collecting intelligence from South Korean think tanks, government entities, and policy experts.", ttps:["T1566.001","T1059.001","T1027","T1083","T1114","T1078"], tools:["AppleSeed","SHARPEXT","PENCILDOWN","BabyShark"], targets:"South Korea, US Think Tanks, Government, Academia", mitre:"https://attack.mitre.org/groups/G0094/" },
+    "LockBit": { aliases:["ABCD","LockBit 3.0","LockBit Black"], origin:"Unknown / RaaS", sponsor:"Criminal RaaS", type:"Ransomware Group", tlp:"white", description:"Prolific ransomware-as-a-service group. Most active ransomware operation globally from 2022-2024. Known for double-extortion via data leak site.", ttps:["T1486","T1490","T1489","T1078","T1021","T1083","T1041"], tools:["LockBit ransomware","StealBit exfil tool","Cobalt Strike"], targets:"Healthcare, Government, Education, Manufacturing (indiscriminate)", mitre:"https://attack.mitre.org/software/S0652/" },
+    "Cl0p": { aliases:["TA505","Lace Tempest"], origin:"Russia/Ukraine", sponsor:"Criminal", type:"Ransomware / FIN", tlp:"white", description:"Known for exploiting zero-days en masse (GoAnywhere, MOVEit). Responsible for some of the largest data-theft extortion campaigns.", ttps:["T1190","T1041","T1486","T1078","T1105"], tools:["Cl0p ransomware","SDBOT","FlawedAmmyy"], targets:"Financial, Healthcare, Tech (mass exploitation campaigns)", mitre:"https://attack.mitre.org/groups/G0092/" },
+    "TA505": { aliases:["Evil Corp adjacent","Hive0065"], origin:"Russia", sponsor:"Criminal", type:"Financial Crime", tlp:"white", description:"Major threat actor responsible for distributing Dridex, Locky ransomware, and FlawedAmmyy RAT. Known for high-volume phishing campaigns.", ttps:["T1566","T1059.005","T1204.002","T1071","T1027"], tools:["Dridex","Locky","FlawedAmmyy","ServHelper"], targets:"Financial, Retail, Healthcare", mitre:"https://attack.mitre.org/groups/G0092/" },
+    "Turla": { aliases:["Snake","Venomous Bear","IRON HUNTER","Secret Blizzard"], origin:"Russia", sponsor:"FSB", type:"Nation-State", tlp:"white", description:"FSB-linked group known for using compromised satellite links for C2, and the sophisticated Carbon/Snake malware framework.", ttps:["T1190","T1027","T1055","T1071","T1078","T1074"], tools:["Snake","Carbon","Kazuar","ComRAT"], targets:"Government, Embassies, Military, EU/NATO", mitre:"https://attack.mitre.org/groups/G0010/" },
+    "APT41": { aliases:["Double Dragon","Barium","Winnti","Earth Baku"], origin:"China", sponsor:"MSS", type:"Nation-State + Financial", tlp:"white", description:"Dual mission Chinese group conducting both espionage for MSS and financially motivated attacks (gaming companies, crypto). Unique dual nation-state/criminal mandate.", ttps:["T1190","T1078","T1059","T1027","T1055","T1486"], tools:["DUSTPAN","DEADEYE","KEYPLUG","Cobalt Strike"], targets:"Healthcare, Telecom, Technology, Gaming, Government", mitre:"https://attack.mitre.org/groups/G0096/" },
+  };
+
+  function renderActorCard(name, actor) {
+    const typeColors = { "Nation-State":"#38bdf8","Financial Crime":"#f59e0b","Ransomware Group":"#f87171","Nation-State / Destructive":"#f87171","Financial Crime / BEC":"#fb923c","Nation-State + Financial":"#a78bfa" };
+    const tc = typeColors[actor.type] || "#9ca3af";
+    return `<div class="cti-actor-card">
+      <div class="cti-actor-head">
+        <div>
+          <div class="cti-actor-name">${name}</div>
+          <div class="cti-actor-aliases">AKA: ${actor.aliases.join(" · ")}</div>
+        </div>
+        <div class="cti-actor-badges">
+          <span class="cti-actor-badge" style="color:${tc};background:${tc}18;border-color:${tc}44">${actor.type}</span>
+          <span class="cti-actor-badge" style="color:#e879f9;background:#e879f918;border-color:#e879f944">${actor.origin}</span>
+          <span class="cti-actor-badge" style="color:#fbbf24;background:#fbbf2418;border-color:#fbbf2444">${actor.sponsor}</span>
+        </div>
+      </div>
+      <div class="cti-actor-desc">${actor.description}</div>
+      <div class="cti-actor-grid">
+        <div class="cti-actor-row"><span class="cti-actor-label">🎯 Targets</span><span>${actor.targets}</span></div>
+        <div class="cti-actor-row"><span class="cti-actor-label">🛠 Tools</span><span>${actor.tools.join(", ")}</span></div>
+      </div>
+      <div class="cti-actor-ttps">
+        ${actor.ttps.map(t => `<a href="https://attack.mitre.org/techniques/${t.replace(".","/")}" target="_blank" class="sa-mitre-card" style="display:inline-flex">
+          <div class="sa-mitre-tid">${t}</div>
+          <div class="sa-mitre-name">${getMitreName(t)}</div>
+        </a>`).join("")}
+      </div>
+      <div class="cti-actor-actions">
+        <a href="${actor.mitre}" target="_blank" class="quicklink-btn">🧩 MITRE ATT&CK Profile</a>
+        <button class="quicklink-btn cti-hunt-btn" data-actor="${name}" type="button">🔍 Hunt IOCs</button>
+      </div>
+    </div>`;
+  }
+
+  const ctiActorResults = $("cti-actor-results");
+
+  $("cti-actor-search-btn")?.addEventListener("click", () => {
+    const q = ($("cti-actor-input")?.value||"").trim().toLowerCase();
+    if (!q) return;
+    const matches = Object.entries(ACTOR_DB).filter(([name, actor]) =>
+      name.toLowerCase().includes(q) ||
+      actor.aliases.some(a => a.toLowerCase().includes(q)) ||
+      actor.description.toLowerCase().includes(q) ||
+      actor.tools.some(t => t.toLowerCase().includes(q))
+    );
+    if (!ctiActorResults) return;
+    if (!matches.length) { ctiActorResults.innerHTML = `<div class="bulk-empty">No matching actors found for "${q}". Try an alias, tool name, or partial name.</div>`; return; }
+    ctiActorResults.innerHTML = matches.map(([n,a]) => renderActorCard(n,a)).join("");
+    ctiActorResults.querySelectorAll(".cti-hunt-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const actor = ACTOR_DB[btn.dataset.actor];
+        if (!actor) return;
+        const bulkIn = $("bulk-input");
+        if (bulkIn) { bulkIn.value = actor.tools.join("\n") + "\n" + actor.ttps.join("\n"); switchTab("bulk"); $("bulk-analyze-btn")?.click(); }
+      });
+    });
+  });
+
+  $("cti-actor-random")?.addEventListener("click", () => {
+    const keys = Object.keys(ACTOR_DB);
+    const name = keys[Math.floor(Math.random()*keys.length)];
+    const inp = $("cti-actor-input"); if(inp) inp.value = name;
+    $("cti-actor-search-btn")?.click();
+  });
+
+  // Allow Enter key on actor input
+  $("cti-actor-input")?.addEventListener("keydown", e => { if(e.key==="Enter") $("cti-actor-search-btn")?.click(); });
+
+  // ── IOC Intel Check ───────────────────────────────────────────
+  const CTI_IOC_PIVOTS = {
+    ip:     [{l:"ThreatFox",    u: q => `https://threatfox.abuse.ch/browse.php?search=ioc%3A${enc(q)}`},
+             {l:"OTX",          u: q => `https://otx.alienvault.com/indicator/ip/${enc(q)}`},
+             {l:"GreyNoise",    u: q => `https://viz.greynoise.io/ip/${enc(q)}`},
+             {l:"FeodoTracker", u: q => `https://feodotracker.abuse.ch/browse.php?search=${enc(q)}`},
+             {l:"Pulsedive",    u: q => `https://pulsedive.com/indicator/?ioc=${enc(q)}`},
+             {l:"AbuseIPDB",    u: q => `https://www.abuseipdb.com/check/${enc(q)}`}],
+    domain: [{l:"ThreatFox",    u: q => `https://threatfox.abuse.ch/browse.php?search=ioc%3A${enc(q)}`},
+             {l:"OTX",          u: q => `https://otx.alienvault.com/indicator/domain/${enc(q)}`},
+             {l:"URLhaus",      u: q => `https://urlhaus.abuse.ch/browse.php?search=${enc(q)}`},
+             {l:"Pulsedive",    u: q => `https://pulsedive.com/indicator/?ioc=${enc(q)}`},
+             {l:"URLScan",      u: q => `https://urlscan.io/search/#domain:${enc(q)}`}],
+    hash:   [{l:"MalwareBazaar",u: q => `https://bazaar.abuse.ch/browse.php?search=${enc(q)}`},
+             {l:"ThreatFox",    u: q => `https://threatfox.abuse.ch/browse.php?search=ioc%3A${enc(q)}`},
+             {l:"OTX",          u: q => `https://otx.alienvault.com/indicator/file/${enc(q)}`},
+             {l:"VirusTotal",   u: q => `https://www.virustotal.com/gui/file/${enc(q)}`},
+             {l:"Hybrid Anal.", u: q => `https://www.hybrid-analysis.com/search?query=${enc(q)}`}],
+    url:    [{l:"URLhaus",      u: q => `https://urlhaus.abuse.ch/browse.php?search=${enc(q)}`},
+             {l:"ThreatFox",    u: q => `https://threatfox.abuse.ch/browse.php?search=ioc%3A${enc(q)}`},
+             {l:"OTX",          u: q => `https://otx.alienvault.com/indicator/url/${enc(q)}`},
+             {l:"URLScan",      u: q => `https://urlscan.io/search/#page.url:${enc(q)}`}],
+    cve:    [{l:"CISA KEV",     u: q => `https://www.cisa.gov/known-exploited-vulnerabilities-catalog`},
+             {l:"Exploit-DB",   u: q => `https://www.exploit-db.com/search?cve=${enc(q)}`},
+             {l:"NVD",          u: q => `https://nvd.nist.gov/vuln/detail/${enc(q)}`},
+             {l:"Vulners",      u: q => `https://vulners.com/search?query=${enc(q)}`}],
+    email:  [{l:"HIBP",         u: q => `https://haveibeenpwned.com/account/${enc(q)}`},
+             {l:"OTX",          u: q => `https://otx.alienvault.com/indicator/email/${enc(q)}`},
+             {l:"IntelX",       u: q => `https://intelx.io/?s=${enc(q)}`},
+             {l:"Dehashed",     u: q => `https://dehashed.com/search?query=${enc(q)}`}],
+  };
+
+  $("cti-ioc-check-btn")?.addEventListener("click", () => {
+    const raw = ($("cti-ioc-input")?.value||"").trim();
+    if (!raw) return;
+    const { type, q } = detectType(raw, "");
+    const results = $("cti-ioc-results");
+    const statusEl = $("cti-ioc-status")?.querySelector("span");
+    if (!type) { if(results) results.innerHTML=`<div class="bulk-empty">⚠️ Could not detect IOC type for: ${raw}</div>`; return; }
+    const pivots = CTI_IOC_PIVOTS[type] || CTI_IOC_PIVOTS.ip;
+    const typeColor = {ip:"#38bdf8",domain:"#34d399",hash:"#f59e0b",url:"#fb923c",email:"#a78bfa",cve:"#f87171"}[type]||"#9ca3af";
+    if (statusEl) statusEl.textContent = `Detected: ${type.toUpperCase()} — showing CTI pivot links`;
+    if (!results) return;
+    results.innerHTML = `<div class="cti-ioc-header" style="border-color:${typeColor}44;background:${typeColor}0d">
+      <span class="lt-ev-badge" style="color:${typeColor};background:${typeColor}18;border-color:${typeColor}44">${type.toUpperCase()}</span>
+      <code style="font-size:13px">${q}</code>
+      <button class="quicklink-btn" id="cti-ioc-pivot-main" data-val="${q.replace(/"/g,'&quot;')}" type="button">🔍 Full OSINT Pivot</button>
+    </div>
+    <div class="cti-ioc-links-grid">
+      ${pivots.map(p => `<a href="${p.u(q)}" target="_blank" class="cti-ioc-link-card">
+        <div class="cti-ioc-link-name">${p.l}</div>
+        <div class="cti-ioc-link-action">Check →</div>
+      </a>`).join("")}
+    </div>
+    <div class="cti-ioc-hints">
+      <div class="cti-ioc-hint-head">💡 Investigation hints for ${type.toUpperCase()}</div>
+      ${getIOCHints(type).map(h=>`<div class="lt-finding lt-finding-info">ℹ️ ${h}</div>`).join("")}
+    </div>`;
+    $("cti-ioc-pivot-main")?.addEventListener("click", () => {
+      if (input) { input.value = q; syncSearchboxState(); switchTab("single"); doSearch({ silent:false }); }
+    });
+  });
+  $("cti-ioc-input")?.addEventListener("keydown", e => { if(e.key==="Enter") $("cti-ioc-check-btn")?.click(); });
+
+  function getIOCHints(type) {
+    return {
+      ip:     ["Check both ThreatFox and FeodoTracker for C2 associations","GreyNoise distinguishes targeted attacks from internet background noise","Cross-reference ASN ownership — cloud hosting IPs are common in phishing","Check if IP is a TOR exit node or known VPN/proxy"],
+      domain: ["Check domain registration age — newly registered is a red flag","Look for typosquatting of known brands","Certificate Transparency logs (crt.sh) reveal related subdomains","Passive DNS shows historical IPs — useful for pivot to related infrastructure"],
+      hash:   ["Submit unknown hashes to sandbox for dynamic analysis","Check MalwareBazaar for malware family and campaign attribution","Cross-reference with Hybrid Analysis for behavioral IOCs","SSDEEP fuzzy hashing can find variants of the same malware"],
+      url:    ["URLScan.io captures full page screenshots — useful for phishing detection","Check URLhaus for malware delivery association","Archive.org preserves content if URL is now 404","Extract domain from URL and pivot separately for deeper intel"],
+      email:  ["HIBP shows if email appeared in known breach data","Check email reputation score — EmailRep.io is good for this","Google OSINT: search email in quotes to find forum posts, registrations","Pivot on email domain for broader infrastructure analysis"],
+      cve:    ["Check CISA KEV first — if listed, exploitation is confirmed in the wild","EPSS score indicates exploit probability — prioritize high EPSS","Search Exploit-DB and GitHub for public PoC code","Check vendor advisory for patch availability and workarounds"],
+    }[type] || ["Search across multiple threat intel platforms for context","Look for related IOCs to understand full attack scope","Check TLP for sharing restrictions before distributing"];
+  }
+
+  // ── Campaign Tracker ──────────────────────────────────────────
+  let ctiCampaigns = [];
+  try { ctiCampaigns = JSON.parse(localStorage.getItem("osint_cti_campaigns")||"[]"); } catch {}
+
+  function saveCampaigns() { try { localStorage.setItem("osint_cti_campaigns", JSON.stringify(ctiCampaigns)); } catch {} }
+
+  function renderCampaigns() {
+    const list = $("cti-campaigns-list");
+    if (!list) return;
+    if (!ctiCampaigns.length) { list.innerHTML = '<div class="bulk-empty">No campaigns tracked yet. Add one above.</div>'; return; }
+    const statusColors = { active:"#f87171", monitoring:"#fbbf24", closed:"#34d399" };
+    const statusLabels = { active:"🔴 Active", monitoring:"🟡 Monitoring", closed:"🟢 Closed" };
+    list.innerHTML = ctiCampaigns.map((c,i) => `<div class="cti-camp-card" id="cti-camp-${i}">
+      <div class="cti-camp-head">
+        <div>
+          <div class="cti-camp-name">${c.name}</div>
+          ${c.actor ? `<div class="cti-camp-actor">Actor: ${c.actor}</div>` : ""}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="cti-actor-badge" style="color:${statusColors[c.status]};background:${statusColors[c.status]}18;border-color:${statusColors[c.status]}44">${statusLabels[c.status]||c.status}</span>
+          <span class="cti-actor-badge" style="color:#9ca3af">${new Date(c.created).toLocaleDateString()}</span>
+          <button class="lt-pivot-btn cti-camp-del" data-idx="${i}" type="button">🗑</button>
+        </div>
+      </div>
+      <div class="cti-camp-iocs">
+        <div class="cti-camp-ioc-label">IOCs (${(c.iocs||[]).length})</div>
+        ${(c.iocs||[]).slice(0,10).map(ioc=>`<div class="regex-ioc-row"><code>${ioc.type}: ${ioc.value}</code></div>`).join("")}
+        ${(c.iocs||[]).length>10?`<div style="font-size:10px;color:var(--muted)">...and ${c.iocs.length-10} more</div>`:""}
+      </div>
+      <div class="cti-camp-add-ioc">
+        <input class="aw-input cti-camp-ioc-input" type="text" placeholder="Add IOC to this campaign" data-idx="${i}" style="font-size:11px;padding:5px 8px" />
+        <button class="lt-pivot-btn cti-camp-addioc" data-idx="${i}" type="button">➕ Add IOC</button>
+      </div>
+    </div>`).join("");
+    list.querySelectorAll(".cti-camp-del").forEach(btn => {
+      btn.addEventListener("click", () => { ctiCampaigns.splice(Number(btn.dataset.idx),1); saveCampaigns(); renderCampaigns(); });
+    });
+    list.querySelectorAll(".cti-camp-addioc").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.idx);
+        const iocInp = list.querySelector(`.cti-camp-ioc-input[data-idx="${idx}"]`);
+        const val = (iocInp?.value||"").trim(); if(!val) return;
+        const { type } = detectType(val,"");
+        if (!ctiCampaigns[idx].iocs) ctiCampaigns[idx].iocs = [];
+        ctiCampaigns[idx].iocs.push({ type: type||"unknown", value: val });
+        saveCampaigns(); renderCampaigns();
+      });
+    });
+  }
+
+  $("cti-camp-add")?.addEventListener("click", () => {
+    const name = ($("cti-camp-name")?.value||"").trim();
+    if (!name) return;
+    ctiCampaigns.unshift({ name, actor: $("cti-camp-actor")?.value?.trim()||"", status: $("cti-camp-status")?.value||"active", created: Date.now(), iocs:[] });
+    saveCampaigns(); renderCampaigns();
+    [$("cti-camp-name"),$("cti-camp-actor")].forEach(el=>{if(el)el.value="";});
+  });
+
+  $("cti-camp-export")?.addEventListener("click", () => {
+    const lines = ["# CTI Campaign Export","# Generated: "+new Date().toISOString(),""];
+    ctiCampaigns.forEach(c => {
+      lines.push(`## ${c.name} [${c.status.toUpperCase()}]`);
+      if(c.actor) lines.push(`Actor: ${c.actor}`);
+      lines.push(`Created: ${new Date(c.created).toISOString()}`);
+      if(c.iocs?.length) { lines.push("IOCs:"); c.iocs.forEach(i=>lines.push(`  [${i.type}] ${i.value}`)); }
+      lines.push("");
+    });
+    const blob = new Blob([lines.join("\n")],{type:"text/plain"});
+    const a = document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=`cti-campaigns-${Date.now()}.txt`; a.click();
+  });
+
+  $("cti-camp-clear")?.addEventListener("click", () => {
+    if (!confirm("Clear all campaigns? This cannot be undone.")) return;
+    ctiCampaigns = []; saveCampaigns(); renderCampaigns();
+  });
+
   // Init
   loadCaseFromStorage();
+  renderCampaigns();
   renderAWTemplateList("all");
   syncSearchboxState();
   setSearchMode(false);
