@@ -25,7 +25,10 @@
 
     <!-- Session History -->
     <div class="sidebar-section">
-      <div class="sidebar-section-head">🕓 Session History</div>
+      <div class="sidebar-section-head" style="display:flex;align-items:center;justify-content:space-between">
+        <span>🕓 IOC History <span style="font-size:10px;opacity:.6;font-weight:400">(persists across sessions)</span></span>
+        <button id="clear-history" type="button" style="font-size:10px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Clear all history">✕ Clear</button>
+      </div>
       <div id="history-list" class="history-list">
         <div class="history-empty">No searches yet.</div>
       </div>
@@ -99,8 +102,23 @@
         <!-- Verdict Banner -->
         <div id="verdict-banner" class="verdict-banner" style="display:none"></div>
 
+        <!-- Threat Score Panel -->
+        <div id="threat-score-panel" class="threat-score-panel" style="display:none">
+          <div class="ts-header">
+            <span class="ts-title">⚡ Quick Threat Assessment</span>
+            <span id="ts-overall-badge" class="ts-overall-badge">—</span>
+          </div>
+          <div id="ts-body" class="ts-body"></div>
+          <div class="ts-footer">
+            <span class="ts-note">💡 Click any source above to investigate. Scores are heuristic-based context helpers — always verify manually.</span>
+          </div>
+        </div>
+
         <!-- CVE Enrichment Panel -->
         <div id="cve-enrichment" class="cve-enrichment" style="display:none"></div>
+
+        <!-- Threat Actor Hint Panel (Feature 14) -->
+        <div id="actor-hint-panel" class="actor-hint-panel" style="display:none"></div>
 
         <textarea id="output" placeholder="Results / Extracted IOCs (Tip: Paste full email headers/logs here then press Search or Extract IOCs)"></textarea>
         <div class="hintline">Tip: Paste full email headers/logs into the Output box then press Search (or Extract IOCs).</div>
