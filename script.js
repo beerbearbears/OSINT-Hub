@@ -935,7 +935,11 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/\/tenants\/[a-fA-F0-9-]+\/[^\s\n]*/g, "")  // strip Azure resource paths /tenants/uuid/...
       .replace(/\b(?:oJQx[a-zA-Z0-9+/=]{20,})/g, "");     // strip base64-like OAuth permission IDs
 
-    results.iocs.ips      = [...new Set((refanged.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/g)||[]).filter(isValidIPv4))];
+    results.iocs.ips      = [...new Set([
+      ...(refanged.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/g)||[]).filter(isValidIPv4),
+      ...(refanged.match(/\b[a-fA-F0-9]{4}:[a-fA-F0-9]{4}:[a-fA-F0-9:]{4,30}\b/g)||[])
+        .filter(v => v.split(':').length >= 4), // must have at least 4 segments to be a valid IPv6
+    ])];
     results.iocs.domains  = [...new Set((refanged.match(/\b([a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+\.[a-zA-Z]{2,})\b/g)||[]).filter(d=>!/^\d+\.\d+/.test(d) && d.split(".").length>=2))];
     // Hashes: use pre-processed text, deduplicate case-insensitively
     const _rawH = (stripForIOC.match(/\b[a-fA-F0-9]{32}\b|\b[a-fA-F0-9]{40}\b|\b[a-fA-F0-9]{64}\b/g)||[]);
@@ -980,6 +984,7 @@ document.addEventListener("DOMContentLoaded", () => {
       results.indicators.push(`From: ${h.senderEmail||"?"}`, `SPF: ${h.spfResult||"none"}`, `DKIM: ${h.dkimResult||"none"}`, `Origin IP: ${h.originIp||"?"}`);
       return _finalizeTriage(results);
     }
+
 
     // 2. WINDOWS EVENT LOG (XML or plain Sysmon/Security)
     // Must NOT match Azure/cloud logs that use "Event ID" as a label for UUID values
@@ -1059,7 +1064,127 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 3. FIREWALL / NETWORK LOGS
+
+    // 3. PROOFPOINT (Email Security / TAP)
+    if (/proofpoint|TAP|messageParts|THREAT_TYPE|clicksPermitted|messagesDelivered|spamScore|phishScore|mlxScore|policyRoutes|quarantineFolder|senderIP/i.test(t)) {
+      results.eventType = "Proofpoint Email Security";
+      const threat   = (t.match(/(?:THREAT_TYPE|threatType)\s*[=:"]+\s*([^\s",\n]{2,40})/i)||[])[1]||"";
+      const sender   = (t.match(/(?:sender|from)\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1]||"";
+      const recip    = (t.match(/(?:recipient|to)\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1]||"";
+      const senderIp = (t.match(/(?:senderIP|sender_ip|headerFrom)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const url      = (t.match(/(?:url|href)\s*[=:"]+\s*(https?:\/\/[^\s",]+)/i)||[])[1]||"";
+      const attach   = (t.match(/(?:fileName|filename|attachment)\s*[=:"]+\s*([^\s",\n]{3,60})/i)||[])[1]||"";
+      const action   = (t.match(/(?:disposition|action|quarantineFolder)\s*[=:"]+\s*([^\s",\n]{2,30})/i)||[])[1]||"";
+      const phishScore= (t.match(/phishScore\s*[=:"]+\s*(\d+(?:\.\d+)?)/i)||[])[1]||"";
+      const spamScore = (t.match(/spamScore\s*[=:"]+\s*(\d+(?:\.\d+)?)/i)||[])[1]||"";
+      if (sender)    { results.indicators.push(`Sender: ${sender}`);      results.prefillData.sender = sender; }
+      if (recip)     { results.indicators.push(`Recipient: ${recip}`);    results.prefillData.recipient = recip; }
+      if (senderIp)  { results.indicators.push(`Sender IP: ${senderIp}`); results.prefillData.src_ip = senderIp; }
+      if (threat)    { results.indicators.push(`Threat: ${threat}`);      results.prefillData.notes = threat; }
+      if (action)      results.indicators.push(`Action: ${action}`);
+      if (phishScore)  results.indicators.push(`Phish Score: ${phishScore}`);
+      if (/phish|malware|spam/i.test(threat)) { results.findings.push(`🚨 Proofpoint detected ${threat} — verify sender domain, links, and attachments`); results.mitre.add("T1566"); results.severity = "high"; }
+      if (url)       { results.findings.push(`⚠️ Malicious URL detected: ${url.slice(0,80)}`); results.mitre.add("T1566.002"); results.prefillData.url = url; if(results.severity!=="critical") results.severity = "high"; }
+      if (attach)    { results.findings.push(`⚠️ Suspicious attachment: ${attach}`); results.mitre.add("T1566.001"); }
+      if (senderIp && !isPrivateIPv4(senderIp)) results.findings.push(`ℹ️ Sender IP ${senderIp} — check reputation in VirusTotal and Talos`);
+      if (!results.findings.length) results.findings.push(`ℹ️ Proofpoint email security event — action: ${action || "recorded"}`);
+      return _finalizeTriage(results);
+    }
+
+
+    // 4. MICROSOFT DEFENDER / MDE / XDR
+    if (/Microsoft.*Defender|MDE|MDO|Defender.*ATP|DefenderATP|AlertId.*OAV|AlertTitle|evidence.*type.*process|DetectionSource.*WindowsDefenderAv|microsoft.*365.*defender|SecurityAlert.*Microsoft/i.test(t)) {
+      results.eventType = "Microsoft Defender / XDR Alert";
+      const title     = (t.match(/(?:AlertTitle|Title|DisplayName)\s*[=:"]+\s*([^\n",]{5,100})/i)||[])[1]?.trim()||"";
+      const sev       = (t.match(/(?:Severity|AlertSeverity)\s*[=:"]+\s*(\w+)/i)||[])[1]||"";
+      const entity    = (t.match(/(?:DeviceName|ComputerName|Machine)\s*[=:"]+\s*([a-zA-Z0-9_.-]{2,50})/i)||[])[1]||"";
+      const user      = (t.match(/(?:AccountName|UserName|InitiatingProcessAccountName)\s*[=:"]+\s*([a-zA-Z0-9._\\-]{2,50})/i)||[])[1]||"";
+      const cmd       = (t.match(/(?:ProcessCommandLine|InitiatingProcessCommandLine)\s*[=:"]+\s*([^\n",]{5,200})/i)||[])[1]||"";
+      const sha256    = (t.match(/\b[a-fA-F0-9]{64}\b/)||[])[0]||"";
+      const category  = (t.match(/(?:Category|AlertCategory)\s*[=:"]+\s*([^\n",]{2,40})/i)||[])[1]||"";
+      if (title)    results.indicators.push(`Alert: ${title.slice(0,60)}`);
+      if (entity)   { results.indicators.push(`Device: ${entity}`);  results.prefillData.hostname = entity; }
+      if (user)     { results.indicators.push(`User: ${user}`);      results.prefillData.username = user; }
+      if (category)   results.indicators.push(`Category: ${category}`);
+      if (sev)      { if(/high/i.test(sev)) results.severity="high"; else if(/critical/i.test(sev)) results.severity="critical"; else if(/medium/i.test(sev)) results.severity="medium"; }
+      if (title)    results.findings.push(`🚨 Defender alert: ${title}`);
+      if (cmd)      { results.prefillData.cmdline = cmd; if(/-enc|-EncodedCommand/i.test(cmd)) { results.findings.push("🚨 Encoded PowerShell in command line"); results.mitre.add("T1027"); } }
+      if (sha256)     results.findings.push(`ℹ️ File hash identified — submit to VirusTotal: ${sha256.slice(0,16)}...`);
+      if (/Ransomware|Tamper/i.test(title+category)) { results.findings.push("🚨 Ransomware or tamper protection triggered"); results.severity="critical"; results.mitre.add("T1486"); }
+      if (!results.mitre.size) results.mitre.add("T1059");
+      return _finalizeTriage(results);
+    }
+
+
+    // 5. SENTINELONE
+    if (/SentinelOne|sentinel.*agent|agentDetectionInfo|threatInfo|mitigationStatus|analystVerdictDescription|threatClassification|s1AgentId/i.test(t)) {
+      results.eventType = "SentinelOne EDR Alert";
+      const threat    = (t.match(/(?:threatName|threatClassification|threatInfo)\s*[=:"]+\s*([^\n",]{2,80})/i)||[])[1]?.trim()||"";
+      const status    = (t.match(/(?:mitigationStatus|mitigationAction)\s*[=:"]+\s*([^\n",]{2,40})/i)||[])[1]||"";
+      const entity    = (t.match(/(?:computerName|agentComputerName)\s*[=:"]+\s*([^\n",\s]{2,50})/i)||[])[1]||"";
+      const user      = (t.match(/(?:UserName|ownerAccount)\s*[=:"]+\s*([^\n",\s]{2,50})/i)||[])[1]||"";
+      const verdict   = (t.match(/(?:analystVerdict|verdict)\s*[=:"]+\s*([^\n",]{2,30})/i)||[])[1]||"";
+      const path      = (t.match(/(?:filePath|threatFilePath)\s*[=:"]+\s*([^\n",]{4,120})/i)||[])[1]||"";
+      if (entity)   { results.indicators.push(`Host: ${entity}`);    results.prefillData.hostname = entity; }
+      if (user)     { results.indicators.push(`User: ${user}`);      results.prefillData.username = user; }
+      if (threat)     results.indicators.push(`Threat: ${threat.slice(0,50)}`);
+      if (status)     results.indicators.push(`Status: ${status}`);
+      if (verdict)    results.indicators.push(`Verdict: ${verdict}`);
+      if (threat)   results.findings.push(`🚨 SentinelOne detected: ${threat}`);
+      if (/killed|quarantine|remediat/i.test(status)) results.findings.push(`✅ Threat was automatically mitigated (${status}) — verify no lateral movement`);
+      if (/not.mitigated|pending/i.test(status))      { results.findings.push("⚠️ Threat NOT fully mitigated — immediate manual action required"); results.severity="critical"; }
+      if (path)       results.findings.push(`ℹ️ Malicious file: ${path}`);
+      results.mitre.add("T1059"); results.severity = results.severity==="info" ? "high" : results.severity;
+      return _finalizeTriage(results);
+    }
+
+
+    // 6. SURICATA / SNORT IDS-IPS
+    if (/\[Classification:|ET\s+\w+|GPL\s+\w+|Suricata|snort|alert tcp|alert udp|alert icmp|Priority:\s*\d|GID:\s*\d|SID:\s*\d|\[1:[0-9]+:[0-9]+\]/i.test(t)) {
+      results.eventType = /suricata/i.test(t) ? "Suricata IDS/IPS" : "Snort IDS/IPS";
+      const sigName   = (t.match(/\[\d+:\d+:\d+\]\s*([^\[]{3,100})|alert.*(?:tcp|udp|icmp)[^(]+\(msg:"([^"]{3,100})"/i)||[])[1]?.trim()||
+                        (t.match(/msg:\s*"([^"]{3,100})"/i)||[])[1]||"";
+      const srcIp     = (t.match(/(\d{1,3}(?:\.\d{1,3}){3}):\d+\s*->/)||[])[1]||"";
+      const dstIp     = (t.match(/->?\s*(\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?/)||[])[1]||"";
+      const classif   = (t.match(/\[Classification:\s*([^\]]{3,60})\]/i)||[])[1]||"";
+      const priority  = (t.match(/Priority:\s*(\d)/i)||[])[1]||"";
+      const sid       = (t.match(/(?:SID|sid)\s*[=:]\s*(\d+)/i)||[])[1]||"";
+      if (sigName)  results.indicators.push(`Signature: ${sigName.slice(0,60)}`);
+      if (srcIp)    { results.indicators.push(`SrcIP: ${srcIp}`);    results.prefillData.src_ip = srcIp; }
+      if (dstIp)      results.indicators.push(`DstIP: ${dstIp}`);
+      if (classif)    results.indicators.push(`Class: ${classif}`);
+      if (priority)   results.indicators.push(`Priority: ${priority}`);
+      if (sigName)  results.findings.push(`🚨 IDS signature matched: ${sigName}`);
+      if (/trojan|backdoor|c2|malware|exploit/i.test(sigName+classif)) { results.findings.push("🚨 Malware or C2 communication pattern detected"); results.mitre.add("T1071"); results.severity="critical"; }
+      if (/scan|recon|probe/i.test(sigName+classif))  { results.findings.push("⚠️ Reconnaissance or scanning activity detected"); results.mitre.add("T1046"); results.severity = results.severity==="info"?"medium":results.severity; }
+      if (/dos|ddos|flood/i.test(sigName+classif))    { results.findings.push("⚠️ Denial of Service pattern detected"); results.mitre.add("T1498"); }
+      if (priority === "1") { results.severity="critical"; }
+      else if (priority === "2" && results.severity==="info") results.severity="high";
+      if (!results.mitre.size) results.mitre.add("T1071");
+      return _finalizeTriage(results);
+    }
+
+
+    // 7. DARKTRACE / NDR
+    if (/darktrace|Antigena|modelBreach|pbid|phid|modelName|deviceScore|anomalyScore|unusual.*connection|ai.analyst/i.test(t)) {
+      results.eventType = "Darktrace NDR Alert";
+      const model     = (t.match(/(?:modelName|model)\s*[=:"]+\s*([^\n",]{5,80})/i)||[])[1]?.trim()||"";
+      const device    = (t.match(/(?:deviceHostname|hostname|device)\s*[=:"]+\s*([^\n",\s]{2,50})/i)||[])[1]||"";
+      const score     = (t.match(/(?:anomalyScore|score|pbid)\s*[=:"]+\s*(\d+(?:\.\d+)?)/i)||[])[1]||"";
+      const srcIp     = (t.match(/(\d{1,3}(?:\.\d{1,3}){3})/)||[])[1]||"";
+      if (model)    results.indicators.push(`Model: ${model.slice(0,60)}`);
+      if (device)   { results.indicators.push(`Device: ${device}`);  results.prefillData.hostname = device; }
+      if (score)      results.indicators.push(`Score: ${score}`);
+      if (model)    results.findings.push(`⚠️ Darktrace AI model breach: ${model}`);
+      if (score && parseFloat(score) > 0.8) { results.findings.push("🚨 High anomaly score — behavior deviates significantly from baseline"); results.severity="high"; }
+      if (/c2|command.*control|beac/i.test(model)) { results.findings.push("🚨 Possible C2/beaconing activity detected"); results.mitre.add("T1071"); results.severity="critical"; }
+      if (/lateral|internal|east.west/i.test(model)) { results.findings.push("⚠️ Internal lateral movement pattern"); results.mitre.add("T1021"); }
+      if (!results.findings.length) results.findings.push(`ℹ️ Darktrace behavioral anomaly detected — review in Threat Visualizer`);
+      return _finalizeTriage(results);
+    }
+
+
+    // 8. FIREWALL / NETWORK LOGS
     if (/SRC=|DST=|PROTO=|DPT=|SPT=|inbound|outbound|\bACCEPT\b|\bDROP\b|\bDENY\b|firewall|src_ip|dst_ip|action=allow|action=deny/i.test(t)) {
       results.eventType = "Firewall / Network Log";
       // iptables/netfilter style
@@ -1087,7 +1212,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 4. PROXY / WEB LOG
+
+    // 9. PROXY / WEB LOG
     if (/GET |POST |PUT |DELETE |HEAD |HTTP\/[12]|\bstatus[=:\s]+[245]\d\d\b|\bcs-uri\b|\brequest_url\b|\burl_path\b/i.test(t)) {
       results.eventType = "Web / Proxy Log";
       const method  = (t.match(/\b(GET|POST|PUT|DELETE|PATCH|HEAD)\b/i)||[])[1]||"";
@@ -1109,7 +1235,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 5. SSH / LINUX AUTH LOG
+
+    // 10. SSH / LINUX AUTH LOG
     if (/sshd|auth\.log|pam_unix|sudo|su\[|Failed password|Accepted publickey|Invalid user|session opened/i.test(t)) {
       results.eventType = "SSH / Linux Auth Log";
       const failedUser = (t.match(/(?:Failed password for(?: invalid user)?|Invalid user)\s+(\S+)/i)||[])[1]||"";
@@ -1127,7 +1254,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 6. DNS LOG
+
+    // 11. DNS LOG
     if (/dns|QUERY|NXDOMAIN|NOERROR|A\s+IN\s|AAAA\s+IN\s|qtype|qname|dns_query|dns\.question/i.test(t)) {
       results.eventType = "DNS Log";
       const qname  = (t.match(/(?:qname|dns_query|dns\.question\.name)[=:\s]+"?([^\s"]+)/i)||[])[1]||"";
@@ -1143,7 +1271,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 7. CEF / LEEF (SIEM format)
+
+    // 12. CEF / LEEF (SIEM format)
     if (/CEF:\d+\||\bLEEF:[12]\./i.test(t)) {
       results.eventType = t.startsWith("CEF") ? "CEF Alert" : "LEEF Alert";
       const cefParts = t.split("|");
@@ -1165,7 +1294,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 8. JSON SIEM / EDR (Crowdstrike/Sentinel/Elastic)
+
+    // 13. JSON SIEM / EDR (Crowdstrike/Sentinel/Elastic)
     if (/^\s*\{[\s\S]*"[a-zA-Z_]+"\s*:/.test(t)) {
       results.eventType = "JSON / SIEM Alert";
       try {
@@ -1193,7 +1323,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 9. CROWDSTRIKE DETECT / FALCON / NGSIEM
+
+    // 14. CROWDSTRIKE DETECT / FALCON / NGSIEM
     if (/falcon|crowdstrike|detect\.base|falconhost|detect_id|SeverityName|PatternDisposition|ProcessRollup|eventType.*falcon/i.test(t) ||
         (fieldsHeaderMatch && /\baid\b|\bcid\b|CrowdStrike|Falcon/i.test(t))) {
       results.eventType = "CrowdStrike Falcon Alert";
@@ -1292,7 +1423,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-    // 10. MICROSOFT 365 / AZURE AD / ENTRA ID AUDIT LOG
+
+    // 15. MICROSOFT 365 / AZURE AD / ENTRA ID AUDIT LOG
     // Catches: Unified Audit Log exports, Entra ID / Azure AD audit events, SIEM-forwarded M365 logs,
     // cloud SIEM summaries (with "Service provider azure", "Event category AuditLogs", etc.)
     if (
@@ -1412,7 +1544,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 11. AWS CLOUDTRAIL
+
+    // 16. AWS CLOUDTRAIL
     if (/eventName|eventSource|userIdentity|sourceIPAddress|awsRegion|errorCode|requestParameters/i.test(t) && /amazonaws|cloudtrail|aws/i.test(t)) {
       results.eventType = "AWS CloudTrail Log";
       const eventName  = (t.match(/(?:"?eventName"?\s*[:,]\s*"?)([^",\n\r]{2,60})/i)||[])[1]||"";
@@ -1440,7 +1573,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 12. OKTA / SSO IDENTITY LOG
+
+    // 17. OKTA / SSO IDENTITY LOG
     if (/eventType|actor\.alternateId|outcome\.result|displayMessage|debugContext|authenticationContext|okta/i.test(t)) {
       results.eventType = "Okta / SSO Identity Log";
       const evType  = (t.match(/(?:"?eventType"?\s*[:,]\s*"?)([a-zA-Z_.]{4,80})/i)||[])[1]||"";
@@ -1463,7 +1597,149 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 13. AUTHENTICATION / GENERIC
+
+    // 18. ZSCALER (ZIA / ZPA)
+    if (/zscaler|ZscalerApp|dlpDictionaries|urlCategory.*zscaler|policyAction.*zscaler|transactionID.*zscaler|csfbEnabled|zia.*log|zpa.*log/i.test(t) || (/zscaler/i.test(t) && /urlCategory|policyAction|threatName/i.test(t))) {
+      results.eventType = /zpa|private.access/i.test(t) ? "Zscaler ZPA Log" : "Zscaler ZIA Log";
+      const action    = (t.match(/(?:action|policyAction|result)\s*[=:"]+\s*([^\s",\n]{2,30})/i)||[])[1]||"";
+      const url       = (t.match(/(?:url|requestedURL|uri)\s*[=:"]+\s*(https?:\/\/[^\s",]+)/i)||[])[1]||"";
+      const category  = (t.match(/(?:urlCategory|cloudApp|category)\s*[=:"]+\s*([^\s",\n]{2,50})/i)||[])[1]||"";
+      const threat    = (t.match(/(?:threatName|malwareCategory|threatCategory)\s*[=:"]+\s*([^\s",\n]{2,60})/i)||[])[1]||"";
+      const srcIp     = (t.match(/(?:srcIP|clientIP|srcip|src)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const dstIp     = (t.match(/(?:dstIP|serverIP|dst)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const user      = (t.match(/(?:user|userName|login)\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1]||"";
+      const bytes     = (t.match(/(?:bytesTotal|txBytes|totalBytes)\s*[=:"]+\s*(\d+)/i)||[])[1]||"";
+      if (user)     { results.indicators.push(`User: ${user}`);      results.prefillData.username = user; }
+      if (srcIp)    { results.indicators.push(`SrcIP: ${srcIp}`);    results.prefillData.src_ip = srcIp; }
+      if (dstIp)      results.indicators.push(`DstIP: ${dstIp}`);
+      if (category)   results.indicators.push(`Category: ${category}`);
+      if (action)     results.indicators.push(`Action: ${action}`);
+      if (threat)   { results.findings.push(`🚨 Zscaler detected threat: ${threat}`); results.mitre.add("T1071"); results.severity="high"; }
+      if (/block|blocked/i.test(action)) results.findings.push(`✅ Traffic was blocked by Zscaler policy — confirm no endpoint compromise`);
+      if (/allow/i.test(action) && threat) { results.findings.push("⚠️ Malicious traffic was ALLOWED — check policy and investigate endpoint"); results.severity="critical"; }
+      if (url)      { results.findings.push(`ℹ️ URL accessed: ${url.slice(0,80)}`); results.prefillData.url = url; }
+      if (bytes && parseInt(bytes) > 10000000) results.findings.push(`⚠️ Large data transfer: ${(parseInt(bytes)/1048576).toFixed(1)} MB — possible data exfiltration`);
+      if (!results.findings.length) results.findings.push(`ℹ️ Zscaler web activity — ${category || "access"} ${action ? `→ ${action}` : ""}`);
+      return _finalizeTriage(results);
+    }
+
+
+    // 19. IBM QRADAR / SPLUNK SIEM ALERT
+    if (/qradar|QRadar|offenseId|sourceCount|destinationCount|eventCount|magnitudeLabel|credibility|relevance|severity.*magnitude|ruleNames/i.test(t) ||
+        /index=\w+\s|sourcetype=\w+|search.*earliest|savedsearch|SPL\s|Splunk.*alert/i.test(t)) {
+      results.eventType = /qradar/i.test(t) ? "IBM QRadar SIEM" : "Splunk SIEM Alert";
+      const rule      = (t.match(/(?:ruleNames|ruleName|savedSearch|alert_name)\s*[=:"[\s]+([^\]",\n]{3,80})/i)||[])[1]?.trim()||"";
+      const srcIp     = (t.match(/(?:sourceAddress|src_ip|src)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const dstIp     = (t.match(/(?:destinationAddress|dst_ip|dest)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const mag       = (t.match(/magnitude\s*[=:"]+\s*(\d+)/i)||[])[1]||"";
+      const user      = (t.match(/(?:userName|user|account)\s*[=:"]+\s*([a-zA-Z0-9.@_-]{3,50})/i)||[])[1]||"";
+      if (rule)     results.indicators.push(`Rule: ${rule.slice(0,60)}`);
+      if (srcIp)    { results.indicators.push(`SrcIP: ${srcIp}`);    results.prefillData.src_ip = srcIp; }
+      if (dstIp)      results.indicators.push(`DstIP: ${dstIp}`);
+      if (user)     { results.indicators.push(`User: ${user}`);      results.prefillData.username = user; }
+      if (mag)        results.indicators.push(`Magnitude: ${mag}`);
+      if (rule)     results.findings.push(`ℹ️ SIEM rule triggered: ${rule}`);
+      if (mag && parseInt(mag) >= 7) { results.findings.push(`⚠️ High magnitude offense (${mag}/10) — investigate correlated events`); results.severity = parseInt(mag)>=9 ? "critical" : "high"; }
+      if (srcIp && !isPrivateIPv4(srcIp)) results.findings.push(`ℹ️ External source IP ${srcIp} — check threat intel`);
+      return _finalizeTriage(results);
+    }
+
+    // 20. IDENTITY SECURITY / BEHAVIORAL ANALYTICS / UBA
+    // Catches: VMware Workspace ONE / Identity Service, CrowdStrike Falcon Identity,
+    //          Microsoft Defender for Identity, Securonix, Exabeam, SailPoint, BeyondTrust,
+    //          any behavioral identity platform with impossible travel, risk scores, concurrent access
+    if (
+      /VMware Identity Service|Workspace ONE|Horizon Identity|vIDM/i.test(t) ||
+      /Access from multiple locations|impossible travel|concurrent.*login|concurrent.*access|multiple locations concurrently/i.test(t) ||
+      /Risk score\s*(Critical|High|Medium|Low|[0-9])|risk.*score.*[0-9]/i.test(t) ||
+      /Falcon Identity|Defender for Identity|Azure ATP|MDI alert|identity.*protection/i.test(t) ||
+      /Securonix|Exabeam|SailPoint|BeyondTrust|CyberArk.*identity|Ping Identity/i.test(t) ||
+      (/Source endpoint IP|Additional endpoint IP|Additional location country/i.test(t) && /FAILURE|SUCCESS/i.test(t)) ||
+      (/Risk score|Privileged.*No|Privileged.*Yes/i.test(t) && /Account name|Username|Email address/i.test(t))
+    ) {
+      results.eventType = "Identity Security Alert";
+
+      // Extract identity fields
+      const user     = (t.match(/(?:Username|User name|Account name|User)\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1] ||
+                       (t.match(/(?:User|Username)\s+([A-Z][A-Z\s]+[A-Z])\n/)||[])[1]?.trim() || "";
+      const email    = (t.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/)||[])[0] || "";
+      const srcIpv4  = (t.match(/Source endpoint IP(?:\s+address)?\s+([\d.]{7,15})/i)||[])[1] ||
+                       (t.match(/IP Address\s+([\d.]{7,15})/i)||[])[1] || "";
+      const addIpv6  = (t.match(/Additional endpoint IP(?:\s+address)?\s+([a-fA-F0-9:]{10,})/i)||[])[1] || "";
+      const addIpv4  = (t.match(/Additional.*?IP.*?([\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3})/i)||[])[1] || "";
+      const riskRaw  = (t.match(/Risk score\s+([^\n,]{2,30})/i)||[])[1]?.trim() || "";
+      const riskNum  = parseFloat((riskRaw.match(/[\d.]+/)||[])[0]||"0");
+      const platform = (t.match(/(?:Destination application identifier|application)\s+([^\n]{3,60})/i)||[])[1]?.trim() ||
+                       (t.match(/VMware Identity Service|Workspace ONE|vIDM/i)||[])[0] || "";
+      const alertType= (t.match(/^([^\n]{5,80})/)||[])[1]?.trim() || "Identity alert";
+      const privStr  = (t.match(/Privileged\s+(Yes|No)/i)||[])[1]||"";
+      const dept     = (t.match(/Department\s+([^\n]{3,60})/i)||[])[1]?.trim()||"";
+      const title    = (t.match(/Title\s+([^\n]{3,60})/i)||[])[1]?.trim()||"";
+      const srcCity1 = (t.match(/Location country[^\n]*\n[^\n]*\nLocation country code[^\n]*\n[^\n]*latitude[^\n]*\n[^\n]*longitude[^\n]*/i)||
+                        t.match(/Location country\s+.*?\([\d.,-]+\)/i)||[])[0]?.match(/\b[A-Z][a-z]+ [A-Z][a-z]+|\b[A-Z][a-z]+\b/)||[];
+      const failures = (t.match(/\bFAILURE\b/gi)||[]).length;
+      const successes= (t.match(/\bSUCCESS\b/gi)||[]).length;
+
+      // Extract all unique login IPs (IPv4 + IPv6) from the log rows
+      const ipv4Set = new Set((t.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g)||[]).filter(ip => !ip.startsWith("0.") && ip !== "0.0.0.0"));
+      const ipv6Set = new Set((t.match(/\b[a-fA-F0-9]{4}:[a-fA-F0-9:]{9,39}\b/g)||[]));
+
+      if (user || email) { results.indicators.push(`User: ${user || email}`); results.prefillData.username = user || email; }
+      if (srcIpv4)       { results.indicators.push(`Source IP: ${srcIpv4}`); results.prefillData.src_ip = srcIpv4; }
+      if (addIpv6)         results.indicators.push(`Add. IP (IPv6): ${addIpv6.slice(0,30)}...`);
+      if (riskRaw)         results.indicators.push(`Risk Score: ${riskRaw}`);
+      if (platform)        results.indicators.push(`Platform: ${platform.slice(0,50)}`);
+      if (privStr)         results.indicators.push(`Privileged: ${privStr}`);
+      if (dept)            results.indicators.push(`Dept: ${dept}`);
+
+      // Set severity from risk score
+      if (riskNum >= 8 || /critical/i.test(riskRaw))       results.severity = "critical";
+      else if (riskNum >= 6 || /high/i.test(riskRaw))      results.severity = "high";
+      else if (riskNum >= 4 || /medium/i.test(riskRaw))    results.severity = "medium";
+      else if (riskNum > 0 || /low/i.test(riskRaw))        results.severity = "low";
+
+      // ── FINDINGS ─────────────────────────────────────────────
+      // Impossible travel / concurrent multi-location
+      if (/Access from multiple locations|impossible travel|multiple locations concurrently/i.test(t) ||
+          (ipv4Set.size + ipv6Set.size >= 2)) {
+        const allIps = [...ipv4Set, ...ipv6Set.values()].slice(0, 4);
+        results.findings.push(`🚨 Concurrent access from multiple locations — account "${email || user}" authenticated from ${allIps.length} different IPs at nearly the same time`);
+        results.findings.push(`⚠️ IP sources: ${allIps.join(" | ")} — if these represent different geographic locations, this is an impossible travel indicator`);
+        results.mitre.add("T1078"); results.mitre.add("T1078.004");
+        if (results.severity === "info" || results.severity === "low") results.severity = "high";
+      }
+
+      // Auth failure/success pattern
+      if (failures > 0 && successes > 0) {
+        results.findings.push(`⚠️ ${failures} FAILURE(s) followed by ${successes} SUCCESS(es) — possible credential stuffing with eventual success`);
+        results.mitre.add("T1110.001");
+        if (results.severity === "info") results.severity = "medium";
+      } else if (failures >= 3) {
+        results.findings.push(`⚠️ ${failures} authentication failures — possible brute force or incorrect credentials`);
+        results.mitre.add("T1110");
+      }
+
+      // Privileged account
+      if (/privileged.*yes/i.test(t)) {
+        results.findings.push("🚨 PRIVILEGED account — elevated risk if compromised");
+        if (results.severity !== "critical") results.severity = "critical";
+      }
+
+      // Platform-specific context
+      if (platform) results.findings.push(`ℹ️ Activity on ${platform.slice(0,50)} — verify with user if access was expected`);
+
+      // Mobile device pattern (same UA from different locations)
+      const uas = [...new Set((t.match(/Mozilla\/5\.0[^\n]*/g)||[]).map(ua => ua.slice(0,60)))];
+      if (uas.length === 1 && (ipv4Set.size + ipv6Set.size) >= 2) {
+        results.findings.push(`⚠️ Same device (${uas[0].includes("iPhone") ? "iPhone" : uas[0].includes("Android") ? "Android" : "mobile"}) used from multiple cities — potential account sharing or SIM swap`);
+      }
+
+      results.prefillData.notes = `Identity Security Alert: ${alertType}. User: ${email || user}. Risk: ${riskRaw || "unscored"}. Platform: ${platform || "unknown"}.`;
+      if (!results.mitre.size) results.mitre.add("T1078");
+      return _finalizeTriage(results);
+    }
+
+    // 21. AUTHENTICATION / GENERIC
     if (/authentication|logon|login|password|kerberos|ntlm|saml|oauth|MFA|2FA/i.test(t)) {
       results.eventType = "Authentication Event";
       const failures = (t.match(/fail|denied|reject|invalid|bad password|wrong password/gi)||[]).length;
@@ -1477,7 +1753,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 14. DHCP LOG
+
+    // 21. DHCP LOG
     if (/DHCP|dhcpd|leased|DISCOVER|OFFER|REQUEST|ACK|NAK/i.test(t)) {
       results.eventType = "DHCP Log";
       const ip  = (t.match(/(?:leased|assigned|NACK|ACK)\s+(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
@@ -1489,7 +1766,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 15. PALO ALTO / FORTINET FIREWALL
+
+    // 22. PALO ALTO / FORTINET FIREWALL
     if (/subtype=|action=allow|action=deny|action=block|app=|dstip=|srcip=|policyname=|logid=|devname=/i.test(t)) {
       results.eventType = /fortinet|fortigate|logid=/i.test(t) ? "Fortinet FortiGate Log" : "Palo Alto NGFW Log";
       const src     = (t.match(/(?:srcip|src_ip|sip)[=:]\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
@@ -1517,7 +1795,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
-    // 16. FALLBACK — generic syslog/text extraction
+
+    // 23. FALLBACK — generic syslog/text extraction
     if (t.length > 20) {
       results.eventType = "Generic Log / Text";
       const seens = (t.match(/(?:error|warning|critical|fail|deny|block|drop|malware|exploit|attack|suspicious|anomalous)/gi)||[]);
@@ -1525,8 +1804,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return _finalizeTriage(results);
     }
 
+
     return _finalizeTriage(results);
   }
+
 
   function _finalizeTriage(results) {
     results.mitre = [...results.mitre];
@@ -1557,8 +1838,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const raw   = (res._rawText || "").toLowerCase();
     const combined = type + " " + finds + " " + raw;
 
-    // ── Cloud Audit / Identity Governance ── must check BEFORE generic Identity/Auth
-    // Catches: OAuth consent grants, Azure AD audit, ServicePrincipal assignments, app permission changes
+    // ── Cloud Audit / Identity Governance ────────────────────────
     if (/azure ad|entra|azure audit|cloudtrail|aws cloud|okta.*sso/i.test(type) ||
         /consent.*grant|oauth.*consent|serviceprincipal|consent.*application|app.*consent|admin consent|consentcontext|onbehalfofall/i.test(combined) ||
         /iam.*privil|create.*user.*iam|attach.*policy|role.*assign|permission.*grant|privilege.*escalat/i.test(combined) ||
@@ -1566,17 +1846,85 @@ document.addEventListener("DOMContentLoaded", () => {
       return { label:"Cloud / Identity Governance", icon:"☁️🔑", color:"#818cf8",
         steps:[
           "Identify the user and confirm whether they knowingly initiated this action (call or out-of-band)",
-          "Review the application that received permissions — is 'Termination Bot' / the named app sanctioned by IT?",
+          "Review the application or resource that received permissions — is it sanctioned by IT/Security?",
           "Audit all permissions granted: scope, ConsentType (AllPrincipals = org-wide), and whether admin consent was given",
-          "Check Entra ID > Enterprise Applications for the app and revoke consent if unauthorized (Remove permissions)",
-          "Review the source IP — is 136.226.x.x a known corporate egress, VPN, or suspicious location?",
-          "Search audit logs for other actions by this user or this app in the past 72 hours",
-          "If unauthorized: revoke the app consent, rotate user credentials, and review what data the app accessed"
+          "Check Entra ID > Enterprise Applications or IAM console and revoke unauthorized access",
+          "Review the source IP — is it a known corporate egress, VPN, or unexpected location?",
+          "Search audit logs for other actions by this user or this app/role in the past 72 hours",
+          "If unauthorized: revoke access, rotate credentials, and review what data was accessed"
         ] };
 
-    // ── CrowdStrike / EDR / Endpoint ── check eventType directly
-    if (/crowdstrike|falcon|edr|endpoint.detect|processrollup|sysmon|windows event log/i.test(type) ||
-        /powershell|cmd\.exe|wscript|cscript|mshta|rundll32|regsvr32|scheduled.task|lsass|process.creat|encoded.command|shellcode|exploit|privilege|lolbin|execution|tactic/.test(combined))
+    // ── Email Security (Proofpoint, Exchange, mail headers) ──────
+    if (/proofpoint|email.*security|mail.*security|exchange/i.test(type) ||
+        /phish.*email|email.*phish|sender.*domain|spf.*fail|dkim.*fail|dmarc.*fail/i.test(combined))
+      return { label:"Email / Phishing Alert", icon:"📧", color:"#34d399",
+        steps:[
+          "Identify the recipient(s) — check if anyone else received the same email in the past 24h",
+          "Confirm whether the user opened the email, clicked links, or opened attachments",
+          "Check sender domain reputation: VirusTotal, Talos, MXToolBox — look for SPF/DKIM/DMARC failures",
+          "Detonate URLs and attachments in a sandbox (Any.Run, Hybrid Analysis)",
+          "Block sender domain and URLs at email gateway and web proxy",
+          "If user interacted: check endpoint for malicious process execution or downloads",
+          "Preserve email headers and raw source for forensics — submit to email security platform"
+        ] };
+
+    // ── Web / Proxy (Zscaler, proxy logs) ───────────────────────
+    if (/zscaler|proxy.*log|web.*log|url.*filter/i.test(type))
+      return { label:"Web / Proxy Alert", icon:"🌐", color:"#34d399",
+        steps:[
+          "Identify the user and device that triggered the policy",
+          "Check if traffic was blocked or allowed — allowed malicious traffic needs immediate endpoint investigation",
+          "Verify destination URL/domain in VirusTotal, URLScan.io, and Talos",
+          "Check whether the same URL was accessed from other endpoints in your environment",
+          "If blocked: confirm no endpoint compromise — check EDR for related process activity",
+          "If allowed: isolate the endpoint, check for malware downloads or C2 communication",
+          "Update proxy policy to block the domain/URL category if not already covered"
+        ] };
+
+    // ── Network / NDR / IDS-IPS (Suricata, Snort, Darktrace, Firewall) ──
+    if (/suricata|snort|ids|ips|darktrace|ndr/i.test(type) ||
+        /firewall.*network|network.*alert/i.test(type))
+      return { label:"Network / IDS Alert", icon:"🔌", color:"#38bdf8",
+        steps:[
+          "Identify source and destination — classify as internal/external and check asset criticality",
+          "Review the matched signature or anomaly — is it a known true-positive rule or noisy?",
+          "Check destination IP/domain reputation: AbuseIPDB, GreyNoise, VirusTotal, Shodan",
+          "Correlate with EDR — identify the process responsible for the connection",
+          "Look for beaconing patterns: consistent intervals, similar byte sizes, low TTL domains",
+          "If C2 confirmed: isolate the host, block destination at perimeter, hunt for lateral spread",
+          "Check for data exfiltration: unusual outbound volume, DNS tunneling, or staged data"
+        ] };
+
+    // ── SIEM Alerts (QRadar, Splunk) ─────────────────────────────
+    if (/qradar|splunk.*siem|ibm.*siem/i.test(type))
+      return { label:"SIEM Correlation Alert", icon:"📊", color:"#a78bfa",
+        steps:[
+          "Review all events correlated in this offense/alert — understand the full sequence",
+          "Identify the SIEM rule that fired and its logic — is the threshold appropriate?",
+          "Pivot to the source IP, user, and host in your EDR and other log sources",
+          "Check supporting IOCs (IPs, domains, hashes) against threat intelligence",
+          "Determine if this is a standalone event or part of a larger attack chain",
+          "If confirmed malicious: escalate to IR team with full event timeline",
+          "After resolution: tune the SIEM rule to reduce false positives or improve detection"
+        ] };
+
+    // ── Identity / Behavioral (check BEFORE Endpoint — keywords like "credential" overlap) ──
+    if (/signin|logon|authentication|credential|password|mfa|sso|entra|azure.ad|impossible.travel|brute.force|spray|okta|identity|identity security|vmware identity|workspace one|concurrent.*access|multiple locations|risk.score|falcon identity|defender.*identity|ueba|uba/i.test(combined) ||
+        /identity security alert/i.test(type))
+      return { label:"Identity Alert", icon:"🪪", color:"#a78bfa",
+        steps:[
+          "Contact the user directly via phone or out-of-band channel — confirm if they initiated this activity",
+          "Check ALL source IPs in AbuseIPDB, GreyNoise, and VT — classify each as corporate VPN, mobile carrier, or suspicious",
+          "If multiple locations: calculate travel time between cities — is it physically possible? If not, account is compromised",
+          "Review every authentication event for this user in the past 7 days — look for pattern changes",
+          "Verify MFA was completed and not bypassed — check for MFA fatigue attacks or new MFA device registrations",
+          "Check for post-compromise actions: new inbox rules, OAuth app grants, password changes, new MFA methods",
+          "If suspicious: immediately disable the account, revoke all active sessions, reset credentials, and review accessed resources"
+        ] };
+    
+    // ── CrowdStrike / EDR / Endpoint ────────────────────────────
+    if (/crowdstrike|falcon|edr|endpoint.detect|processrollup|sysmon|windows event log|defender|sentinelone/i.test(type) ||
+        /powershell|cmd\.exe|wscript|cscript|mshta|rundll32|regsvr32|scheduled.task|lsass|process.creat|encoded.command|shellcode|exploit|privilege.escal|lolbin|execution|tactic/.test(combined))
       return { label:"Endpoint Alert", icon:"💻", color:"#fb923c",
         steps:[
           "Open the detection in the Falcon/EDR console and review the full process tree",
@@ -1586,16 +1934,6 @@ document.addEventListener("DOMContentLoaded", () => {
           "Look for persistence: scheduled tasks, registry Run keys, new services, startup folder",
           "Scope the environment — search for the same IOCs on other endpoints",
           "Isolate the host if payload execution or lateral movement is confirmed"
-        ] };
-    if (/signin|logon|authentication|credential|password|mfa|sso|entra|azure.ad|impossible.travel|brute.force|spray|okta|identity/.test(combined))
-      return { label:"Identity Alert", icon:"🪪", color:"#a78bfa",
-        steps:[
-          "Confirm the authentication event with the user directly (call or out-of-band message)",
-          "Check source IP reputation: AbuseIPDB, GreyNoise, VT — is it a VPN, TOR, or known bad?",
-          "Verify MFA was challenged and completed — look for MFA fatigue or bypass indicators",
-          "Review all activity in the session (files accessed, emails sent, settings changed)",
-          "Check for post-compromise persistence: new MFA methods, inbox rules, OAuth app grants",
-          "If suspicious: disable account, revoke all active sessions, force password reset"
         ] };
     if (/phish|download|url|web|proxy|http|dns|domain|browser|click|attachment|email|spf|dkim|dmarc/.test(combined))
       return { label:"Web / Email Alert", icon:"🌐", color:"#34d399",
@@ -1653,36 +1991,183 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ── Feature 10: FP/TP Quick Verdict Templates ──────────────────
-  const VERDICT_TEMPLATES = {
-    fp: {
-      ip:     "Investigation shows the IP ({IOC}) belongs to a known hosting provider / CDN and has no malicious reputation across multiple CTI sources (VirusTotal, AbuseIPDB, GreyNoise). Activity is consistent with legitimate application traffic. Closing as False Positive.",
-      domain: "The domain ({IOC}) was reviewed across multiple threat intelligence sources. It resolves to infrastructure associated with a known legitimate service. No malicious indicators were identified. Closing as False Positive.",
-      url:    "The URL ({IOC}) was reviewed in URLScan.io, VirusTotal, and Google Safe Browsing. No malicious classification was found. The destination appears to be a legitimate service. Closing as False Positive.",
-      hash:   "The file hash ({IOC}) was checked against VirusTotal, MalwareBazaar, and Hybrid Analysis with no detections. The file is consistent with legitimate software. Closing as False Positive.",
-      email:  "The email address ({IOC}) was reviewed. The sender domain has valid SPF/DKIM/DMARC alignment and no malicious history across CTI sources. Activity is consistent with legitimate correspondence. Closing as False Positive.",
-      default:"Investigation shows no malicious activity associated with the indicator ({IOC}) across multiple CTI sources. Activity is consistent with normal operations. Closing as False Positive.",
-    },
-    tp: {
-      ip:     "The IP address ({IOC}) is confirmed malicious. Multiple CTI sources flagged this IP with high confidence (AbuseIPDB confidence >80, VirusTotal detections present, GreyNoise marked as malicious). The IP is associated with {ACTIVITY}. Escalating as True Positive. Recommended action: block at perimeter firewall.",
-      domain: "The domain ({IOC}) is newly registered and flagged as malicious by multiple CTI sources. The domain is associated with {ACTIVITY} infrastructure. User activity confirms access to this domain. Escalating as True Positive. Recommended action: block at DNS/proxy and investigate affected user.",
-      url:    "The URL ({IOC}) has been confirmed malicious via URLScan.io, VirusTotal, and sandbox detonation. The URL is associated with {ACTIVITY}. User interaction confirmed. Escalating as True Positive. Recommended action: block at proxy, investigate endpoint.",
-      hash:   "The file hash ({IOC}) is confirmed malicious with {DETECTIONS} detections in VirusTotal. The file is classified as {FAMILY} malware. Execution on host {HOST} confirmed. Escalating as True Positive. Recommended action: quarantine host, block hash at EDR.",
-      email:  "The email from {IOC} is confirmed phishing. SPF/DKIM/DMARC failures detected. The email contains {PAYLOAD} targeting {RECIPIENT}. Escalating as True Positive. Recommended action: block sender domain, check all recipients, preserve email headers.",
-      default:"The indicator ({IOC}) is confirmed malicious based on multiple CTI sources and behavioral evidence. Activity is consistent with {ACTIVITY}. Escalating as True Positive. Recommended action: block IOC across all controls and initiate full investigation.",
-    },
-  };
+  // ── Adaptive FP/TP Verdict Templates ─────────────────────────
+  // Generates contextual verdict text based on the ALERT SOURCE and all extracted data
+  function buildAdaptiveVerdict(verdict, res) {
+    const et   = (res.eventType || "").toLowerCase();
+    const iocs = res.iocs || {};
+    const pf   = res.prefillData || {};
+    const findings = (res.findings || []).join(" ");
 
-  function getVerdictTemplate(verdict, type, ioc) {
-    const t = VERDICT_TEMPLATES[verdict];
-    const tpl = t[type] || t.default;
-    return tpl.replace(/\{IOC\}/g, ioc || "the indicator")
-              .replace(/\{ACTIVITY\}/g, "[describe activity]")
-              .replace(/\{DETECTIONS\}/g, "[X]")
-              .replace(/\{FAMILY\}/g, "[malware family]")
-              .replace(/\{HOST\}/g, "[hostname]")
-              .replace(/\{PAYLOAD\}/g, "[attachment/link]")
-              .replace(/\{RECIPIENT\}/g, "[user/department]");
+    // Pull the richest available values for fill-ins
+    const extIps = (iocs.ips||[]).filter(ip => !isPrivateIPv4(ip));
+    const ip     = extIps[0] || (iocs.ips||[])[0] || pf.src_ip || "[source IP]";
+    const host   = pf.hostname || (iocs.hostnames||[])[0] || "[hostname]";
+    const user   = pf.username || (iocs.usernames||[])[0] || pf.recipient || (iocs.emails||[])[1] || (iocs.emails||[])[0] || "[user]";
+    const hash   = (iocs.hashes||[])[0] || "[file hash]";
+    const domain = (iocs.domains||[])[0] || "[domain]";
+    const url    = (iocs.urls||[])[0] || pf.url || "[URL]";
+    const email  = (iocs.emails||[])[0] || pf.sender || "[sender email]";
+    const app    = pf.notes?.match(/app "([^"]+)"/i)?.[1] || "[application]";
+    const proc   = (iocs.processes||[])[0] || "[process]";
+    const cmd    = pf.cmdline ? pf.cmdline.slice(0,80) : "[command line]";
+    const threat = pf.notes || "[threat name]";
+    const scope  = findings.includes("tenant-wide") ? "the entire tenant" : "the affected user";
+
+    // ── SOURCE-SPECIFIC TEMPLATES ────────────────────────────────
+    // Endpoint EDR (CrowdStrike, Defender, SentinelOne, Sysmon, Windows EventLog)
+    if (/crowdstrike|falcon|defender|sentinelone|edr|windows event|sysmon/i.test(et)) {
+      if (verdict === "fp") return (
+        `Investigation of alert on host ${host} (user: ${user}) shows the flagged process ` +
+        `${proc} executed with command: "${cmd.slice(0,60)}". ` +
+        `Hash ${hash.slice(0,16)}... returned 0 detections on VirusTotal and MalwareBazaar. ` +
+        `Parent process chain is consistent with legitimate IT tooling (e.g., patching, admin scripts). ` +
+        `No lateral movement, persistence artifacts, or C2 connections identified. ` +
+        `Closing as False Positive — recommend whitelisting hash in EDR policy.`
+      );
+      return (
+        `Host ${host} (user: ${user}) confirmed compromised. ` +
+        `Malicious process ${proc} executed: "${cmd.slice(0,60)}". ` +
+        `File hash ${hash.slice(0,16)}... has [X] VirusTotal detections — classified as [malware family]. ` +
+        `External C2 connection to ${ip} observed. ` +
+        `Escalating as True Positive. ` +
+        `Immediate actions: isolate host via EDR, block hash + IP at perimeter, reset user credentials, ` +
+        `hunt for lateral movement from ${host}.`
+      );
+    }
+
+    // Email Security (Proofpoint, Exchange, email headers)
+    if (/proofpoint|email|mail/i.test(et)) {
+      if (verdict === "fp") return (
+        `Email from ${email} to ${user} was reviewed. ` +
+        `Sender domain has valid SPF/DKIM/DMARC alignment and no malicious reputation on VirusTotal, ` +
+        `Talos, or EmailRep. ${iocs.urls?.length ? `URL ${domain} resolves to a known legitimate service.` : ""} ` +
+        `Phish score was below threshold upon manual review. ` +
+        `Closing as False Positive — recommend adding sender to safe list if recurring.`
+      );
+      return (
+        `Phishing email from ${email} confirmed malicious. ` +
+        `${iocs.urls?.length ? `URL ${url.slice(0,60)} classified as phishing by VirusTotal/URLScan.` : ""} ` +
+        `SPF/DKIM/DMARC failures detected — sender domain spoofed. ` +
+        `Recipient: ${user}. ` +
+        `Escalating as True Positive. ` +
+        `Immediate actions: block sender domain at email gateway, check all recipients in the past 24h, ` +
+        `confirm if user clicked any links, quarantine similar messages.`
+      );
+    }
+
+    // Identity Security / Behavioral (VMware, Falcon Identity, impossible travel, UBA)
+    if (/identity security/i.test(et)) {
+      const allIps  = [...new Set([ip, ...(iocs.ips||[])].filter(v => v && v !== "[source IP]"))];
+      const alertTitle = pf.notes?.split('.')[0] || "Identity security alert";
+      const platform  = (pf.notes?.match(/Platform: ([^.]+)/i)||[])[1]?.trim() || "the identity platform";
+      const riskInfo  = (pf.notes?.match(/Risk: ([^.]+)/i)||[])[1]?.trim() || "medium";
+      if (verdict === "fp") return (
+        `Investigation of "${alertTitle}" for user ${user || email} reviewed. ` +
+        `All source IPs (${allIps.join(", ")}) were verified: ` +
+        `IP ${allIps[0]} resolves to a known corporate office or VPN exit node. ` +
+        `${allIps[1] ? `IP ${allIps[1]} confirmed as the user's personal mobile carrier (AT&T/T-Mobile LTE). ` : ""}` +
+        `User confirmed both sessions were theirs (traveling or using mobile hotspot). ` +
+        `No post-compromise activity found. Risk score (${riskInfo}) reflects concurrent mobile/office access — benign pattern. ` +
+        `Closing as False Positive — recommend whitelisting this IP pattern for this user.`
+      );
+      return (
+        `Identity security alert confirmed: "${alertTitle}". ` +
+        `User ${user || email} authenticated from ${allIps.length} distinct IP(s): ${allIps.join(" | ")}. ` +
+        `Geographic analysis confirms simultaneous access from physically impossible locations — account is compromised. ` +
+        `Authentication pattern: ${findings.includes("FAILURE") || findings.includes("failure") ? "failures followed by success (credential stuffing confirmed)" : "direct successful access (credentials already compromised)"}. ` +
+        `Risk score: ${riskInfo}. Platform: ${platform}. ` +
+        `Escalating as True Positive. ` +
+        `Immediate actions: disable account NOW, revoke all active sessions on ${platform}, ` +
+        `reset password + re-enroll MFA from a trusted device, review all resources accessed in the session, ` +
+        `check for lateral movement or new OAuth app grants.`
+      );
+    }
+
+    // Cloud / Identity (Azure AD, AWS, Okta, consent grants)
+    if (/azure|entra|aws|okta|cloudtrail|identity|sso/i.test(et)) {
+      if (verdict === "fp") return (
+        `Cloud/identity event for user ${user} from IP ${ip} was reviewed. ` +
+        `Action "${(pf.operation || "[operation]").split('\n')[0].slice(0,60)}" was confirmed as authorized by the user ` +
+        `and aligns with their normal job function. ` +
+        `Source IP belongs to a known corporate VPN or expected geographic location. ` +
+        `MFA was successfully completed. No other suspicious activity found in the session. ` +
+        `Closing as False Positive.`
+      );
+      return (
+        `Cloud/identity alert for user ${user} confirmed malicious. ` +
+        `Action "${(pf.operation || "[operation]").split('\n')[0].slice(0,60)}" performed from anomalous IP ${ip}. ` +
+        `${findings.includes("consent") ? `OAuth app "${app}" granted admin-level permissions to ${scope}.` : ""} ` +
+        `MFA status: ${findings.includes("MFA") ? "unconfirmed/bypassed" : "verified"}. ` +
+        `Escalating as True Positive. ` +
+        `Immediate actions: revoke session/tokens, disable account, review all actions in the session, ` +
+        `${findings.includes("consent") ? `revoke OAuth app consent in Entra ID > Enterprise Applications,` : ""} ` +
+        `reset credentials and review MFA methods.`
+      );
+    }
+
+    // Network / Firewall / NDR (Zscaler, Darktrace, Firewall, Suricata)
+    if (/zscaler|darktrace|firewall|network|suricata|snort|ids|ips|ndr/i.test(et)) {
+      if (verdict === "fp") return (
+        `Network alert for traffic from ${ip} to ${domain || ip} reviewed. ` +
+        `Destination verified as a known business service (e.g., CDN, SaaS platform). ` +
+        `Traffic volume and timing are consistent with normal user behavior. ` +
+        `No matching malware signatures or C2 patterns found in VirusTotal/GreyNoise. ` +
+        `Closing as False Positive — recommend tuning detection rule to exclude this traffic pattern.`
+      );
+      return (
+        `Network threat confirmed. Traffic from ${host} (${ip}) to ${domain || "[destination]"} ` +
+        `matches known malicious pattern. ` +
+        `${findings.includes("C2") || findings.includes("beacon") ? "C2/beaconing behavior confirmed." : ""} ` +
+        `Destination IP/domain flagged by GreyNoise, VirusTotal, or Talos. ` +
+        `Escalating as True Positive. ` +
+        `Immediate actions: block destination at firewall/proxy, isolate ${host}, ` +
+        `investigate for lateral movement and data exfiltration, review DNS logs for related domains.`
+      );
+    }
+
+    // QRadar / Splunk SIEM
+    if (/qradar|splunk|siem/i.test(et)) {
+      if (verdict === "fp") return (
+        `SIEM alert "${pf.operation || "[rule name]"}" for ${user || ip} reviewed in full. ` +
+        `Correlated events show this matches a known benign pattern (e.g., scheduled task, IT automation). ` +
+        `No supporting IOCs found malicious across CTI sources. ` +
+        `Closing as False Positive — recommend adding exception to SIEM rule.`
+      );
+      return (
+        `SIEM alert "${pf.operation || "[rule name]"}" confirmed as malicious activity by ${user || ip}. ` +
+        `Cross-correlated with [X] related events. ` +
+        `Supporting IOCs: ${ip !== "[source IP]" ? `IP ${ip}` : ""} ${hash !== "[file hash]" ? `hash ${hash.slice(0,16)}...` : ""}. ` +
+        `Escalating as True Positive. ` +
+        `Immediate actions: investigate all correlated offenses, isolate affected assets, ` +
+        `block identified IOCs, escalate to IR team.`
+      );
+    }
+
+    // Generic fallback — still better than the old static text
+    if (verdict === "fp") return (
+      `The indicator associated with this alert was reviewed across multiple CTI sources ` +
+      `(VirusTotal, AbuseIPDB, Talos). No malicious reputation found. ` +
+      `Alert context for ${user !== "[user]" ? `user ${user}` : ip !== "[source IP]" ? `IP ${ip}` : "the affected asset"} ` +
+      `is consistent with normal business operations. ` +
+      `Closing as False Positive.`
+    );
+    return (
+      `Alert confirmed malicious. ` +
+      `${ip !== "[source IP]" ? `Source IP ${ip} flagged by threat intelligence.` : ""} ` +
+      `${hash !== "[file hash]" ? `Hash ${hash.slice(0,16)}... confirmed malware.` : ""} ` +
+      `Affected: ${user !== "[user]" ? user : host}. ` +
+      `Escalating as True Positive. ` +
+      `Immediate actions: isolate affected asset, block all identified IOCs, reset credentials, ` +
+      `initiate full incident response.`
+    );
   }
+
+  // Keep legacy getVerdictTemplate for any code that might still reference it
+  function getVerdictTemplate(verdict, type, ioc) {
+    return ioc ? `${verdict === "fp" ? "False Positive" : "True Positive"} — ${ioc}` : "—";
+  }
+
 
   // ── Feature 8 (improved): Behavioral Narrative Context Summary ──
   function buildAlertContextSummary(res) {
@@ -1703,7 +2188,22 @@ document.addEventListener("DOMContentLoaded", () => {
     // Line 2-4 — behavioral narrative based on what was found (GPT-style)
     const narratives = [];
     const findingsStr = findings.join(" ");
-    if (/azure ad|entra|azure audit|cloudtrail|okta.*sso/i.test(type) ||
+
+    // ── Identity Security / Behavioral (impossible travel, UBA, risk-scored) ──
+    if (/identity security/i.test(type) ||
+        /concurrent.*locations|multiple locations|impossible travel|concurrent.*access/i.test(findingsStr + raw)) {
+      const user   = res.prefillData?.username || iocs.emails?.[0] || iocs.usernames?.[0];
+      const allIps = iocs.ips || [];
+      const platform = (res.prefillData?.notes?.match(/Platform: ([^.]+)/i)||[])[1]?.trim() || "identity platform";
+      const riskInfo = (res.prefillData?.notes?.match(/Risk: ([^.]+)/i)||[])[1]?.trim() || "";
+      if (user) narratives.push(`User ${user} triggered a behavioral identity security alert on ${platform}`);
+      if (allIps.length >= 2) narratives.push(`Simultaneous authentication from ${allIps.length} distinct IPs: ${allIps.slice(0,3).join(" and ")} — possible impossible travel or account sharing`);
+      if (/failure.*success|credential.stuff/i.test(findingsStr)) narratives.push("Authentication failures followed by success detected — pattern consistent with credential stuffing attack");
+      if (/same device|iphone|mobile|android/i.test(findingsStr + raw)) narratives.push("Same mobile device UA observed from different cities — contact user to confirm if traveling or using VPN");
+      if (riskInfo) narratives.push(`Platform risk score: ${riskInfo} — review all sessions for this account`);
+    }
+    // ── Cloud / Identity Governance (Azure AD consent, OAuth, IAM) ──
+    else if (/azure ad|entra|azure audit|cloudtrail|okta.*sso/i.test(type) ||
         /consent.*grant|oauth.*consent|serviceprincipal|admin consent|consentcontext/i.test(findingsStr + raw)) {
       const user  = res.prefillData?.username || iocs.emails?.[0];
       const _appRaw = res.prefillData?.notes?.match(/app "([^"]+)"/i)?.[1] 
@@ -1812,19 +2312,9 @@ document.addEventListener("DOMContentLoaded", () => {
     res._rawText = res._rawText || "";
 
     // Determine primary IOC type and value for FP/TP templates
-    // Smart IOC selection for FP/TP templates — prefer external IPs > hashes > domains > emails > internal IPs
-    const _externalIps  = (res.iocs?.ips||[]).filter(ip => !isPrivateIPv4(ip));
-    const _internalIps  = (res.iocs?.ips||[]).filter(ip => isPrivateIPv4(ip));
-    let fpIoc = "", fpType = "default";
-    if (res.iocs?.hashes?.length)      { fpIoc = res.iocs.hashes[0];   fpType = "hash"; }
-    else if (_externalIps.length)      { fpIoc = _externalIps[0];      fpType = "ip"; }
-    else if (res.iocs?.domains?.length){ fpIoc = res.iocs.domains[0];  fpType = "domain"; }
-    else if (res.iocs?.urls?.length)   { fpIoc = res.iocs.urls[0];     fpType = "url"; }
-    else if (res.iocs?.emails?.length) { fpIoc = res.iocs.emails[0];   fpType = "email"; }
-    else if (_internalIps.length)      { fpIoc = _internalIps[0];      fpType = "ip"; }
-    else                               { fpIoc = "the indicator";       fpType = "default"; }
-    const fpTpl = getVerdictTemplate("fp", fpType, fpIoc);
-    const tpTpl = getVerdictTemplate("tp", fpType, fpIoc);
+    // Adaptive FP/TP templates — generated from alert source + extracted data
+    const fpTpl = buildAdaptiveVerdict("fp", res);
+    const tpTpl = buildAdaptiveVerdict("tp", res);
 
     let html = `<div class="lt-context-summary" style="border-color:${cat.color}55">
       <div class="lt-ctx-head">
@@ -2548,27 +3038,44 @@ document.addEventListener("DOMContentLoaded", () => {
       cve:    "CVSS ≥7 AND in CISA KEV = emergency patch priority. Check if EPSS >0.3.",
     }[type] || "";
 
+    // Banner pills — top 3 tools as quick-access links
+    const pillRow = $("ts-pill-row");
+    if (pillRow) {
+      pillRow.innerHTML = items.slice(0,3).map(r =>
+        `<a href="${r.url}" target="_blank" class="ts-pill" title="${r.riskHint}" onclick="event.stopPropagation()">${r.icon} ${r.label}</a>`
+      ).join("") + `<span style="font-size:10px;color:var(--muted);margin-left:2px">+${items.length-3} more ▼</span>`;
+    }
+
+    // Expanded body — all tools with hint
     body.innerHTML = `
       <div class="ts-grid">${items.map(r => `
         <a href="${r.url}" target="_blank" class="ts-row" title="${r.riskHint}">
           <span class="ts-row-icon">${r.icon}</span>
-          <div class="ts-row-info">
-            <span class="ts-row-label">${r.label}</span>
-            <span class="ts-row-context">${r.context}</span>
-          </div>
+          <span class="ts-row-label">${r.label}</span>
+          <span class="ts-row-context">${r.context}</span>
           <span class="ts-row-hint">${r.riskHint}</span>
-          <span class="ts-row-arrow">↗</span>
         </a>`).join("")}</div>
       ${contextNote ? `<div class="ts-context-note">📌 ${contextNote}</div>` : ""}
     `;
 
-    // Overall badge based on type
+    // Overall badge
     const overallColor = { ip:"#38bdf8", domain:"#34d399", url:"#fb923c", hash:"#f59e0b", email:"#a78bfa", cve:"#f87171" }[type] || "#9ca3af";
-    badge.textContent = type.toUpperCase() + " — verify across sources";
+    badge.textContent = type.toUpperCase();
     badge.style.background = overallColor + "22";
     badge.style.color = overallColor;
     badge.style.borderColor = overallColor + "55";
     panel.style.display = "block";
+
+    // Toggle expand/collapse
+    const bannerBtn = $("ts-banner-toggle");
+    const arrow     = $("ts-toggle-arrow");
+    if (bannerBtn && !bannerBtn._tsListener) {
+      bannerBtn._tsListener = true;
+      bannerBtn.addEventListener("click", () => {
+        body.classList.toggle("visible");
+        arrow?.classList.toggle("open");
+      });
+    }
   }
 
   function hideThreatScore() {
@@ -4767,6 +5274,145 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     if (ctiFeedStatus) ctiFeedStatus.textContent = `${loaded}/${CTI_FEEDS.length} live feeds loaded · ${new Date().toLocaleTimeString()}`;
+  });
+
+  // ── CTI Threat News Panel (AI-powered) ────────────────────────
+  const TOPIC_PROMPTS = {
+    latest:        "Summarize the 6 most significant cybersecurity threats, attacks, or incidents from the past 2 weeks. Include ransomware campaigns, nation-state activity, critical vulnerabilities, and major data breaches.",
+    ransomware:    "Summarize the 6 most active ransomware groups and campaigns from the past 2 weeks. Include group names, victim sectors, TTPs, and any new variants or tools observed.",
+    apt:           "Summarize the 6 most significant nation-state APT (Advanced Persistent Threat) campaigns or attributions from the past 2 weeks. Include actor names, targeted countries/sectors, and techniques.",
+    vulnerability: "Summarize the 6 most critical vulnerabilities (CVEs) disclosed or actively exploited in the past 2 weeks. Include CVE IDs, affected products, CVSS scores, and whether CISA KEV listed them.",
+    phishing:      "Summarize the 6 most notable phishing campaigns, BEC attacks, or social engineering threats from the past 2 weeks. Include lures, targets, and indicators.",
+    malware:       "Summarize the 6 most significant malware families or new strains reported in the past 2 weeks. Include capabilities, delivery methods, and C2 infrastructure.",
+    cloud:         "Summarize the 6 most notable cloud security incidents, misconfigurations, or attacks targeting AWS, Azure, GCP, or SaaS platforms from the past 2 weeks.",
+    cisa:          "Summarize the 6 most recent CISA advisories, Known Exploited Vulnerabilities (KEV) additions, or US-CERT alerts. Include affected products and recommended actions.",
+  };
+
+  const SEVERITY_COLORS = {
+    CRITICAL: "cti-news-severity-critical",
+    HIGH:     "cti-news-severity-high",
+    MEDIUM:   "cti-news-severity-medium",
+    INFO:     "cti-news-severity-info",
+  };
+
+  function renderNewsItem(item) {
+    const sevClass = SEVERITY_COLORS[item.severity?.toUpperCase()] || "cti-news-severity-info";
+    const tags = (item.tags || []).map(t => `<span class="cti-news-item-tag">${t}</span>`).join("");
+    const links = (item.links || []).map(l =>
+      `<a href="${l.url}" target="_blank" class="cti-news-item-link">↗ ${l.label}</a>`
+    ).join("");
+    return `
+      <div class="cti-news-item">
+        <div class="cti-news-item-head">
+          <span class="cti-news-item-badge ${sevClass}">${item.severity || "INFO"}</span>
+          <span class="cti-news-item-title">${item.title}</span>
+        </div>
+        <div class="cti-news-item-body">${item.summary}</div>
+        ${tags ? `<div class="cti-news-item-tags">${tags}</div>` : ""}
+        <div class="cti-news-item-footer">
+          <span class="cti-news-item-meta">${item.source || ""} ${item.date ? `· ${item.date}` : ""}</span>
+          <div class="cti-news-item-links">${links}</div>
+        </div>
+      </div>`;
+  }
+
+  async function fetchThreatNews(topic) {
+    const btn       = $("cti-news-refresh");
+    const results   = $("cti-news-results");
+    const statusEl  = $("cti-news-status");
+    const tsEl      = $("cti-news-timestamp");
+    if (!results) return;
+
+    btn.disabled = true;
+    btn.textContent = "⏳ Loading...";
+    statusEl.style.display = "flex";
+    statusEl.innerHTML = `<div class="cti-news-spinner"></div> Querying threat intelligence sources — this may take 15–20 seconds…`;
+    results.innerHTML = "";
+
+    const topicPrompt = TOPIC_PROMPTS[topic] || TOPIC_PROMPTS.latest;
+    const today = new Date().toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" });
+
+    const systemPrompt = `You are a senior threat intelligence analyst. Today's date is ${today}.
+Your job is to generate a structured threat intelligence briefing based on your training knowledge of recent cybersecurity events.
+Be specific, accurate, and actionable. Reference real threat actors, malware families, CVEs, and incidents from your knowledge.
+Always respond with valid JSON only — no markdown, no extra text.`;
+
+    const userPrompt = `${topicPrompt}
+
+For each item, return a JSON array of exactly 6 objects with this structure:
+{
+  "title": "Short, specific headline (max 80 chars)",
+  "summary": "2-3 sentence summary with specific details: actor names, CVE IDs, affected products, TTPs, IOCs if known",
+  "severity": "CRITICAL | HIGH | MEDIUM | INFO",
+  "tags": ["tag1", "tag2", "tag3"],  // e.g. Ransomware, APT29, CVE-2024-xxxx, Phishing, etc
+  "source": "Best known source (e.g. CISA, MSTIC, Unit 42, BleepingComputer)",
+  "date": "Approximate date or 'Recent'",
+  "links": [
+    { "label": "Search", "url": "https://www.google.com/search?q=<url-encoded-title>" }
+  ]
+}
+
+Return ONLY a valid JSON array. No preamble, no markdown fences.`;
+
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2500,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }]
+        })
+      });
+
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      const data = await response.json();
+      const raw = data.content?.find(b => b.type === "text")?.text || "";
+
+      // Strip any markdown fences if present
+      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+      let items;
+      try {
+        items = JSON.parse(cleaned);
+        if (!Array.isArray(items)) throw new Error("Not an array");
+      } catch {
+        throw new Error("Could not parse AI response as JSON");
+      }
+
+      // Render items
+      results.innerHTML = items.map(renderNewsItem).join("");
+      statusEl.style.display = "none";
+      if (tsEl) tsEl.textContent = new Date().toLocaleString();
+
+    } catch (err) {
+      statusEl.innerHTML = `<span style="color:#f87171">⚠️ ${err.message} — check console for details. Try again in a moment.</span>`;
+      results.innerHTML = `
+        <div class="cti-news-empty">
+          <div class="cti-news-empty-icon">⚠️</div>
+          <div class="cti-news-empty-text">Could not load threat news</div>
+          <div class="cti-news-empty-sub">${err.message}</div>
+        </div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "⚡ Get Latest";
+    }
+  }
+
+  $("cti-news-refresh")?.addEventListener("click", () => {
+    const topic = $("cti-news-topic")?.value || "latest";
+    fetchThreatNews(topic);
+  });
+
+  // Auto-load when tab is first opened
+  let _newsLoaded = false;
+  document.querySelectorAll(".cti-sub-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.ctitab === "news" && !_newsLoaded) {
+        _newsLoaded = true;
+        setTimeout(() => fetchThreatNews($("cti-news-topic")?.value || "latest"), 100);
+      }
+    });
   });
 
   // ── Actor Intel Database (built-in profiles) ──────────────────
