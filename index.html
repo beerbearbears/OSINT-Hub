@@ -102,16 +102,15 @@
         <!-- Verdict Banner -->
         <div id="verdict-banner" class="verdict-banner" style="display:none"></div>
 
-        <!-- Threat Score Panel -->
+        <!-- Quick Threat Assessment Banner -->
         <div id="threat-score-panel" class="threat-score-panel" style="display:none">
-          <div class="ts-header">
-            <span class="ts-title">⚡ Quick Threat Assessment</span>
+          <div class="ts-banner" id="ts-banner-toggle">
+            <span class="ts-banner-label">⚡ Quick Assessment</span>
             <span id="ts-overall-badge" class="ts-overall-badge">—</span>
+            <div class="ts-pill-row" id="ts-pill-row"></div>
+            <span class="ts-toggle" id="ts-toggle-arrow">▼</span>
           </div>
           <div id="ts-body" class="ts-body"></div>
-          <div class="ts-footer">
-            <span class="ts-note">💡 Click any source above to investigate. Scores are heuristic-based context helpers — always verify manually.</span>
-          </div>
         </div>
 
         <!-- CVE Enrichment Panel -->
@@ -1007,6 +1006,7 @@
         <!-- CTI sub-tabs -->
         <div class="cti-subtab-bar">
           <button class="cti-sub-btn active" data-ctitab="feeds" type="button">📡 Live Feeds</button>
+          <button class="cti-sub-btn" data-ctitab="news" type="button">🗞️ Threat News</button>
           <button class="cti-sub-btn" data-ctitab="actors" type="button">🕵 Actor Intel</button>
           <button class="cti-sub-btn" data-ctitab="ioc-check" type="button">🎯 IOC Intel Check</button>
           <button class="cti-sub-btn" data-ctitab="campaigns" type="button">📊 Campaign Tracker</button>
@@ -1022,6 +1022,48 @@
         </div>
         <div class="cti-feeds-grid" id="cti-feeds-grid">
           <!-- Feed cards injected by JS -->
+        </div>
+      </div>
+
+      <!-- THREAT NEWS PANEL -->
+      <div id="cti-panel-news" class="cti-panel" style="display:none">
+        <div class="cti-news-header">
+          <div class="cti-news-header-left">
+            <span class="cti-news-title">🗞️ Threat Intelligence News</span>
+            <span class="cti-news-subtitle">AI-summarized cybersecurity headlines from open sources</span>
+          </div>
+          <div class="cti-news-controls">
+            <select id="cti-news-topic" class="cti-news-select">
+              <option value="latest">🌐 Latest Threats</option>
+              <option value="ransomware">🔒 Ransomware</option>
+              <option value="apt">🕵️ APT / Nation-State</option>
+              <option value="vulnerability">🔓 Vulnerabilities & CVEs</option>
+              <option value="phishing">🎣 Phishing & BEC</option>
+              <option value="malware">🦠 Malware Families</option>
+              <option value="cloud">☁️ Cloud Security</option>
+              <option value="cisa">🧨 CISA Advisories</option>
+            </select>
+            <button id="cti-news-refresh" class="cti-news-btn" type="button">⚡ Get Latest</button>
+          </div>
+        </div>
+        <div id="cti-news-status" class="cti-news-status" style="display:none"></div>
+        <div id="cti-news-results" class="cti-news-results">
+          <div class="cti-news-empty">
+            <div class="cti-news-empty-icon">🗞️</div>
+            <div class="cti-news-empty-text">Click <strong>Get Latest</strong> to pull real-time threat intelligence news</div>
+            <div class="cti-news-empty-sub">Summaries are AI-generated from current cybersecurity sources</div>
+          </div>
+        </div>
+        <div class="cti-news-footer">
+          <span class="cti-news-footer-note">⚠️ AI-generated summaries. Always verify with primary sources before acting. Last updated: <span id="cti-news-timestamp">—</span></span>
+          <div class="cti-news-sources">
+            <a href="https://www.cisa.gov/news-events/cybersecurity-advisories" target="_blank" class="cti-news-src-link">CISA</a>
+            <a href="https://www.bleepingcomputer.com" target="_blank" class="cti-news-src-link">BleepingComputer</a>
+            <a href="https://krebsonsecurity.com" target="_blank" class="cti-news-src-link">KrebsOnSecurity</a>
+            <a href="https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/" target="_blank" class="cti-news-src-link">MSTIC</a>
+            <a href="https://unit42.paloaltonetworks.com" target="_blank" class="cti-news-src-link">Unit 42</a>
+            <a href="https://therecord.media" target="_blank" class="cti-news-src-link">The Record</a>
+          </div>
         </div>
       </div>
 
