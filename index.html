@@ -51,6 +51,19 @@
       ⚠️ <strong>Sensitive data reminder:</strong> Do not paste credentials, PII, or classified IOCs. Tool runs locally — no data is sent to any server except direct tool lookups you initiate.
     </div>
 
+    <!-- Clipboard Watcher Toggle (Feature 10) -->
+    <div style="margin:8px 10px 0;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--text);">👁 Clipboard Watcher</div>
+        <div style="font-size:9px;color:var(--muted);" id="clip-watch-status">Auto-detect IOCs you copy</div>
+      </div>
+      <label style="position:relative;width:34px;height:18px;flex-shrink:0;cursor:pointer;">
+        <input type="checkbox" id="clip-watch-toggle" style="opacity:0;width:0;height:0;position:absolute;">
+        <span id="clip-watch-track" style="position:absolute;inset:0;background:var(--border);border-radius:9px;transition:background 0.2s;"></span>
+        <span id="clip-watch-thumb" style="position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>
+      </label>
+    </div>
+
     <div class="actions">
       <button id="toggle-dark" type="button">🌙 Toggle Theme</button>
       <button id="clear-all" type="button">🗑 Clear</button>
@@ -296,7 +309,34 @@
 
       <!-- ===================== EMAIL HEADERS ===================== -->
       <div class="tool-section" data-type="header">
-        <div class="section-head"><h2>🧾 Email Header Analysis Toolkit</h2><div class="pill">Paste-based tools</div></div>
+        <div class="section-head"><h2>🧾 Email Header Deep Analyzer</h2><div class="pill">Phishing investigation</div></div>
+        <!-- Inline analyzer panel -->
+        <div class="eha-panel">
+          <div class="eha-input-row">
+            <textarea id="eha-input" spellcheck="false" placeholder="Paste raw email headers here (everything from Received: to the body)..."></textarea>
+            <div class="eha-input-actions">
+              <button id="eha-analyze-btn" type="button">🔍 Analyze Headers</button>
+              <button id="eha-clear-btn" type="button">🗑 Clear</button>
+            </div>
+          </div>
+          <div id="eha-results" style="display:none">
+            <!-- Score banner -->
+            <div id="eha-score-banner" class="eha-score-banner"></div>
+            <!-- Summary grid -->
+            <div id="eha-summary" class="eha-summary-grid"></div>
+            <!-- Auth results -->
+            <div id="eha-auth" class="eha-auth-row"></div>
+            <!-- Hop chain -->
+            <div class="eha-section-label">📡 Relay Hop Chain (oldest → newest)</div>
+            <div id="eha-hops" class="eha-hops-table"></div>
+            <!-- Flags -->
+            <div id="eha-flags" class="eha-flags-list"></div>
+            <!-- Pivot actions -->
+            <div id="eha-pivots" class="eha-pivot-row"></div>
+          </div>
+        </div>
+        <!-- External tools -->
+        <div class="eha-ext-label">External Analyzers</div>
         <div class="tool-grid">
           <a id="hdr_mha" target="_blank"><div class="title">🧩 Microsoft Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mha"></div></a>
           <a id="hdr_google" target="_blank"><div class="title">🧰 Google Messageheader <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_google"></div></a>
@@ -424,6 +464,32 @@
           <a id="cve_exploitdb" target="_blank"><div class="title">💥 Exploit-DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_exploitdb"></div></a>
           <a id="cve_vulners" target="_blank"><div class="title">🧠 Vulners <span class="lock">🔒</span></div><div class="meta" data-meta="cve_vulners"></div></a>
           <a id="cve_github" target="_blank"><div class="title">🧑‍💻 GitHub PoC Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_github"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== CERTIFICATE / TLS ===================== -->
+      <div class="tool-section" data-type="cert">
+        <div class="section-head"><h2>🔐 Certificate / TLS Inspector</h2><div class="pill">Infrastructure pivot</div></div>
+        <div class="cert-panel">
+          <div class="cert-input-row">
+            <input id="cert-input" class="aw-input" type="text" placeholder="Enter domain or IP (e.g. evil.com or 185.220.101.45)"/>
+            <button id="cert-lookup-btn" type="button">🔍 Inspect Cert</button>
+            <button id="cert-history-btn" type="button">📜 Cert History</button>
+          </div>
+          <div id="cert-status" class="cert-status" style="display:none"></div>
+          <div id="cert-results" style="display:none">
+            <div id="cert-flags" class="cert-flags"></div>
+            <div id="cert-details" class="cert-details-grid"></div>
+            <div id="cert-sans-wrap" style="display:none">
+              <div class="cert-section-label">🌐 Subject Alternative Names (SANs)</div>
+              <div id="cert-sans" class="cert-sans-list"></div>
+              <button id="cert-sans-bulk" type="button" style="margin-top:8px;font-size:11px;">📋 Send all SANs to Bulk Analyzer</button>
+            </div>
+            <div id="cert-history-wrap" style="display:none">
+              <div class="cert-section-label">📜 Historical Certificates</div>
+              <div id="cert-history-list" class="cert-history-list"></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -654,6 +720,7 @@
           <input id="case-name-input" type="text" class="aw-input" placeholder="Case name (e.g. INC-2025-042 – Phishing Campaign)" style="flex:1" />
           <button id="case-new-btn" type="button">➕ New Case</button>
           <button id="case-export-btn" type="button">📤 Export Case</button>
+          <button id="case-stix-btn" type="button" title="Export as STIX 2.1 JSON bundle for threat intel sharing">📦 STIX 2.1</button>
           <button id="case-clear-btn" type="button">🗑 Clear Case</button>
         </div>
         <div id="case-status" class="status" style="margin-top:10px;">
@@ -1037,6 +1104,163 @@
           </div>
         </div>
 
+        <!-- ── FEATURE 3: Detection Query Builder ── -->
+        <div class="utils-card utils-card-wide">
+          <div class="utils-card-head">⚙️ Detection Query Builder</div>
+          <p class="utils-card-desc">Generate ready-to-paste SIEM detection queries from IOCs or select a pre-built pattern. Supports Splunk SPL, KQL, Elastic DSL, QRadar AQL, CrowdStrike NG-SIEM.</p>
+          <div class="dqb-layout">
+            <div class="dqb-left">
+              <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                <select id="dqb-platform" class="aw-input" style="flex:1;min-width:130px;">
+                  <option value="splunk">Splunk SPL</option>
+                  <option value="kql">KQL (Sentinel)</option>
+                  <option value="elastic">Elastic DSL</option>
+                  <option value="qradar">QRadar AQL</option>
+                  <option value="cs">CrowdStrike NG-SIEM</option>
+                </select>
+                <select id="dqb-pattern" class="aw-input" style="flex:1;min-width:160px;">
+                  <option value="ip">IP Address Lookup</option>
+                  <option value="domain">Domain Lookup</option>
+                  <option value="hash">File Hash Lookup</option>
+                  <option value="url">URL Search</option>
+                  <option value="email">Email Address</option>
+                  <option value="cmdline">Suspicious CommandLine</option>
+                  <option value="process">Process Name</option>
+                  <option value="encoded_ps">Encoded PowerShell</option>
+                  <option value="failed_login">Failed Logins (brute force)</option>
+                  <option value="new_account">New Account Created</option>
+                  <option value="sched_task">Scheduled Task Creation</option>
+                  <option value="lateral">Lateral Movement (RDP/SMB)</option>
+                  <option value="c2_port">C2 Port Activity</option>
+                  <option value="lolbin">LOLBin Execution</option>
+                  <option value="large_upload">Large Outbound Transfer</option>
+                </select>
+              </div>
+              <textarea id="dqb-ioc-input" spellcheck="false" rows="3" placeholder="Enter IOC value(s), one per line — or leave blank to get the pattern template...&#10;e.g. 185.220.101.45&#10;     evil-domain.xyz"></textarea>
+              <div class="utils-actions">
+                <button id="dqb-generate" type="button">⚡ Generate Query</button>
+                <button id="dqb-copy" type="button">📋 Copy</button>
+                <button id="dqb-test-toggle" type="button">🧪 Test Against Log</button>
+              </div>
+              <div id="dqb-test-panel" style="display:none;margin-top:8px;">
+                <textarea id="dqb-test-input" spellcheck="false" rows="3" placeholder="Paste a sample log line to test the query..."></textarea>
+                <div class="utils-actions" style="margin-top:4px;">
+                  <button id="dqb-test-run" type="button">▶ Test</button>
+                  <span id="dqb-test-result" style="font-size:11px;padding:4px 10px;border-radius:6px;"></span>
+                </div>
+              </div>
+            </div>
+            <div class="dqb-right">
+              <pre id="dqb-output" class="dqb-output">← Configure above and click Generate Query</pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── FEATURE 5: Incident Severity Calculator ── -->
+        <div class="utils-card">
+          <div class="utils-card-head">🚨 Incident Severity Calculator</div>
+          <p class="utils-card-desc">Score incidents consistently using a 4-factor matrix. Outputs P1–P4 with SLA and justification text.</p>
+          <div class="sev-calc-grid">
+            <div class="sev-factor">
+              <div class="sev-factor-label">Asset Criticality</div>
+              <div class="sev-factor-desc" id="sev-asset-desc">Select...</div>
+              <input type="range" id="sev-asset" min="1" max="4" value="2" class="sev-slider" oninput="updateSevCalc()">
+              <div class="sev-factor-ticks"><span>Low</span><span>Medium</span><span>High</span><span>Critical</span></div>
+            </div>
+            <div class="sev-factor">
+              <div class="sev-factor-label">Threat Confidence</div>
+              <div class="sev-factor-desc" id="sev-threat-desc">Select...</div>
+              <input type="range" id="sev-threat" min="1" max="4" value="2" class="sev-slider" oninput="updateSevCalc()">
+              <div class="sev-factor-ticks"><span>Possible</span><span>Likely</span><span>Confirmed</span><span>Active TP</span></div>
+            </div>
+            <div class="sev-factor">
+              <div class="sev-factor-label">Blast Radius</div>
+              <div class="sev-factor-desc" id="sev-blast-desc">Select...</div>
+              <input type="range" id="sev-blast" min="1" max="4" value="2" class="sev-slider" oninput="updateSevCalc()">
+              <div class="sev-factor-ticks"><span>1 Host</span><span>Dept</span><span>Org-wide</span><span>External</span></div>
+            </div>
+            <div class="sev-factor">
+              <div class="sev-factor-label">Data Sensitivity</div>
+              <div class="sev-factor-desc" id="sev-data-desc">Select...</div>
+              <input type="range" id="sev-data" min="1" max="4" value="2" class="sev-slider" oninput="updateSevCalc()">
+              <div class="sev-factor-ticks"><span>Public</span><span>Internal</span><span>Confidential</span><span>PII/PCI</span></div>
+            </div>
+          </div>
+          <div id="sev-result" class="sev-result"></div>
+          <div class="utils-actions" style="margin-top:8px;">
+            <button id="sev-copy-btn" type="button">📋 Copy Justification</button>
+            <button id="sev-to-case-btn" type="button">📁 Add to Case</button>
+          </div>
+        </div>
+
+        <!-- ── FEATURE 6: IP Geolocation & Travel Check ── -->
+        <div class="utils-card utils-card-wide">
+          <div class="utils-card-head">🗺️ IP Geolocation &amp; Travel Check</div>
+          <p class="utils-card-desc">Geolocate up to 10 IPs. Check impossible travel between two login events. Powered by ip-api.com (free, no key needed).</p>
+          <div class="geo-layout">
+            <div class="geo-left">
+              <textarea id="geo-ips-input" spellcheck="false" rows="5" placeholder="One IP per line (up to 10):&#10;12.55.204.102&#10;2607:fb90:3924:9053:e53a:837:9a4a:c467&#10;136.226.50.165"></textarea>
+              <div class="utils-actions">
+                <button id="geo-lookup-btn" type="button">🌍 Geolocate IPs</button>
+                <button id="geo-clear-btn" type="button">🗑 Clear</button>
+              </div>
+              <div class="geo-travel-section">
+                <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:6px;">⚡ Impossible Travel Check</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <input id="geo-ip1" class="aw-input" placeholder="IP 1 (e.g. 12.55.204.102)" style="flex:1;min-width:140px;"/>
+                  <input id="geo-t1" class="aw-input" type="datetime-local" style="flex:1;min-width:160px;" title="Login 1 timestamp"/>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+                  <input id="geo-ip2" class="aw-input" placeholder="IP 2 (e.g. 185.220.101.45)" style="flex:1;min-width:140px;"/>
+                  <input id="geo-t2" class="aw-input" type="datetime-local" style="flex:1;min-width:160px;" title="Login 2 timestamp"/>
+                </div>
+                <button id="geo-travel-btn" type="button" style="margin-top:6px;">⚡ Check Travel</button>
+                <div id="geo-travel-result" class="geo-travel-result" style="display:none"></div>
+              </div>
+            </div>
+            <div class="geo-right">
+              <div id="geo-results-table" class="geo-table-wrap"></div>
+              <div id="geo-map" class="geo-map-placeholder">🌍 Map will appear here after lookup</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── FEATURE 8: Shift Handoff Generator ── -->
+        <div class="utils-card utils-card-wide">
+          <div class="utils-card-head">📋 Shift Handoff Generator</div>
+          <p class="utils-card-desc">Generate a formatted shift handoff report. Auto-reads open cases and IOC history from this session.</p>
+          <div class="handoff-layout">
+            <div class="handoff-form">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <input id="ho-analyst" class="aw-input" placeholder="Your name / analyst ID" style="flex:1;min-width:140px;"/>
+                <input id="ho-team" class="aw-input" placeholder="Team / Tier (e.g. SOC Tier 1)" style="flex:1;min-width:140px;"/>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                <input id="ho-shift-start" class="aw-input" type="datetime-local" style="flex:1;" title="Shift start"/>
+                <input id="ho-shift-end" class="aw-input" type="datetime-local" style="flex:1;" title="Shift end"/>
+              </div>
+              <textarea id="ho-findings" spellcheck="false" rows="3" placeholder="Key findings this shift (one per line)..." style="margin-top:8px;width:100%;"></textarea>
+              <textarea id="ho-pending" spellcheck="false" rows="2" placeholder="Open items / pending investigations..." style="margin-top:6px;width:100%;"></textarea>
+              <textarea id="ho-recommendations" spellcheck="false" rows="2" placeholder="Recommendations for next shift..." style="margin-top:6px;width:100%;"></textarea>
+              <div class="utils-actions" style="margin-top:8px;">
+                <button id="ho-generate-btn" type="button">📋 Generate Handoff</button>
+                <select id="ho-format" class="aw-input" style="font-size:11px;padding:5px 8px;">
+                  <option value="text">Plain Text</option>
+                  <option value="markdown">Markdown</option>
+                  <option value="exec">Exec Summary</option>
+                </select>
+              </div>
+            </div>
+            <div class="handoff-output-wrap">
+              <pre id="ho-output" class="handoff-output">← Fill in the form and click Generate</pre>
+              <div class="utils-actions" style="margin-top:6px;">
+                <button id="ho-copy-btn" type="button">📋 Copy</button>
+                <button id="ho-download-btn" type="button">💾 Download .txt</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div><!-- end tab-utils -->
 
@@ -1055,6 +1279,7 @@
           <button class="cti-sub-btn" data-ctitab="actors" type="button">🕵 Actor Intel</button>
           <button class="cti-sub-btn" data-ctitab="ioc-check" type="button">🎯 IOC Intel Check</button>
           <button class="cti-sub-btn" data-ctitab="campaigns" type="button">📊 Campaign Tracker</button>
+          <button class="cti-sub-btn" data-ctitab="hunt" type="button">🏹 Hunt Queries</button>
           <button class="cti-sub-btn" data-ctitab="resources" type="button">📚 Intel Resources</button>
         </div>
       </div>
@@ -1163,6 +1388,36 @@
       </div>
 
       <!-- RESOURCES PANEL -->
+      <!-- HUNT QUERIES PANEL (Feature 4) -->
+      <div id="cti-panel-hunt" class="cti-panel" style="display:none">
+        <div class="hunt-header">
+          <div class="hunt-filters">
+            <select id="hunt-platform" class="cti-news-select">
+              <option value="splunk">Splunk SPL</option>
+              <option value="kql">KQL (Sentinel)</option>
+              <option value="elastic">Elastic DSL</option>
+              <option value="qradar">QRadar AQL</option>
+              <option value="cs">CrowdStrike NG-SIEM</option>
+            </select>
+            <select id="hunt-category" class="cti-news-select">
+              <option value="all">All Techniques</option>
+              <option value="initial_access">Initial Access</option>
+              <option value="execution">Execution</option>
+              <option value="persistence">Persistence</option>
+              <option value="privilege_esc">Privilege Escalation</option>
+              <option value="defense_evasion">Defense Evasion</option>
+              <option value="credential">Credential Access</option>
+              <option value="lateral">Lateral Movement</option>
+              <option value="c2">C2 / Command & Control</option>
+              <option value="exfil">Exfiltration</option>
+              <option value="identity">Identity & Cloud</option>
+            </select>
+            <button id="hunt-filter-btn" class="cti-news-btn" type="button">🔍 Filter</button>
+          </div>
+        </div>
+        <div id="hunt-grid" class="hunt-grid"></div>
+      </div>
+
       <div id="cti-panel-resources" class="cti-panel" style="display:none">
         <div class="cti-resources-grid">
 
