@@ -5577,6 +5577,922 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ════════════════════════════════════════════════════════════════
+  // SOURCE-AWARE DETECTION QUERIES  (Alert Source → SIEM Platform)
+  // ════════════════════════════════════════════════════════════════
+
+  // 12 sources × alert-type lists (shown in the dropdown)
+  const SOURCE_ALERT_TYPES = {
+    crowdstrike:  { label:"CrowdStrike Falcon",        color:"#f87171", alertTypes:[
+      {value:"detection",     label:"Detection / Alert",           hint:"Investigate the detected process, hash, and endpoint scope across fleet"},
+      {value:"process",       label:"Suspicious Process Execution",hint:"Pivot on command line, parent process, and file hash"},
+      {value:"network",       label:"Network Connection Alert",    hint:"Investigate the remote IP/domain and scope across fleet"},
+      {value:"identity",      label:"Identity / Credential Alert", hint:"Look for lateral movement, privilege escalation, new accounts"},
+      {value:"fdr",           label:"FDR Raw Telemetry",           hint:"Search raw Falcon Data Replicator events by any field value"},
+    ]},
+    zscaler:      { label:"Zscaler ZIA / ZPA",          color:"#38bdf8", alertTypes:[
+      {value:"web_block",     label:"Web Transaction Blocked",     hint:"Confirm block, check user and endpoint, look for other hits from same IP"},
+      {value:"threat",        label:"Threat Detected (malware/C2)",hint:"Correlate threat name with hash lookup and endpoint EDR telemetry"},
+      {value:"dlp",           label:"DLP Policy Triggered",        hint:"Identify data type, destination, and user context"},
+      {value:"sandbox",       label:"Sandbox / Advanced Threat",   hint:"Look for payload delivery chain and execution on the endpoint"},
+      {value:"allowed_bad",   label:"Allowed — Malicious Category",hint:"URGENT: traffic was allowed — go investigate the endpoint now"},
+    ]},
+    azure_ad:     { label:"Azure AD / Entra ID",        color:"#818cf8", alertTypes:[
+      {value:"signin_fail",   label:"Failed Sign-In",              hint:"Check IP reputation, MFA status, account lockout threshold"},
+      {value:"signin_risk",   label:"Risky Sign-In (MS Risk)",     hint:"Review location, device, MFA; check for post-auth activity"},
+      {value:"mfa_fail",      label:"MFA Challenge Failed / Push Spam",hint:"Detect MFA fatigue — count denies per user per 30-min window"},
+      {value:"oauth_consent", label:"OAuth App Consent Grant",     hint:"Identify app permissions granted — common BEC precursor"},
+      {value:"audit",         label:"Audit Log Event",             hint:"Admin action — new user, role assignment, policy change"},
+      {value:"impossible",    label:"Impossible Travel",           hint:"Calculate distance between two IPs, verify both, check for VPN"},
+    ]},
+    defender:     { label:"Microsoft Defender / MDE",   color:"#3b82f6", alertTypes:[
+      {value:"process_alert", label:"Process / Behavior Alert",    hint:"Pivot on image hash, command line, MITRE technique"},
+      {value:"network_alert", label:"Network Connection Alert",    hint:"Investigate remote IP/domain, scope to other devices"},
+      {value:"file_alert",    label:"Malicious File Detected",     hint:"Check hash in VT/MBazaar, scope execution across org"},
+      {value:"ransomware",    label:"Ransomware Detected",         hint:"ISOLATE NOW — check VSS, lateral spread, backup status"},
+      {value:"tamper",        label:"Tamper / AV Disabled",        hint:"AV disabled by attacker — check what ran before/after"},
+    ]},
+    okta:         { label:"Okta / SSO",                 color:"#00d1e0", alertTypes:[
+      {value:"login_fail",    label:"Failed Authentication",       hint:"Count failures, check IP, look for success after failures"},
+      {value:"mfa_push",      label:"MFA Push Deny / Fatigue",     hint:"Count push denies per hour — more than 3 per 30min = fatigue attack"},
+      {value:"policy_deny",   label:"Policy / Sign-On Denied",     hint:"Identify policy triggered, device posture, user context"},
+      {value:"susp_activity", label:"Suspicious Activity Reported",hint:"User self-reported — treat as credential compromise immediately"},
+      {value:"app_grant",     label:"App Permission Granted",      hint:"OAuth abuse vector — verify app and permissions granted"},
+    ]},
+    proofpoint:   { label:"Proofpoint TAP",             color:"#f97316", alertTypes:[
+      {value:"phish",         label:"Phishing Message Delivered",  hint:"Check sender, URL, attachment — did the user click?"},
+      {value:"malware",       label:"Malware Attachment Detected", hint:"Hash lookup, sandbox the attachment, check endpoint for execution"},
+      {value:"impostor",      label:"Impostor / BEC Detected",     hint:"Display name spoofing — check reply-to, forwarding rules, wire transfers"},
+      {value:"url_click",     label:"Malicious URL Clicked",       hint:"URGENT — user clicked — check endpoint for payload execution NOW"},
+    ]},
+    aws:          { label:"AWS CloudTrail",             color:"#f59e0b", alertTypes:[
+      {value:"iam_priv",      label:"IAM Privilege Escalation",    hint:"AttachPolicy/CreateUser/AddToGroup — account takeover risk"},
+      {value:"root_usage",    label:"Root Account Used",           hint:"Root should never be used — treat as critical incident"},
+      {value:"ct_tamper",     label:"CloudTrail Logging Disabled", hint:"Anti-forensics — StopLogging/DeleteTrail — attacker is hiding"},
+      {value:"s3_exposure",   label:"S3 Bucket Public / GetObject",hint:"Data exfil risk — check bucket ACL and access patterns"},
+      {value:"ec2_launch",    label:"Unusual EC2 / Resource Launch",hint:"Crypto-mining or C2 hosting — check instance type and region"},
+    ]},
+    sentinelone:  { label:"SentinelOne",                color:"#6d28d9", alertTypes:[
+      {value:"threat_detect", label:"Threat Detected",             hint:"Check hash, file path, execution chain — scope across org"},
+      {value:"not_mitigated", label:"Threat NOT Mitigated",        hint:"URGENT — manual action needed, isolate endpoint immediately"},
+      {value:"ransomware",    label:"Ransomware Behavior",         hint:"ISOLATE — check VSS deletion, lateral spread, backup integrity"},
+      {value:"network_c2",    label:"Suspicious Network Activity", hint:"Pivot on remote IP, look for beaconing pattern in EDR"},
+    ]},
+    paloalto:     { label:"Palo Alto NGFW",             color:"#00c0e8", alertTypes:[
+      {value:"threat",        label:"Threat / IPS Signature",      hint:"Check signature CVE, source IP, scope similar traffic"},
+      {value:"url_block",     label:"URL Filter Block",            hint:"Confirm policy action, check endpoint for prior access"},
+      {value:"wildfire",      label:"WildFire Malware Verdict",    hint:"Hash confirmed malicious — trace delivery to endpoint"},
+      {value:"c2",            label:"C2 / Command & Control",      hint:"CRITICAL — active implant communicating — isolate now"},
+    ]},
+    darktrace:    { label:"Darktrace / NDR",            color:"#8b5cf6", alertTypes:[
+      {value:"model_breach",  label:"Model Breach",                hint:"Understand the model, compare current vs normal baseline"},
+      {value:"ai_analyst",    label:"AI Analyst Incident",         hint:"Review AI-linked chain — multiple correlated anomalous events"},
+      {value:"beacon",        label:"Beaconing / C2 Pattern",      hint:"Check interval regularity, remote IP, pivot to endpoint EDR"},
+      {value:"lateral",       label:"Internal Lateral Movement",   hint:"East-west traffic anomaly — map pivot path and initial compromise"},
+    ]},
+    suricata:     { label:"Suricata / Snort IDS",       color:"#ef4444", alertTypes:[
+      {value:"malware_c2",    label:"Malware / C2 Signature",      hint:"Active implant traffic — correlate with endpoint EDR immediately"},
+      {value:"exploit",       label:"Exploit Attempt Detected",    hint:"Check CVE, patch status on target, source IP reputation"},
+      {value:"scan",          label:"Recon / Port Scan",           hint:"External recon — assess source, scope exposure, block if needed"},
+      {value:"policy",        label:"Policy Violation",            hint:"Unusual protocol — verify if legitimate business use case"},
+    ]},
+    siem_generic: { label:"QRadar / Splunk SIEM",       color:"#a78bfa", alertTypes:[
+      {value:"correlation",   label:"Correlation Rule Triggered",  hint:"Review rule logic and all correlated events in the offense/notable"},
+      {value:"offense",       label:"QRadar Offense (high mag.)",  hint:"Check magnitude, source IPs, destination assets, event count"},
+      {value:"notable",       label:"Splunk ES Notable Event",     hint:"Review risk score, contributing events, MITRE technique mapping"},
+    ]},
+  };
+
+  // 3D lookup: SOURCE_QUERIES[source][alertType][siemPlatform] → fn(ioc) => query string
+  const SOURCE_QUERIES = {
+    crowdstrike: {
+      detection: {
+        cs:     (v)=>`// Investigate CrowdStrike detection — scope across fleet
+event_simpleName=Detection ComputerName="${v||"<HOSTNAME>"}"
+| table _time, ComputerName, UserName, FileName, SHA256HashData, CommandLine, Technique, Severity
+
+// Scope: same technique on other hosts
+event_simpleName=Detection Technique!="" Severity IN ("High","Critical")
+| stats count by ComputerName, UserName, Technique
+| sort - count`,
+        splunk: (v)=>`index=crowdstrike sourcetype=crowdstrike:events ComputerName="${v||"<HOSTNAME>"}"
+| table _time, ComputerName, UserName, FileName, SHA256HashData, Technique, Severity`,
+        kql:    (v)=>`CommonSecurityLog
+| where DeviceVendor == "CrowdStrike" and Computer =~ "${v||"<HOSTNAME>"}"
+| project TimeGenerated, Computer, Activity, SourceUserName, FileName, FileHash`,
+        elastic:(v)=>`GET .ds-logs-crowdstrike*/_search
+{ "query": {"term": {"host.hostname": "${v||"<HOSTNAME>"}"}} }`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='CrowdStrike' AND hostname='${v||"<HOSTNAME>"}' LAST 24 HOURS ORDER BY starttime DESC`,
+      },
+      network: {
+        cs:     (v)=>`// CrowdStrike: scope network connection across fleet
+event_simpleName=NetworkConnectIP4 RemoteAddressIP4="${v||"<REMOTE_IP>"}"
+| stats count, values(ComputerName) as hosts, values(FileName) as procs by RemoteAddressIP4, RemotePort
+| sort - count`,
+        splunk: (v)=>`index=crowdstrike sourcetype=crowdstrike:events event_simpleName=NetworkConnectIP4
+  RemoteAddressIP4="${v||"<REMOTE_IP>"}"
+| stats count, values(ComputerName) as hosts by RemoteAddressIP4, RemotePort`,
+        kql:    (v)=>`DeviceNetworkEvents
+| where RemoteIP == "${v||"<REMOTE_IP>"}" 
+| summarize count() by DeviceName, InitiatingProcessFileName, RemotePort
+| sort by count_ desc`,
+        elastic:(v)=>`GET .ds-logs-*/_search
+{ "query": {"term": {"destination.ip": "${v||"<REMOTE_IP>"}"}} }`,
+        qradar: (v)=>`SELECT sourceip, destinationip, username, count(*) FROM events
+WHERE destinationip='${v||"<REMOTE_IP>"}' LAST 24 HOURS
+GROUP BY sourceip, destinationip, username ORDER BY count(*) DESC`,
+      },
+      identity: {
+        cs:     (v)=>`event_simpleName IN (UserLogon, UserAccountCreated, UserAccountAddedToGroup)
+  UserName="${v||"<USERNAME>"}"
+| table _time, ComputerName, UserName, event_simpleName, RemoteAddressIP4`,
+        splunk: (v)=>`index=crowdstrike event_simpleName IN ("UserLogon","UserAccountCreated") UserName="${v||"<USERNAME>"}"
+| table _time, ComputerName, UserName, event_simpleName`,
+        kql:    (v)=>`IdentityLogonEvents
+| where AccountName =~ "${v||"<USERNAME>"}"
+| project TimeGenerated, DeviceName, AccountName, ActionType, IPAddress, CountryCode`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='CrowdStrike' AND username='${v||"<USERNAME>"}' AND category IN ('UserLogon','AccountCreated') LAST 24 HOURS`,
+      },
+      fdr: {
+        cs:     (v)=>`// CrowdStrike FDR raw telemetry — replace field/value as needed
+${v||"event_simpleName=ProcessRollup2"}
+| table _time, ComputerName, UserName, event_simpleName, CommandLine, ImageFileName`,
+        splunk: (v)=>`index=crowdstrike_fdr ${v||"ComputerName=<HOSTNAME>"}
+| table _time, ComputerName, UserName, event_simpleName, CommandLine`,
+      },
+    },
+
+    zscaler: {
+      web_block: {
+        cs:     (v)=>`// Correlate Zscaler block with CrowdStrike — find which process made the request
+event_simpleName=NetworkConnectIP4
+| where RemoteAddressIP4="${v||"<BLOCKED_IP>"}" OR RemoteDomainName LIKE "%${v||"<BLOCKED_DOMAIN>"}%"
+| table _time, ComputerName, UserName, ImageFileName, CommandLine, RemoteAddressIP4`,
+        splunk: (v)=>`index=zscaler sourcetype=zscaler:web action=blocked
+  (url="*${v||"<DOMAIN>"}*" OR srcip="${v||"<SRC_IP>"}")
+| stats count by user, srcip, url, category, action
+| sort - count`,
+        kql:    (v)=>`CommonSecurityLog
+| where DeviceVendor == "Zscaler" and DeviceAction == "Blocked"
+| where DestinationHostName contains "${v||"<DOMAIN>"}" or SourceIP == "${v||"<SRC_IP>"}"
+| project TimeGenerated, SourceIP, DestinationHostName, RequestURL, DeviceAction, SourceUserName`,
+        elastic:(v)=>`GET .ds-logs-zscaler*/_search
+{ "query": {"bool": {"must": [{"term": {"event.action":"blocked"}},{"wildcard":{"url.domain":"*${v||"<DOMAIN>"}*"}}]}} }`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='Zscaler' AND eventcategory='blocked'
+  AND destinationhostname LIKE '%${v||"<DOMAIN>"}%' LAST 24 HOURS`,
+      },
+      threat: {
+        cs:     (v)=>`// Zscaler threat — pivot to CrowdStrike endpoint telemetry
+event_simpleName=NetworkConnectIP4
+| where RemoteAddressIP4="${v||"<THREAT_IP>"}" OR RemoteDomainName LIKE "%${v||"<THREAT_DOMAIN>"}%"
+| table _time, ComputerName, UserName, ImageFileName, CommandLine`,
+        splunk: (v)=>`index=zscaler sourcetype=zscaler:web threat=* threatname!=""
+  (user="${v||"<USER>"}" OR srcip="${v||"<SRC_IP>"}")
+| stats count by user, srcip, url, threat, threatname, action
+| sort - count`,
+        kql:    (v)=>`CommonSecurityLog
+| where DeviceVendor == "Zscaler" and isnotempty(ThreatDescription)
+| where SourceUserName =~ "${v||"<USER>"}" or SourceIP == "${v||"<SRC_IP>"}"
+| project TimeGenerated, SourceUserName, SourceIP, DestinationHostName, ThreatDescription, DeviceAction`,
+        qradar: (v)=>`SELECT username, sourceip, destinationhostname, threat, count(*) FROM events
+WHERE DeviceType='Zscaler' AND threat IS NOT NULL
+  AND (username='${v||"<USER>"}' OR sourceip='${v||"<SRC_IP>"}')
+GROUP BY username, sourceip, destinationhostname, threat LAST 24 HOURS`,
+      },
+      allowed_bad: {
+        cs:     (v)=>`// URGENT: Zscaler ALLOWED malicious traffic — investigate endpoint NOW
+event_simpleName IN (NetworkConnectIP4, ProcessRollup2)
+| where ComputerName="${v||"<HOSTNAME>"}" OR UserName="${v||"<USER>"}" 
+| where _time >= now()-3600
+| table _time, ComputerName, UserName, ImageFileName, CommandLine, RemoteAddressIP4`,
+        splunk: (v)=>`index=zscaler sourcetype=zscaler:web action=allowed threat=* threatname!=""
+  (user="${v||"<USER>"}")
+| table _time, user, srcip, url, threat, action`,
+        kql:    (v)=>`CommonSecurityLog
+| where DeviceVendor == "Zscaler" and DeviceAction == "Allow"
+  and isnotempty(ThreatDescription)
+| where SourceUserName =~ "${v||"<USER>"}"
+| project TimeGenerated, SourceUserName, SourceIP, DestinationHostName, RequestURL, ThreatDescription`,
+      },
+      dlp: {
+        cs:     (v)=>`// Zscaler DLP — pivot to endpoint to understand data source
+event_simpleName=FileOpenInfo ComputerName="${v||"<HOSTNAME>"}"
+| where FileName LIKE "%.xlsx" OR FileName LIKE "%.pdf" OR FileName LIKE "%.docx"
+| table _time, ComputerName, UserName, FileName, FilePath`,
+        splunk: (v)=>`index=zscaler sourcetype=zscaler:web dlp_rule!="" user="${v||"<USER>"}"
+| table _time, user, srcip, url, dlp_rule, dlp_dictionaries, action`,
+        kql:    (v)=>`CommonSecurityLog
+| where DeviceVendor == "Zscaler" and DeviceEventClassID has "DLP"
+| where SourceUserName =~ "${v||"<USER>"}"
+| project TimeGenerated, SourceUserName, SourceIP, RequestURL, DeviceCustomString1, DeviceAction`,
+      },
+    },
+
+    azure_ad: {
+      signin_fail: {
+        cs:     (v)=>`// Azure AD sign-in failures forwarded to CS NG-SIEM
+#event_simpleName=AADSignIn UserPrincipalName="${v||"<USER@DOMAIN>"}" ResultType!="0"
+| stats count, values(IPAddress) as ips, values(Location) as locs by UserPrincipalName
+| sort - count`,
+        splunk: (v)=>`index=azure sourcetype=azure:aad:signin UserPrincipalName="${v||"<USER>"}" ResultType!=0
+| stats count by UserPrincipalName, IPAddress, Location, ResultDescription
+| sort - count`,
+        kql:    (v)=>`SigninLogs
+| where UserPrincipalName =~ "${v||"<USER@DOMAIN>"}" and ResultType != "0"
+| summarize FailCount=count(), IPs=make_set(IPAddress), Locs=make_set(Location)
+    by UserPrincipalName, bin(TimeGenerated, 1h)
+| where FailCount > 3 | sort by FailCount desc`,
+        elastic:(v)=>`GET .ds-logs-azure*/_search
+{ "query": {"bool": {"must": [{"term":{"user.name":"${v||"<USER>"}"}},{"term":{"event.outcome":"failure"}}]}} }`,
+        qradar: (v)=>`SELECT username, sourceip, country, count(*) AS fails FROM events
+WHERE DeviceType='MicrosoftAzureAD' AND outcome='Failure'
+  AND username='${v||"<USER>"}'
+GROUP BY username, sourceip, country HAVING count(*)>3 LAST 1 HOURS`,
+      },
+      mfa_fail: {
+        cs:     (v)=>`#event_simpleName=AADSignIn AuthRequirement="multiFactorAuthentication"
+  UserPrincipalName="${v||"<USER>"}" ResultType!="0"
+| stats count by UserPrincipalName, IPAddress, bin(_time, 30m)
+| where count > 3`,
+        splunk: (v)=>`index=azure sourcetype=azure:aad:signin UserPrincipalName="${v||"<USER>"}" authRequirement=multiFactorAuthentication status=failure
+| stats count by UserPrincipalName, IPAddress, bin(_time,30m)
+| where count > 3`,
+        kql:    (v)=>`SigninLogs
+| where UserPrincipalName =~ "${v||"<USER@DOMAIN>"}" and AuthenticationRequirement == "multiFactorAuthentication"
+  and ResultType != "0"
+| summarize PushCount=count() by UserPrincipalName, IPAddress, bin(TimeGenerated, 30m)
+| where PushCount > 3`,
+        qradar: (v)=>`SELECT username, sourceip, count(*) FROM events WHERE DeviceType='MicrosoftAzureAD'
+  AND authtype='MFA' AND outcome='Failure' AND username='${v||"<USER>"}'
+GROUP BY username, sourceip HAVING count(*)>3 LAST 1 HOURS`,
+      },
+      oauth_consent: {
+        cs:     (v)=>`#event_simpleName=AADAudit OperationName="Consent to application"
+  UserPrincipalName="${v||"<USER>"}"
+| table _time, UserPrincipalName, AppDisplayName, ConsentType, Permissions`,
+        splunk: (v)=>`index=azure sourcetype=azure:aad:audit Operation="Consent to application"
+  userPrincipalName="${v||"<USER>"}"
+| table _time, userPrincipalName, AppDisplayName, Permissions, ConsentType`,
+        kql:    (v)=>`AuditLogs
+| where OperationName == "Consent to application"
+| where InitiatedBy.user.userPrincipalName =~ "${v||"<USER@DOMAIN>"}"
+| extend AppName = tostring(TargetResources[0].displayName)
+| project TimeGenerated, InitiatedBy, AppName, AdditionalDetails, Result`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='MicrosoftAzureAD'
+  AND operation='Consent to application'
+  AND username='${v||"<USER>"}' LAST 24 HOURS`,
+      },
+      impossible: {
+        cs:     (v)=>`// Impossible travel — get all successful logins for user
+#event_simpleName=AADSignIn UserPrincipalName="${v||"<USER>"}" ResultType="0"
+| sort _time asc
+| table _time, UserPrincipalName, IPAddress, Location, DeviceDetail`,
+        splunk: (v)=>`index=azure sourcetype=azure:aad:signin UserPrincipalName="${v||"<USER>"}" status=success
+| sort _time
+| streamstats current=f last(_time) as prev_time last(Location) as prev_loc by UserPrincipalName
+| eval time_diff_h=(_time-prev_time)/3600
+| where prev_loc!=Location AND time_diff_h<4
+| table _time, UserPrincipalName, Location, prev_loc, time_diff_h, IPAddress`,
+        kql:    (v)=>`SigninLogs
+| where UserPrincipalName =~ "${v||"<USER@DOMAIN>"}" and ResultType == "0"
+| project TimeGenerated, UserPrincipalName, IPAddress, Location, DeviceDetail
+| sort by TimeGenerated asc
+// Review consecutive logins from different countries within short window`,
+        qradar: (v)=>`SELECT username, sourceip, country, starttime FROM events WHERE DeviceType='MicrosoftAzureAD'
+  AND outcome='Success' AND username='${v||"<USER>"}' LAST 24 HOURS ORDER BY starttime ASC`,
+      },
+      audit: {
+        cs:     (v)=>`#event_simpleName=AADAudit InitiatedByUPN="${v||"<ADMIN@DOMAIN>"}" OperationName IN ("Add user","Assign role","Update policy")
+| table _time, InitiatedByUPN, OperationName, TargetObjectUPN, Result`,
+        splunk: (v)=>`index=azure sourcetype=azure:aad:audit initiatedBy.user.userPrincipalName="${v||"<ADMIN>"}"
+| table _time, initiatedBy.user.userPrincipalName, operationName, targetResources, result`,
+        kql:    (v)=>`AuditLogs
+| where InitiatedBy.user.userPrincipalName =~ "${v||"<ADMIN@DOMAIN>"}"
+  and OperationName in ("Add user","Assign role","Update conditional access policy")
+| project TimeGenerated, InitiatedBy, OperationName, TargetResources, Result`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='MicrosoftAzureAD'
+  AND category='AuditLog' AND username='${v||"<ADMIN>"}' LAST 24 HOURS`,
+      },
+    },
+
+    defender: {
+      process_alert: {
+        cs:     (v)=>`// Defender alert → correlate with CrowdStrike endpoint telemetry
+event_simpleName=ProcessRollup2 ComputerName="${v||"<HOSTNAME>"}"
+| where _time >= now()-3600
+| table _time, ComputerName, UserName, ImageFileName, SHA256HashData, CommandLine, ParentBaseFileName`,
+        splunk: (v)=>`index=defender sourcetype=microsoft:defender:atp DeviceName="${v||"<HOSTNAME>"}"
+| table _time, DeviceName, AlertName, Severity, AccountName, FileName, CommandLine`,
+        kql:    (v)=>`DeviceAlerts
+| where DeviceName =~ "${v||"<HOSTNAME>"}" 
+| join kind=leftouter DeviceProcessEvents on DeviceId
+| project TimeGenerated, DeviceName, Title, Severity, AccountName, FileName, ProcessCommandLine, SHA256`,
+        elastic:(v)=>`GET .ds-logs-endpoint.alerts-*/_search
+{ "query": {"term": {"host.hostname": "${v||"<HOSTNAME>"}"}} }`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='MicrosoftDefender' AND hostname='${v||"<HOSTNAME>"}' LAST 24 HOURS ORDER BY starttime DESC`,
+      },
+      ransomware: {
+        cs:     (v)=>`// Ransomware — CrowdStrike scope + VSS deletion check
+event_simpleName IN (ProcessRollup2, FileCreated) ComputerName="${v||"<HOSTNAME>"}"
+| where CommandLine LIKE "%vssadmin%delete%" OR CommandLine LIKE "%shadowcopy%delete%"
+   OR TargetFileName LIKE "%.encrypted" OR TargetFileName LIKE "%HELP_DECRYPT%"
+| table _time, ComputerName, UserName, event_simpleName, CommandLine, TargetFileName`,
+        splunk: (v)=>`index=defender sourcetype=microsoft:defender:atp DeviceName="${v||"<HOSTNAME>"}" 
+  (AlertName="*ransomware*" OR CommandLine="*vssadmin*delete*" OR CommandLine="*shadowcopy*delete*")
+| table _time, DeviceName, AlertName, CommandLine, Severity`,
+        kql:    (v)=>`union DeviceAlerts, DeviceProcessEvents
+| where DeviceName =~ "${v||"<HOSTNAME>"}"
+| where Title has_any ("Ransomware","Encrypting") or ProcessCommandLine has_any ("vssadmin delete","shadowcopy delete","bcdedit /set recoveryenabled")
+| project TimeGenerated, DeviceName, AccountName, Title, ProcessCommandLine
+| sort by TimeGenerated asc`,
+        qradar: (v)=>`SELECT * FROM events WHERE (DeviceType='MicrosoftDefender' OR DeviceType='CrowdStrike')
+  AND hostname='${v||"<HOSTNAME>"}'
+  AND (commandline LIKE '%vssadmin%delete%' OR alertname LIKE '%ransomware%') LAST 24 HOURS`,
+      },
+      network_alert: {
+        cs:     (v)=>`event_simpleName=NetworkConnectIP4 ComputerName="${v||"<HOSTNAME>"}"
+| where RemoteAddressIP4="${v||"<REMOTE_IP>"}" OR RemotePort IN (4444,50050,8080,1337)
+| table _time, ComputerName, UserName, ImageFileName, RemoteAddressIP4, RemotePort`,
+        splunk: (v)=>`index=defender sourcetype=microsoft:defender:atp DeviceName="${v||"<HOSTNAME>"}" category="NetworkCommunication"
+| where RemoteIP="${v||"<REMOTE_IP>"}" OR RemotePort IN (4444,50050,8080,1337)
+| table _time, DeviceName, AccountName, RemoteIP, RemotePort, InitiatingProcessFileName`,
+        kql:    (v)=>`DeviceNetworkEvents
+| where DeviceName =~ "${v||"<HOSTNAME>"}" and (RemoteIP == "${v||"<REMOTE_IP>"}" or RemotePort in (4444,50050,8080,1337))
+| project TimeGenerated, DeviceName, AccountName, RemoteIP, RemotePort, InitiatingProcessFileName`,
+      },
+      tamper: {
+        cs:     (v)=>`event_simpleName=ProcessRollup2 ComputerName="${v||"<HOSTNAME>"}"
+| where CommandLine LIKE "%Add-MpPreference%Exclusion%" OR CommandLine LIKE "%Set-MpPreference%DisableRealtimeMonitoring%"
+| table _time, ComputerName, UserName, CommandLine, ParentBaseFileName`,
+        splunk: (v)=>`(index=defender OR index=windows) (CommandLine="*Add-MpPreference*Exclusion*" OR CommandLine="*DisableRealtimeMonitoring*" OR EventCode=5001)
+  host="${v||"<HOSTNAME>"}"
+| table _time, host, user, CommandLine`,
+        kql:    (v)=>`DeviceRegistryEvents
+| where DeviceName =~ "${v||"<HOSTNAME>"}" and RegistryKey has "Windows Defender" and RegistryKey has "Exclusions"
+| project TimeGenerated, DeviceName, ActionType, RegistryKey, RegistryValueName, InitiatingProcessAccountName`,
+      },
+    },
+
+    okta: {
+      login_fail: {
+        cs:     (v)=>`// Okta failures forwarded to CS NG-SIEM
+#event_simpleName=OktaAuthentication Outcome="FAILURE" UserPrincipalName="${v||"<USER@DOMAIN>"}"
+| stats count, values(IPAddress) as ips by UserPrincipalName, bin(_time, 1h)
+| where count > 5`,
+        splunk: (v)=>`index=okta sourcetype=okta (eventType="user.session.start" OR eventType="user.authentication.auth_via_mfa")
+  outcome.result=FAILURE actor.alternateId="${v||"<USER@DOMAIN>"}"
+| stats count, values(client.ipAddress) as ips by actor.alternateId, bin(_time,1h)
+| where count > 5`,
+        kql:    (v)=>`OktaSSO | where UserName =~ "${v||"<USER@DOMAIN>"}" and ResultStatus == "FAILURE"
+| summarize FailCount=count(), IPs=make_set(SrcIpAddr) by UserName, bin(TimeGenerated,1h)
+| where FailCount > 5`,
+        elastic:(v)=>`GET .ds-logs-okta*/_search
+{ "query": {"bool": {"must": [{"term":{"user.name":"${v||"<USER>"}"}},{"term":{"event.outcome":"failure"}}]}} }`,
+        qradar: (v)=>`SELECT username, sourceip, count(*) FROM events WHERE DeviceType='Okta'
+  AND outcome='FAILURE' AND username='${v||"<USER>"}'
+GROUP BY username, sourceip HAVING count(*)>5 LAST 1 HOURS`,
+      },
+      mfa_push: {
+        cs:     (v)=>`#event_simpleName=OktaMFAChallenge Outcome="DENY" UserPrincipalName="${v||"<USER>"}"
+| stats count by UserPrincipalName, IPAddress, bin(_time, 30m)
+| where count > 3`,
+        splunk: (v)=>`index=okta sourcetype=okta eventType IN ("user.mfa.okta_verify.deny_push","system.push.send_factor_verify_push")
+  actor.alternateId="${v||"<USER>"}"
+| stats count by actor.alternateId, client.ipAddress, bin(_time, 30m)
+| where count > 3`,
+        kql:    (v)=>`OktaSSO | where UserName =~ "${v||"<USER>"}" and EventType has "push" and ResultStatus != "SUCCESS"
+| summarize PushDenies=count() by UserName, SrcIpAddr, bin(TimeGenerated, 30m)
+| where PushDenies > 3`,
+        qradar: (v)=>`SELECT username, sourceip, count(*) FROM events WHERE DeviceType='Okta'
+  AND eventtype LIKE '%push%' AND outcome!='SUCCESS' AND username='${v||"<USER>"}'
+GROUP BY username, sourceip HAVING count(*)>3 LAST 1 HOURS`,
+      },
+      policy_deny: {
+        cs:     (v)=>`#event_simpleName=OktaSignOn Outcome="DENY" UserPrincipalName="${v||"<USER>"}"
+| table _time, UserPrincipalName, IPAddress, DeviceContext, PolicyName`,
+        splunk: (v)=>`index=okta sourcetype=okta eventType="access.denied" actor.alternateId="${v||"<USER>"}"
+| table _time, actor.alternateId, client.ipAddress, debugContext.debugData.policyEvaluationReason`,
+        kql:    (v)=>`OktaSSO | where UserName =~ "${v||"<USER>"}" and ResultStatus == "FAILURE"
+  and EventType has "access"
+| project TimeGenerated, UserName, SrcIpAddr, EventType, ResultDescription`,
+      },
+      susp_activity: {
+        cs:     (v)=>`// Treat Okta-reported suspicious activity as compromise — investigate endpoint
+#event_simpleName=OktaAuthentication UserPrincipalName="${v||"<USER>"}" EventType="user.account.report_suspicious_activity"
+| table _time, UserPrincipalName, IPAddress, UserAgent`,
+        splunk: (v)=>`index=okta sourcetype=okta eventType="user.account.report_suspicious_activity" actor.alternateId="${v||"<USER>"}"
+| table _time, actor.alternateId, client.ipAddress, client.geographicalContext.country`,
+        kql:    (v)=>`OktaSSO | where UserName =~ "${v||"<USER>"}" and EventType has "suspicious"
+| project TimeGenerated, UserName, SrcIpAddr, EventType, ResultDescription`,
+      },
+      app_grant: {
+        cs:     (v)=>`#event_simpleName=OktaAppGrant UserPrincipalName="${v||"<USER>"}" 
+| table _time, UserPrincipalName, AppName, GrantType, Scopes`,
+        splunk: (v)=>`index=okta sourcetype=okta eventType="app.oauth2.as.consent.grant" actor.alternateId="${v||"<USER>"}"
+| table _time, actor.alternateId, target{}.displayName, debugContext.debugData.scope`,
+        kql:    (v)=>`OktaSSO | where UserName =~ "${v||"<USER>"}" and EventType has "consent"
+| project TimeGenerated, UserName, EventType, SrcIpAddr`,
+      },
+    },
+
+    proofpoint: {
+      phish: {
+        cs:     (v)=>`// Proofpoint phish alert — check CrowdStrike for execution post-delivery
+event_simpleName IN (ProcessRollup2, NetworkConnectIP4, DnsRequest) UserName LIKE "${(v||"<RECIPIENT>").split("@")[0]}%"
+| where _time >= now()-7200
+| table _time, ComputerName, UserName, event_simpleName, ImageFileName, RemoteAddressIP4, DomainName`,
+        splunk: (v)=>`index=proofpoint sourcetype=proofpoint:tap (THREAT_TYPE=phish OR THREAT_TYPE=malware)
+  (sender="${v||"<SENDER>"}" OR recipient="${v||"<RECIPIENT>"}")
+| table _time, sender, recipient, subject, THREAT_TYPE, malicious_url, attachment_sha256, action`,
+        kql:    (v)=>`EmailEvents
+| where SenderMailFromAddress =~ "${v||"<SENDER>"}" or RecipientEmailAddress =~ "${v||"<RECIPIENT>"}"
+| where ThreatTypes has_any ("Phish","Malware")
+| project TimeGenerated, SenderMailFromAddress, RecipientEmailAddress, Subject, ThreatTypes, DeliveryAction`,
+        elastic:(v)=>`GET .ds-logs-proofpoint*/_search
+{ "query": {"bool": {"must": [{"term":{"email.to.address":"${v||"<RECIPIENT>"}"}},{"term":{"threat.indicator.type":"phishing"}}]}} }`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='Proofpoint'
+  AND (sender='${v||"<SENDER>"}' OR recipient='${v||"<RECIPIENT>"}')
+  AND THREAT_TYPE IS NOT NULL LAST 24 HOURS`,
+      },
+      url_click: {
+        cs:     (v)=>`// URGENT: User clicked malicious URL — investigate endpoint execution
+event_simpleName IN (NetworkConnectIP4, ProcessRollup2, DnsRequest)
+  UserName LIKE "${(v||"<RECIPIENT>").split("@")[0]}%"
+| where _time >= now()-1800
+| table _time, ComputerName, UserName, event_simpleName, ImageFileName, CommandLine, RemoteAddressIP4`,
+        splunk: (v)=>`// Step 1: Confirm the click event
+index=proofpoint sourcetype=proofpoint:tap event_type=click recipient="${v||"<RECIPIENT>"}"
+| table _time, recipient, url, threat_category, user_agent
+
+// Step 2: Check endpoint within 30min of click time
+// index=crowdstrike event_simpleName=NetworkConnectIP4 UserName="<USER>" | head 20`,
+        kql:    (v)=>`EmailUrlInfo
+| where RecipientEmailAddress =~ "${v||"<RECIPIENT>"}"
+| join kind=inner EmailEvents on NetworkMessageId
+| project TimeGenerated, RecipientEmailAddress, Url, ThreatTypes, NetworkMessageId, DeliveryAction`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='Proofpoint' AND event_type='click'
+  AND recipient='${v||"<RECIPIENT>"}' LAST 24 HOURS ORDER BY starttime DESC`,
+      },
+      malware: {
+        cs:     (v)=>`// Proofpoint malware attachment — look for hash execution on endpoint
+(SHA256HashData="${v||"<SHA256_HASH>"}" OR MD5HashData="${v||"<MD5_HASH>"}")
+| table _time, ComputerName, UserName, FileName, FilePath, CommandLine`,
+        splunk: (v)=>`index=proofpoint sourcetype=proofpoint:tap THREAT_TYPE=malware attachment_sha256="${v||"<SHA256_HASH>"}"
+| table _time, sender, recipient, subject, attachment_name, attachment_sha256, action`,
+        kql:    (v)=>`EmailAttachmentInfo
+| where SHA256 =~ "${v||"<SHA256_HASH>"}"
+| join kind=inner EmailEvents on NetworkMessageId
+| project TimeGenerated, SenderMailFromAddress, RecipientEmailAddress, FileName, SHA256, ThreatTypes`,
+      },
+      impostor: {
+        cs:     (v)=>`// BEC impostor — check for inbox rules and forwarding
+#event_simpleName=AADAudit OperationName IN ("New-InboxRule","Set-InboxRule","Set-Mailbox") UserPrincipalName="${v||"<TARGETED_USER>"}"
+| table _time, UserPrincipalName, OperationName, Parameters`,
+        splunk: (v)=>`index=proofpoint sourcetype=proofpoint:tap THREAT_TYPE=impostor (sender="${v||"<IMPERSONATED>"}" OR recipient="${v||"<RECIPIENT>"}")
+| table _time, sender, sender_display_name, recipient, subject, action`,
+        kql:    (v)=>`EmailEvents
+| where SenderDisplayName =~ "${v||"<IMPERSONATED_NAME>"}" and ThreatTypes has "Phish"
+| project TimeGenerated, SenderMailFromAddress, SenderDisplayName, RecipientEmailAddress, Subject`,
+      },
+    },
+
+    aws: {
+      iam_priv: {
+        cs:     (v)=>`// AWS IAM privilege event forwarded to CS NG-SIEM
+#event_simpleName=AWSCloudTrail EventName IN ("AttachUserPolicy","AttachRolePolicy","CreateUser","AddUserToGroup","PutUserPolicy","CreateAccessKey")
+  UserIdentityARN LIKE "%${v||"<USER_ARN>"}%"
+| table _time, UserIdentityARN, EventName, SourceIPAddress, AWSRegion, RequestParameters`,
+        splunk: (v)=>`index=aws sourcetype=aws:cloudtrail eventName IN ("AttachUserPolicy","AttachRolePolicy","CreateUser","AddUserToGroup","PutUserPolicy","CreateAccessKey")
+  userIdentity.arn="*${v||"<USER_ARN>"}*"
+| table _time, userIdentity.arn, eventName, sourceIPAddress, requestParameters`,
+        kql:    (v)=>`AWSCloudTrail
+| where EventName in ("AttachUserPolicy","CreateUser","AddUserToGroup","PutRolePolicy","CreateAccessKey")
+  and UserIdentityArn contains "${v||"<USER_ARN>"}" 
+| project TimeGenerated, UserIdentityArn, EventName, SourceIpAddress, RequestParameters`,
+        elastic:(v)=>`GET .ds-logs-aws*/_search
+{ "query": {"bool": {"must": [{"terms":{"event.action":["AttachUserPolicy","CreateUser","AddUserToGroup"]}},{"term":{"user.id":"${v||"<USER_ARN>"}"}}]}} }`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='AWSCloudTrail'
+  AND eventname IN ('AttachUserPolicy','CreateUser','AddUserToGroup','CreateAccessKey')
+  AND useridentityarn LIKE '%${v||"<USER_ARN>"}%' LAST 24 HOURS`,
+      },
+      root_usage: {
+        cs:     (v)=>`// AWS Root account activity — CRITICAL
+#event_simpleName=AWSCloudTrail UserIdentityType="Root"
+| table _time, EventName, SourceIPAddress, AWSRegion, UserAgent`,
+        splunk: (v)=>`index=aws sourcetype=aws:cloudtrail userIdentity.type=Root
+| table _time, eventName, sourceIPAddress, awsRegion, userAgent
+| sort - _time`,
+        kql:    (v)=>`AWSCloudTrail
+| where UserIdentityType == "Root"
+| project TimeGenerated, EventName, SourceIpAddress, AWSRegion, UserAgent
+| sort by TimeGenerated desc`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='AWSCloudTrail' AND useridentitytype='Root' LAST 24 HOURS`,
+      },
+      ct_tamper: {
+        cs:     (v)=>`#event_simpleName=AWSCloudTrail EventName IN ("StopLogging","DeleteTrail","UpdateTrail","PutEventSelectors","DeleteFlowLogs")
+| table _time, UserIdentityARN, EventName, AWSRegion, SourceIPAddress`,
+        splunk: (v)=>`index=aws sourcetype=aws:cloudtrail eventName IN ("StopLogging","DeleteTrail","UpdateTrail","PutEventSelectors")
+| table _time, userIdentity.arn, eventName, awsRegion, sourceIPAddress`,
+        kql:    (v)=>`AWSCloudTrail
+| where EventName in ("StopLogging","DeleteTrail","UpdateTrail","PutEventSelectors")
+| project TimeGenerated, UserIdentityArn, EventName, AWSRegion, SourceIpAddress`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='AWSCloudTrail'
+  AND eventname IN ('StopLogging','DeleteTrail','UpdateTrail') LAST 24 HOURS`,
+      },
+      s3_exposure: {
+        cs:     (v)=>`#event_simpleName=AWSCloudTrail EventName IN ("GetObject","PutBucketAcl","PutBucketPolicy")
+  RequestParameters LIKE "%${v||"<BUCKET_NAME>"}%"
+| stats count, values(UserIdentityARN) as actors by EventName, BucketName, SourceIPAddress
+| sort - count`,
+        splunk: (v)=>`index=aws sourcetype=aws:cloudtrail eventName IN ("GetObject","PutBucketAcl","PutBucketPolicy")
+  requestParameters.bucketName="${v||"<BUCKET_NAME>"}"
+| stats count by userIdentity.arn, eventName, sourceIPAddress
+| sort - count`,
+        kql:    (v)=>`AWSCloudTrail
+| where EventName in ("GetObject","PutBucketAcl","PutBucketPolicy")
+  and tostring(RequestParameters) contains "${v||"<BUCKET_NAME>"}"
+| summarize count() by UserIdentityArn, EventName, SourceIpAddress
+| sort by count_ desc`,
+      },
+      ec2_launch: {
+        cs:     (v)=>`#event_simpleName=AWSCloudTrail EventName IN ("RunInstances","CreateFunction","CreateContainer")
+  UserIdentityARN LIKE "%${v||"<USER_ARN>"}%"
+| table _time, UserIdentityARN, EventName, AWSRegion, RequestParameters`,
+        splunk: (v)=>`index=aws sourcetype=aws:cloudtrail eventName IN ("RunInstances","CreateFunction") userIdentity.arn="*${v||"<USER_ARN>"}*"
+| table _time, userIdentity.arn, eventName, awsRegion, requestParameters.instanceType`,
+        kql:    (v)=>`AWSCloudTrail
+| where EventName in ("RunInstances","CreateFunction")
+  and UserIdentityArn contains "${v||"<USER_ARN>"}"
+| project TimeGenerated, UserIdentityArn, EventName, AWSRegion, SourceIpAddress`,
+      },
+    },
+
+    sentinelone: {
+      threat_detect: {
+        cs:     (v)=>`// SentinelOne threat — correlate with CrowdStrike FDR telemetry
+event_simpleName IN (ProcessRollup2, FileCreated) ComputerName="${v||"<HOSTNAME>"}"
+| where SHA256HashData="${v||"<SHA256>"}" OR ImageFileName LIKE "%${v||"<PROCESS>"}%"
+| table _time, ComputerName, UserName, ImageFileName, SHA256HashData, CommandLine`,
+        splunk: (v)=>`index=sentinelone sourcetype=sentinelone:threat
+  (computerName="${v||"<HOSTNAME>"}" OR sha256="${v||"<SHA256>"}")
+| table _time, computerName, userName, threatName, filePath, sha256, mitigationStatus`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "SentinelOne" and DeviceEventClassID has "threat"
+| where Computer =~ "${v||"<HOSTNAME>"}" or FileHash =~ "${v||"<SHA256>"}"
+| project TimeGenerated, Computer, SourceUserName, Activity, FileHash, DeviceAction`,
+        elastic:(v)=>`GET .ds-logs-sentinel_one*/_search
+{ "query": {"bool": {"must": [{"term":{"host.hostname":"${v||"<HOSTNAME>"}"}},{"exists":{"field":"threat.indicator.name"}}]}} }`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='SentinelOne'
+  AND hostname='${v||"<HOSTNAME>"}' AND category='threat' LAST 24 HOURS`,
+      },
+      not_mitigated: {
+        cs:     (v)=>`// URGENT: SentinelOne NOT mitigated — check CrowdStrike for active execution
+event_simpleName=ProcessRollup2 ComputerName="${v||"<HOSTNAME>"}"
+| where _time >= now()-1800
+| table _time, ComputerName, UserName, ImageFileName, SHA256HashData, CommandLine, ParentBaseFileName`,
+        splunk: (v)=>`index=sentinelone sourcetype=sentinelone:threat mitigationStatus IN ("not_mitigated","pending_reboot")
+  computerName="${v||"<HOSTNAME>"}"
+| table _time, computerName, userName, threatName, filePath, mitigationStatus`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "SentinelOne"
+  and Activity has "not mitigated"
+| where Computer =~ "${v||"<HOSTNAME>"}"
+| project TimeGenerated, Computer, SourceUserName, Activity, FileHash`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='SentinelOne'
+  AND mitigationstatus IN ('not_mitigated','pending_reboot')
+  AND hostname='${v||"<HOSTNAME>"}' LAST 24 HOURS`,
+      },
+      ransomware: {
+        cs:     (v)=>`// SentinelOne ransomware — CrowdStrike scope + containment check
+event_simpleName IN (ProcessRollup2,FileCreated) ComputerName="${v||"<HOSTNAME>"}"
+| where CommandLine LIKE "%vssadmin%delete%" OR CommandLine LIKE "%shadowcopy%delete%"
+   OR TargetFileName LIKE "%.encrypted%"
+| table _time, ComputerName, UserName, CommandLine, TargetFileName`,
+        splunk: (v)=>`index=sentinelone sourcetype=sentinelone:threat threatClassification=Ransomware
+  computerName="${v||"<HOSTNAME>"}"
+| table _time, computerName, userName, threatName, filePath, sha256, mitigationStatus`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "SentinelOne"
+  and (ThreatDescription has "Ransomware" or Activity has "Ransomware")
+| where Computer =~ "${v||"<HOSTNAME>"}"
+| project TimeGenerated, Computer, SourceUserName, ThreatDescription, FileHash`,
+      },
+      network_c2: {
+        cs:     (v)=>`event_simpleName=NetworkConnectIP4 ComputerName="${v||"<HOSTNAME>"}"
+| where RemoteAddressIP4="${v||"<C2_IP>"}" OR RemotePort IN (4444,50050,8080,1337)
+| table _time, ComputerName, UserName, ImageFileName, RemoteAddressIP4, RemotePort`,
+        splunk: (v)=>`index=sentinelone sourcetype=sentinelone:threat networkInfo.destinationIp="${v||"<C2_IP>"}" computerName="${v||"<HOSTNAME>"}"
+| table _time, computerName, userName, threatName, networkInfo.destinationIp, networkInfo.destinationPort`,
+        kql:    (v)=>`DeviceNetworkEvents | where DeviceName =~ "${v||"<HOSTNAME>"}" and RemoteIP == "${v||"<C2_IP>"}" 
+| project TimeGenerated, DeviceName, AccountName, RemoteIP, RemotePort, InitiatingProcessFileName`,
+      },
+    },
+
+    paloalto: {
+      threat: {
+        cs:     (v)=>`// Palo Alto threat alert → pivot to endpoint
+event_simpleName=NetworkConnectIP4
+  (RemoteAddressIP4="${v||"<ATTACKER_IP>"}" OR LocalAddressIP4="${v||"<VICTIM_IP>"}")
+| table _time, ComputerName, UserName, ImageFileName, RemoteAddressIP4, RemotePort`,
+        splunk: (v)=>`index=paloalto sourcetype=pan:threat
+  (src="${v||"<SRC_IP>"}" OR dst="${v||"<DST_IP>"}")
+| table _time, src, dst, threat_name, severity, action, app, category`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "Palo Alto Networks" and DeviceEventClassID == "THREAT"
+| where SourceIP == "${v||"<SRC_IP>"}" or DestinationIP == "${v||"<DST_IP>"}"
+| project TimeGenerated, SourceIP, DestinationIP, Activity, ThreatDescription, DeviceAction`,
+        elastic:(v)=>`GET .ds-logs-panw*/_search
+{ "query": {"bool": {"must":[{"term":{"event.category":"threat"}}],"should":[{"term":{"source.ip":"${v||"<SRC_IP>"}"}},{"term":{"destination.ip":"${v||"<DST_IP>"}"}}}]}} }`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='PaloAltoNetworks' AND category='THREAT'
+  AND (sourceip='${v||"<SRC_IP>"}' OR destinationip='${v||"<DST_IP>"}')
+LAST 24 HOURS ORDER BY starttime DESC`,
+      },
+      c2: {
+        cs:     (v)=>`// CRITICAL: Palo Alto C2 detection — isolate endpoint and scope
+event_simpleName=NetworkConnectIP4
+  RemoteAddressIP4="${v||"<C2_IP>"}" 
+| stats count, values(ComputerName) as hosts by RemoteAddressIP4, RemotePort
+| sort - count
+// Then isolate: event_simpleName=NetworkContainRequest ComputerName="<HOST>"`,
+        splunk: (v)=>`index=paloalto sourcetype=pan:threat category="command-and-control"
+  src="${v||"<COMPROMISED_IP>"}"
+| table _time, src, dst, threat_name, threat_id, action, session_id`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "Palo Alto Networks"
+  and (ThreatDescription has "command-and-control" or ThreatDescription has "C2")
+| where SourceIP == "${v||"<SRC_IP>"}"
+| project TimeGenerated, SourceIP, DestinationIP, DestinationPort, ThreatDescription`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='PaloAltoNetworks'
+  AND category='command-and-control' AND sourceip='${v||"<SRC_IP>"}' LAST 24 HOURS`,
+      },
+      wildfire: {
+        cs:     (v)=>`// WildFire malicious verdict — find hash on endpoint
+(SHA256HashData="${v||"<SHA256>"}")
+| table _time, ComputerName, UserName, FileName, FilePath, CommandLine, SHA256HashData`,
+        splunk: (v)=>`index=paloalto sourcetype=pan:wildfire verdict=malicious
+  (sha256="${v||"<SHA256>"}" OR src="${v||"<SRC_IP>"}")
+| table _time, src, dst, sha256, filename, verdict, action`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "Palo Alto Networks" and DeviceEventClassID == "WildFire"
+  and FileHash =~ "${v||"<SHA256>"}"
+| project TimeGenerated, SourceIP, FileName, FileHash, Activity, DeviceAction`,
+      },
+      url_block: {
+        cs:     (v)=>`// Palo Alto URL block — find endpoint user and correlate
+event_simpleName=NetworkConnectIP4
+| where RemoteDomainName LIKE "%${v||"<DOMAIN>"}%"
+| table _time, ComputerName, UserName, ImageFileName, RemoteDomainName`,
+        splunk: (v)=>`index=paloalto sourcetype=pan:url action=block url="*${v||"<DOMAIN>"}*"
+| table _time, src, dst, url, category, action`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "Palo Alto Networks" and DeviceEventClassID == "URL"
+  and RequestURL contains "${v||"<DOMAIN>"}" and DeviceAction == "block"
+| project TimeGenerated, SourceIP, DestinationHostName, RequestURL, DeviceAction, SourceUserName`,
+      },
+    },
+
+    darktrace: {
+      model_breach: {
+        cs:     (v)=>`// Darktrace model breach — pivot to CrowdStrike for endpoint telemetry
+event_simpleName=ProcessRollup2 ComputerName="${v||"<HOSTNAME>"}"
+| where _time >= now()-3600
+| table _time, ComputerName, UserName, ImageFileName, CommandLine, SHA256HashData`,
+        splunk: (v)=>`index=darktrace sourcetype=darktrace:model_breach
+  (pbid="${v||"<PBID>"}" OR deviceHostname="${v||"<HOSTNAME>"}")
+| table _time, deviceHostname, modelName, score, category, description`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "Darktrace"
+  and Computer =~ "${v||"<HOSTNAME>"}"
+| project TimeGenerated, Computer, Activity, DeviceCustomFloatLabel1, DeviceCustomString1`,
+        elastic:(v)=>`GET .ds-logs-darktrace*/_search
+{ "query": {"bool": {"must": [{"term":{"host.hostname":"${v||"<HOSTNAME>"}"}},{"range":{"darktrace.breach.score":{"gte":0.7}}}]}} }`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='Darktrace'
+  AND hostname='${v||"<HOSTNAME>"}' AND score > 0.7 LAST 24 HOURS ORDER BY score DESC`,
+      },
+      beacon: {
+        cs:     (v)=>`event_simpleName=NetworkConnectIP4 ComputerName="${v||"<HOSTNAME>"}"
+| stats count, values(RemotePort) as ports by RemoteAddressIP4
+| where count > 10
+| sort - count`,
+        splunk: (v)=>`index=darktrace sourcetype=darktrace:model_breach modelName="*Beacon*"
+  (deviceHostname="${v||"<HOSTNAME>"}" OR ip="${v||"<IP>"}")
+| table _time, deviceHostname, modelName, score, destIP, destPort`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "Darktrace" and Activity has "Beacon"
+| where Computer =~ "${v||"<HOSTNAME>"}"
+| project TimeGenerated, Computer, DestinationIP, DestinationPort, DeviceCustomFloatLabel1`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='Darktrace' AND modelname LIKE '%Beacon%'
+  AND hostname='${v||"<HOSTNAME>"}' LAST 24 HOURS`,
+      },
+      lateral: {
+        cs:     (v)=>`event_simpleName=NetworkConnectIP4 LocalAddressIP4="${v||"<SRC_IP>"}"
+| where RemoteAddressIP4!="${v||"<SRC_IP>"}" AND RemotePort IN (445,135,3389,5985)
+| stats dc(RemoteAddressIP4) as unique_dests, values(RemoteAddressIP4) as dests by ComputerName
+| where unique_dests > 3`,
+        splunk: (v)=>`index=darktrace sourcetype=darktrace:model_breach modelName IN ("*Lateral*","*East West*")
+  deviceHostname="${v||"<HOSTNAME>"}"
+| table _time, deviceHostname, modelName, destIP, destPort, description`,
+        kql:    (v)=>`DeviceNetworkEvents | where DeviceName =~ "${v||"<HOSTNAME>"}" and RemotePort in (445,135,3389,5985)
+  and RemoteIPType == "Private"
+| summarize count() by RemoteIP, DeviceName, InitiatingProcessFileName
+| sort by count_ desc`,
+      },
+      ai_analyst: {
+        cs:     (v)=>`// Darktrace AI Analyst incident — pivot to endpoint for all involved hosts
+event_simpleName IN (ProcessRollup2, NetworkConnectIP4) ComputerName IN ("${v||"<HOST1>"}","${v||"<HOST2>"}")
+| where _time >= now()-7200
+| table _time, ComputerName, UserName, event_simpleName, ImageFileName, RemoteAddressIP4`,
+        splunk: (v)=>`index=darktrace sourcetype=darktrace:ai_analyst deviceHostname="${v||"<HOSTNAME>"}"
+| table _time, deviceHostname, currentGroup, breachDevices, description, score`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "Darktrace" and Activity has "AI Analyst"
+  and Computer =~ "${v||"<HOSTNAME>"}"
+| project TimeGenerated, Computer, Activity, AdditionalExtensions`,
+      },
+    },
+
+    suricata: {
+      malware_c2: {
+        cs:     (v)=>`// Suricata C2 alert — pivot to CrowdStrike for process responsible
+event_simpleName=NetworkConnectIP4
+  (RemoteAddressIP4="${v||"<DEST_IP>"}" OR LocalAddressIP4="${v||"<SRC_IP>"}")
+| table _time, ComputerName, UserName, ImageFileName, CommandLine, RemoteAddressIP4, RemotePort`,
+        splunk: (v)=>`index=suricata sourcetype=suricata
+  alert.category IN ("A Network Trojan was Detected","Malware Command and Control Activity Detected")
+  (src_ip="${v||"<SRC_IP>"}" OR dest_ip="${v||"<DEST_IP>"}")
+| table _time, src_ip, dest_ip, alert.signature, alert.severity, proto`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "suricata"
+  and (SourceIP == "${v||"<SRC_IP>"}" or DestinationIP == "${v||"<DEST_IP>"}")
+| where Activity has_any ("Trojan","C2","Malware")
+| project TimeGenerated, SourceIP, DestinationIP, Activity, Protocol`,
+        elastic:(v)=>`GET .ds-logs-suricata*/_search
+{ "query": {"bool": {"must":[{"term":{"event.kind":"alert"}}],"should":[{"term":{"source.ip":"${v||"<SRC_IP>"}"}},{"term":{"destination.ip":"${v||"<DEST_IP>"}"}]}}} }`,
+        qradar: (v)=>`SELECT sourceip, destinationip, category, count(*) FROM events WHERE DeviceType='Suricata'
+  AND (sourceip='${v||"<SRC_IP>"}' OR destinationip='${v||"<DEST_IP>"}')
+GROUP BY sourceip, destinationip, category LAST 24 HOURS`,
+      },
+      exploit: {
+        cs:     (v)=>`// Suricata exploit alert — check if target host was compromised
+event_simpleName IN (ProcessRollup2, NetworkConnectIP4) ComputerName="${v||"<TARGET_HOST>"}"
+| where _time >= now()-1800
+| table _time, ComputerName, UserName, ImageFileName, CommandLine, RemoteAddressIP4`,
+        splunk: (v)=>`index=suricata sourcetype=suricata
+  alert.category IN ("Attempted Administrator Privilege Gain","Web Application Attack")
+  src_ip="${v||"<ATTACKER_IP>"}"
+| table _time, src_ip, dest_ip, dest_port, alert.signature, alert.metadata.cve`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "suricata"
+  and Activity has_any ("exploit","privilege gain","web attack")
+| where SourceIP == "${v||"<ATTACKER_IP>"}"
+| project TimeGenerated, SourceIP, DestinationIP, DestinationPort, Activity`,
+        qradar: (v)=>`SELECT * FROM events WHERE DeviceType='Suricata'
+  AND category IN ('exploit','privilege_gain') AND sourceip='${v||"<ATTACKER_IP>"}' LAST 24 HOURS`,
+      },
+      scan: {
+        cs:     (v)=>`event_simpleName=NetworkConnectIP4 RemoteAddressIP4="${v||"<SCANNER_IP>"}"
+| stats dc(LocalPort) as ports_scanned, values(ComputerName) as targets by RemoteAddressIP4
+| sort - ports_scanned`,
+        splunk: (v)=>`index=suricata sourcetype=suricata alert.category="Information Leak"
+  src_ip="${v||"<SCANNER_IP>"}"
+| stats dc(dest_port) as ports_scanned, values(dest_ip) as targets by src_ip`,
+        kql:    (v)=>`DeviceNetworkEvents | where RemoteIP == "${v||"<SCANNER_IP>"}"
+| summarize PortsScanned=dcount(LocalPort), TargetHosts=dcount(DeviceName) by RemoteIP
+| sort by PortsScanned desc`,
+        qradar: (v)=>`SELECT sourceip, count(distinct destinationport) AS ports, count(distinct destinationip) AS hosts FROM events
+  WHERE DeviceType='Suricata' AND sourceip='${v||"<SCANNER_IP>"}'
+GROUP BY sourceip LAST 1 HOURS`,
+      },
+      policy: {
+        cs:     (v)=>`event_simpleName=NetworkConnectIP4
+  (RemoteAddressIP4="${v||"<IP>"}" OR RemotePort="${v||"<PORT>"}")
+| table _time, ComputerName, UserName, ImageFileName, RemoteAddressIP4, RemotePort`,
+        splunk: (v)=>`index=suricata sourcetype=suricata alert.category="Potential Corporate Privacy Violation"
+  src_ip="${v||"<SRC_IP>"}"
+| table _time, src_ip, dest_ip, dest_port, alert.signature, proto`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "suricata" and Activity has "Policy"
+  and SourceIP == "${v||"<SRC_IP>"}"
+| project TimeGenerated, SourceIP, DestinationIP, DestinationPort, Activity`,
+      },
+    },
+
+    siem_generic: {
+      correlation: {
+        cs:     (v)=>`// SIEM correlation alert — pivot to CrowdStrike NG-SIEM
+// Replace <HOSTNAME> and <USERNAME> with values from the SIEM alert
+event_simpleName IN (ProcessRollup2, NetworkConnectIP4, UserLogon) ComputerName="${v||"<HOSTNAME>"}"
+| where _time >= now()-3600
+| table _time, ComputerName, UserName, event_simpleName, ImageFileName, CommandLine, RemoteAddressIP4`,
+        splunk: (v)=>`// Investigate Splunk ES notable event
+index=notable ${v ? `rule_name="*${v}*"` : `rule_name="<RULE_NAME>"`}
+| table _time, rule_name, urgency, src, dest, user, orig_time
+
+// Pull contributing raw events
+// | eval key=_key | join key [search index=* tag=network]`,
+        kql:    (v)=>`SecurityAlert
+| where DisplayName contains "${v||"<RULE_NAME>"}"
+| extend Entities = parse_json(Entities)
+| mvexpand Entities
+| project TimeGenerated, DisplayName, AlertSeverity, tostring(Entities), Tactics, Status`,
+        elastic:(v)=>`GET .alerts-security*/_search
+{ "query": {"bool": {"must": [{"match":{"kibana.alert.rule.name":"${v||"<RULE_NAME>"}"}},{"term":{"kibana.alert.status":"active"}}]}} }`,
+        qradar: (v)=>`SELECT * FROM offenses WHERE description LIKE '%${v||"<RULE_NAME>"}%'
+LAST 7 DAYS ORDER BY magnitude DESC`,
+      },
+      offense: {
+        cs:     (v)=>`// QRadar high-magnitude offense → pivot to CrowdStrike
+// Extract source IPs from QRadar offense, then:
+event_simpleName IN (ProcessRollup2, NetworkConnectIP4, UserLogon)
+  (RemoteAddressIP4="${v||"<OFFENSE_SRC_IP>"}" OR ComputerName="${v||"<HOSTNAME>"}")
+| where _time >= now()-3600
+| table _time, ComputerName, UserName, event_simpleName, CommandLine, RemoteAddressIP4`,
+        splunk: (v)=>`// QRadar offense forwarded to Splunk
+index=qradar sourcetype=qradar:offense magnitude>7
+  (offenseSourceAddr="${v||"<SRC_IP>"}" OR offenseName="*${v||"<OFFENSE_NAME>"}*")
+| table _time, offenseId, offenseName, magnitude, offenseSourceAddr, offenseTargetAddr`,
+        kql:    (v)=>`CommonSecurityLog | where DeviceVendor == "IBM Security QRadar"
+  and SourceIP == "${v||"<SRC_IP>"}" 
+| project TimeGenerated, SourceIP, DestinationIP, Activity, Reason, DeviceCustomNumber1`,
+        qradar: (v)=>`SELECT o.id, o.description, o.magnitude, o.offense_source, o.event_count
+FROM offenses o WHERE o.magnitude > 7
+  AND (o.offense_source='${v||"<SRC_IP>"}' OR o.description LIKE '%${v||"<KEYWORD>"}%')
+LAST 7 DAYS ORDER BY magnitude DESC`,
+      },
+      notable: {
+        cs:     (v)=>`// Splunk ES Notable → pivot to CS NG-SIEM for endpoint detail
+event_simpleName IN (ProcessRollup2, NetworkConnectIP4) ComputerName="${v||"<HOSTNAME>"}"
+| where _time >= now()-3600
+| table _time, ComputerName, UserName, event_simpleName, ImageFileName, CommandLine`,
+        splunk: (v)=>`// Investigate Splunk ES notable and pull contributing events
+index=notable rule_name="${v||"<RULE_NAME>"}"
+| join type=outer src [search index=* earliest=-1h | rename src_ip as src]
+| table _time, rule_name, urgency, src, dest, user, event_type, count`,
+        kql:    (v)=>`SecurityAlert | where DisplayName =~ "${v||"<NOTABLE_NAME>"}"
+| project TimeGenerated, DisplayName, AlertSeverity, CompromisedEntity, Tactics, Entities
+| sort by TimeGenerated desc`,
+      },
+    },
+  };
+
+  // Populate alert-type dropdown when source changes
+  $("dqb-alert-source")?.addEventListener("change", () => {
+    const src    = $("dqb-alert-source")?.value;
+    const typeEl = $("dqb-alert-type");
+    const hint   = $("dqb-source-hint");
+    if (!typeEl) return;
+    if (!src) { typeEl.innerHTML = `<option value="">— Select alert source first —</option>`; typeEl.disabled = true; return; }
+    const srcDef = SOURCE_ALERT_TYPES[src];
+    if (!srcDef) return;
+    typeEl.disabled = false;
+    typeEl.innerHTML = srcDef.alertTypes.map(t => `<option value="${t.value}">${t.label}</option>`).join("");
+    if (hint && srcDef.alertTypes[0]) hint.innerHTML = `<strong>${esc(srcDef.alertTypes[0].label)}:</strong> ${esc(srcDef.alertTypes[0].hint)}`;
+  });
+  $("dqb-alert-type")?.addEventListener("change", () => {
+    const src  = $("dqb-alert-source")?.value;
+    const type = $("dqb-alert-type")?.value;
+    const hint = $("dqb-source-hint");
+    if (!hint || !src || !type) return;
+    const typeDef = SOURCE_ALERT_TYPES[src]?.alertTypes?.find(t => t.value === type);
+    if (typeDef) hint.innerHTML = `<strong>${esc(typeDef.label)}:</strong> ${esc(typeDef.hint)}`;
+  });
+
+  // Mode toggle — switch between IOC Pattern and Alert Source panels
+  document.querySelectorAll(".dqb-mode-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".dqb-mode-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const mode       = btn.dataset.mode;
+      const iocPanel   = $("dqb-ioc-mode");
+      const srcPanel   = $("dqb-source-mode");
+      const desc       = $("dqb-desc");
+      if (mode === "ioc") {
+        if (iocPanel) iocPanel.style.display = "";
+        if (srcPanel) srcPanel.style.display = "none";
+        if (desc) desc.textContent = "Generate ready-to-paste SIEM detection queries from IOCs or select a pre-built pattern.";
+      } else {
+        if (iocPanel) iocPanel.style.display = "none";
+        if (srcPanel) srcPanel.style.display = "";
+        if (desc) desc.textContent = "Got a Zscaler, Okta, Azure AD, Proofpoint or CrowdStrike alert? Select the source + alert type + your SIEM to get a targeted investigation query.";
+      }
+    });
+  });
+
+  // Override generate button to handle both modes
+  const _origBuildDQB = buildDQBQuery;
+  function buildDQBQueryFull() {
+    const activeMode = document.querySelector(".dqb-mode-btn.active")?.dataset?.mode || "ioc";
+    if (activeMode === "ioc") { _origBuildDQB(); return; }
+    const src  = $("dqb-alert-source")?.value;
+    const type = $("dqb-alert-type")?.value;
+    const siem = $("dqb-siem-platform")?.value || "cs";
+    const ioc  = $("dqb-src-ioc")?.value?.trim() || "";
+    const out  = $("dqb-output");
+    if (!src || !type || !out) { if (out) out.textContent = "← Select Alert Source and Alert Type first"; return; }
+    const srcQ   = SOURCE_QUERIES[src]?.[type];
+    if (!srcQ) { out.textContent = `// No template yet for ${src} → ${type}
+// Try the Hunt Queries library in CTI tab for related patterns`; return; }
+    const queryFn = srcQ[siem] || srcQ.splunk || srcQ.cs || Object.values(srcQ)[0];
+    if (!queryFn) { out.textContent = `// No query for this platform yet — try a different SIEM platform`; return; }
+    const srcDef  = SOURCE_ALERT_TYPES[src];
+    const typeDef = srcDef?.alertTypes?.find(t => t.value === type);
+    out.textContent = `// Source: ${srcDef?.label || src}  |  Alert: ${typeDef?.label || type}  |  SIEM: ${siem.toUpperCase()}
+// IOC: ${ioc || "(fill in <placeholders> before running)"}
+// Hint: ${typeDef?.hint || ""}
+// Generated: ${new Date().toLocaleString()}
+
+${queryFn(ioc)}`;
+  }
+  $("dqb-generate")?.removeEventListener("click", buildDQBQuery);
+  $("dqb-generate")?.addEventListener("click", buildDQBQueryFull);
+
+  // ════════════════════════════════════════════════════════════════
   // FEATURE 4 — THREAT HUNTING QUERY LIBRARY
   // ════════════════════════════════════════════════════════════════
   const HUNT_PACKS = [
