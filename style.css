@@ -48,7 +48,7 @@ body.light ::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.15); }
   overflow-y:auto; flex-shrink:0;
 }
 
-.brand { display:flex; align-items:center; gap:10px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+.brand { display:flex; flex-direction:column; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--border); }
 .brand .logo { font-size:28px; line-height:1; }
 .brand h2 { font-size:17px; font-weight:800; letter-spacing:0.5px; color:var(--accent); }
 .brand p { font-size:10px; color:var(--muted); margin-top:1px; }
