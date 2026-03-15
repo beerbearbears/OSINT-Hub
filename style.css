@@ -1619,3 +1619,10 @@ body.light .lt-vt-body { background: rgba(0,0,0,0.05); }
 .hunt-card-actions { display:flex; gap:6px; margin-top:8px; }
 .hunt-copy-btn { font-size:10px; padding:3px 10px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; }
 .hunt-copy-btn:hover { color:#38bdf8; border-color:rgba(56,189,248,0.4); }
+
+/* ── DQB Mode Toggle (Source-Aware) ──────────────────────── */
+.utils-card-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+.dqb-mode-toggle { display:flex; gap:3px; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:2px; }
+.dqb-mode-btn { padding:4px 12px; border-radius:6px; border:none; font-size:10px; font-weight:700; cursor:pointer; background:transparent; color:var(--muted); transition:all 0.15s; white-space:nowrap; }
+.dqb-mode-btn.active { background:var(--accent); color:#fff; }
+.dqb-mode-btn:not(.active):hover { color:var(--text); }
