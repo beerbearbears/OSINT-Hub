@@ -3492,13 +3492,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (type==="header") sections=["header","emailartifacts"];
     else if (type==="cve") sections=["cve","cveplus"];
     else if (type==="btc" || type==="eth") sections=[type,"btc","eth"];
+    else if (type==="domain") sections=["domain","cert"]; // show cert inspector alongside domain
     else sections=[type];
     showRelevantTools(sections);
     setLandingLinks(); showVerdict(type, q); showThreatScore(type, q); checkActorHints(type, q); suggestMitreTactics(type);
     if (type==="mitre"&&q) setHref("mitre-attack-link",`https://attack.mitre.org/techniques/${q.replace(".","/")}/`);
     else setHref("mitre-attack-link","https://attack.mitre.org/");
     if (type==="ip") { buildLinksForIP(q); const priv=(isValidIPv4(q)&&isPrivateIPv4(q))||(isValidIPv6(q)&&isPrivateIPv6(q)); if(!silent&&output) output.value=priv?`IP detected (PRIVATE): ${q}\nNote: external OSINT may not return results for private IPs.`:`IP detected: ${q}`; setStatus(`Status: detected IP → ${q}`); }
-    if (type==="domain") { buildLinksForDomain(q); if(!silent&&output) output.value=`Domain detected: ${q}`; setStatus(`Status: detected DOMAIN → ${q}`); }
+    if (type==="domain") { buildLinksForDomain(q); if(!silent&&output) output.value=`Domain detected: ${q}`; setStatus(`Status: detected DOMAIN → ${q}`); const certInp=$("cert-input"); if(certInp && !certInp.value) certInp.value=q; }
     if (type==="url") { buildLinksForURL(q); if(!silent&&output) output.value=`URL detected: ${q}`; setStatus(`Status: detected URL → ${q}`); }
     if (type==="hash") {
       const hashAlgo = q.length===32?"MD5 / NTLM":q.length===40?"SHA-1":q.length===64?"SHA-256":q.length===96?"SHA-384":q.length===128?"SHA-512":"Unknown";
@@ -5317,7 +5318,727 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ctiFeedStatus) ctiFeedStatus.textContent = `${loaded}/${CTI_FEEDS.length} live feeds loaded · ${new Date().toLocaleTimeString()}`;
   });
 
+  // ════════════════════════════════════════════════════════════════
+  // FEATURE 2 — EMAIL HEADER DEEP ANALYZER
+  // ════════════════════════════════════════════════════════════════
+  function analyzeEmailHeadersFull(raw) {
+    const t = (raw || "").replace(/\r\n/g, "\n");
+    const getH = re => (t.match(re) || [])[1]?.trim() || "";
+    // Basic fields
+    const from       = getH(/^from:\s*(.+)$/im);
+    const to         = getH(/^to:\s*(.+)$/im);
+    const replyTo    = getH(/^reply-to:\s*(.+)$/im);
+    const subject    = getH(/^subject:\s*(.+)$/im);
+    const date       = getH(/^date:\s*(.+)$/im);
+    const msgId      = getH(/^message-id:\s*<?([^>\n]+)>?/im);
+    const returnPath = getH(/^return-path:\s*<?([^>\s]+)>?/im);
+    const xOrigIP    = getH(/^x-originating-ip:\s*\[?([^\]\s\n]+)/im) ||
+                       getH(/^x-sender-ip:\s*([^\s\n]+)/im);
+    const xMailer    = getH(/^x-mailer:\s*(.+)$/im);
+    // Extract email addresses
+    const fromEmail  = (from.match(/\b([^@\s<"]+@[^@\s>"]+)\b/i)||[])[1]||"";
+    const fromName   = (from.match(/^"?([^"<]+)"?\s*</)||[])[1]?.trim()||"";
+    const replyEmail = (replyTo.match(/\b([^@\s<"]+@[^@\s>"]+)\b/i)||[])[1]||"";
+    const retDomain  = returnPath.split("@")[1]?.toLowerCase()||"";
+    const fromDomain = fromEmail.split("@")[1]?.toLowerCase()||"";
+    // Auth block
+    const authBlock = (() => {
+      const m = t.match(/^authentication-results:[\s\S]+?(?=\n[A-Za-z0-9-]{2,}:|$)/im);
+      return (m?.[0]||"").replace(/\n\s+/g," ");
+    })();
+    const spf  = (authBlock.match(/\bspf=(pass|fail|softfail|neutral|none|temperror|permerror)\b/i)||[])[1]?.toLowerCase()||"none";
+    const dkim = (authBlock.match(/\bdkim=(pass|fail|neutral|none|policy|temperror|permerror)\b/i)||[])[1]?.toLowerCase()||"none";
+    const dmarc= (authBlock.match(/\bdmarc=(pass|fail|bestguesspass|none)\b/i)||[])[1]?.toLowerCase()||"none";
+    // Received hops
+    const receivedBlocks = t.match(/^received:[\s\S]+?(?=\n[A-Za-z0-9-]{2,}:|$)/gim)||[];
+    const hops = receivedBlocks.map((block, idx) => {
+      const clean = block.replace(/\n\s+/g," ");
+      const by    = (clean.match(/by\s+([\w.\-]+)/i)||[])[1]||"";
+      const fr    = (clean.match(/from\s+([\w.\-\[\]]+)/i)||[])[1]||"";
+      const ipM   = clean.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/g)||[];
+      const ip    = ipM.find(i => !isPrivateIPv4(i))||ipM[0]||"";
+      const tsM   = clean.match(/;\s*([A-Za-z].*(?:GMT|UTC|[+-]\d{4}))\s*$/i);
+      const ts    = tsM ? new Date(tsM[1]) : null;
+      return { hop: receivedBlocks.length - idx, by, from: fr, ip, ts, raw: clean };
+    }).reverse();
+    // Calculate delays between hops
+    for (let i=1; i<hops.length; i++) {
+      if (hops[i].ts && hops[i-1].ts) {
+        const diff = (hops[i].ts - hops[i-1].ts) / 1000;
+        hops[i].delay = diff < 0 ? "?" : diff < 60 ? `${Math.round(diff)}s` : `${Math.round(diff/60)}m`;
+      }
+    }
+    // Phishing signal scoring
+    let score = 0;
+    const flags = [];
+    if (spf === "fail" || spf === "softfail")  { score += 25; flags.push({ sev:"crit", msg:`SPF ${spf.toUpperCase()} — sender not authorized by domain's DNS policy` }); }
+    if (dkim === "fail")                       { score += 20; flags.push({ sev:"crit", msg:"DKIM FAIL — message was modified in transit or sender domain is spoofed" }); }
+    if (dmarc === "fail")                      { score += 20; flags.push({ sev:"crit", msg:"DMARC FAIL — email fails domain alignment check, strong phishing indicator" }); }
+    if (replyEmail && replyEmail !== fromEmail) { score += 20; flags.push({ sev:"warn", msg:`Reply-To mismatch: From is ${fromEmail} but replies go to ${replyEmail}` }); }
+    if (fromName && fromDomain && !fromEmail.toLowerCase().includes(fromName.toLowerCase().split(" ")[0]) && fromDomain.includes("gmail") || fromDomain.includes("yahoo") || fromDomain.includes("hotmail")) {
+      score += 10; flags.push({ sev:"warn", msg:`Free email provider (${fromDomain}) used — possible impersonation` });
+    }
+    if (retDomain && fromDomain && retDomain !== fromDomain) { score += 15; flags.push({ sev:"warn", msg:`Return-Path domain (${retDomain}) differs from From domain (${fromDomain})` }); }
+    if (xOrigIP)                               { score += 5;  flags.push({ sev:"info", msg:`X-Originating-IP: ${xOrigIP} — the sender's actual client IP` }); }
+    if (hops.length <= 1)                      { score += 10; flags.push({ sev:"warn", msg:"Very few relay hops — headers may be forged or truncated" }); }
+    if (!subject)                              { flags.push({ sev:"info", msg:"No subject line detected" }); }
+    if (score === 0 && spf === "pass" && dkim === "pass") { flags.push({ sev:"ok", msg:"SPF + DKIM pass with no mismatches — email appears legitimate" }); }
+    return { from, to, replyTo, subject, date, msgId, returnPath, xOrigIP, xMailer,
+             fromEmail, fromName, fromDomain, replyEmail, retDomain,
+             spf, dkim, dmarc, hops, flags, score };
+  }
+
+  function renderEmailHeaderResults(r) {
+    const results = $("eha-results");
+    if (!results) return;
+    results.style.display = "block";
+    // Score banner
+    const banner = $("eha-score-banner");
+    const pct = Math.min(100, r.score);
+    const cls  = pct >= 50 ? "eha-score-phishing" : pct >= 25 ? "eha-score-suspicious" : "eha-score-clean";
+    const lbl  = pct >= 50 ? "LIKELY PHISHING" : pct >= 25 ? "SUSPICIOUS" : "APPEARS CLEAN";
+    banner.className = `eha-score-banner ${cls}`;
+    banner.innerHTML = `<div class="eha-score-num">${pct}</div><div><div class="eha-score-label">${lbl}</div><div class="eha-score-sub">Phishing risk score — ${r.flags.length} signal(s) detected</div></div>`;
+    // Summary grid
+    const summaryItems = [
+      { label:"From",        value: r.fromEmail || r.from || "—" },
+      { label:"Reply-To",    value: r.replyEmail || "Same as From" },
+      { label:"Subject",     value: r.subject || "—" },
+      { label:"Date",        value: r.date || "—" },
+      { label:"Return-Path", value: r.returnPath || "—" },
+      { label:"X-Orig IP",   value: r.xOrigIP || "Not present" },
+      { label:"Mailer",      value: r.xMailer || "Not disclosed" },
+      { label:"Relay Hops",  value: r.hops.length + " hops" },
+    ];
+    $("eha-summary").innerHTML = summaryItems.map(s =>
+      `<div class="eha-summary-item"><div class="eha-summary-label">${s.label}</div><div class="eha-summary-value">${esc(String(s.value))}</div></div>`
+    ).join("");
+    // Auth badges
+    const authMap = { pass:"eha-auth-pass", fail:"eha-auth-fail", softfail:"eha-auth-fail", none:"eha-auth-none", neutral:"eha-auth-none" };
+    $("eha-auth").innerHTML = ["SPF","DKIM","DMARC"].map((k,i) => {
+      const v = [r.spf, r.dkim, r.dmarc][i];
+      const cls = authMap[v] || "eha-auth-none";
+      return `<span class="eha-auth-badge ${cls}">${k}: ${(v||"none").toUpperCase()}</span>`;
+    }).join("");
+    // Hop chain
+    const hopsEl = $("eha-hops");
+    if (r.hops.length) {
+      hopsEl.innerHTML = `<div class="eha-hop-row eha-hop-head"><span>#</span><span>From / By</span><span>IP</span><span>Delay</span><span>Flag</span></div>` +
+        r.hops.map(h => `<div class="eha-hop-row">
+          <div class="eha-hop-num">${h.hop}</div>
+          <div class="eha-hop-host">${esc(h.by || h.from || "?")} </div>
+          <div class="eha-hop-ip">${h.ip ? `<a href="https://www.abuseipdb.com/check/${encodeURIComponent(h.ip)}" target="_blank" style="color:#38bdf8;text-decoration:none;">${esc(h.ip)}</a>` : "—"}</div>
+          <div class="eha-hop-delay">${h.delay || "—"}</div>
+          <div class="eha-hop-flag">${h.ip && !isPrivateIPv4(h.ip) ? "🌐" : "🏠"}</div>
+        </div>`).join("");
+    } else {
+      hopsEl.innerHTML = `<div style="padding:12px;font-size:11px;color:var(--muted);">No Received headers found — headers may be incomplete or forged.</div>`;
+    }
+    // Flags
+    $("eha-flags").innerHTML = r.flags.map(f => {
+      const cls = f.sev==="crit" ? "eha-flag-crit" : f.sev==="warn" ? "eha-flag-warn" : "eha-flag-info";
+      const icon = f.sev==="crit" ? "🚨" : f.sev==="warn" ? "⚠️" : f.sev==="ok" ? "✅" : "ℹ️";
+      return `<div class="eha-flag-item ${cls}">${icon} ${esc(f.msg)}</div>`;
+    }).join("") || `<div class="eha-flag-item eha-flag-info">✅ No obvious phishing signals detected</div>`;
+    // Pivot buttons
+    const pivots = [];
+    if (r.fromEmail)  pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.fromEmail)}','email')">🔍 Investigate sender</button>`);
+    if (r.xOrigIP)    pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.xOrigIP)}','ip')">🛡 Check origin IP</button>`);
+    if (r.replyEmail && r.replyEmail !== r.fromEmail) pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.replyEmail)}','email')">📧 Check reply-to</button>`);
+    pivots.push(`<button class="eha-pivot-btn" onclick="copyEHAHops()">📋 Copy hop IPs</button>`);
+    $("eha-pivots").innerHTML = pivots.join("");
+    // Store for pivot use
+    window._ehaResult = r;
+  }
+
+  window.pivotFromEHA = (val, type) => {
+    const inp = $("input"); if (inp) inp.value = val;
+    syncSearchboxState(); switchTab("single"); doSearch({ silent: false });
+  };
+  window.copyEHAHops = () => {
+    const ips = (window._ehaResult?.hops||[]).map(h=>h.ip).filter(Boolean).join("\n");
+    navigator.clipboard.writeText(ips).catch(()=>{});
+  };
+
+  $("eha-analyze-btn")?.addEventListener("click", () => {
+    const raw = $("eha-input")?.value?.trim();
+    if (!raw) return;
+    const r = analyzeEmailHeadersFull(raw);
+    renderEmailHeaderResults(r);
+  });
+  $("eha-clear-btn")?.addEventListener("click", () => {
+    if ($("eha-input")) $("eha-input").value = "";
+    const res = $("eha-results"); if (res) res.style.display = "none";
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // FEATURE 3 — DETECTION QUERY BUILDER
+  // ════════════════════════════════════════════════════════════════
+  const DQB_QUERIES = {
+    splunk: {
+      ip:           (v) => v ? `index=* (src_ip="${v}" OR dest_ip="${v}" OR src="${v}" OR dst="${v}")\n| table _time, src_ip, dest_ip, action, app, host` : `index=* src_ip=<IOC_IP>\n| table _time, src_ip, dest_ip, action`,
+      domain:       (v) => v ? `index=* (url="*${v}*" OR dns_query="${v}" OR host="${v}")\n| table _time, host, url, dns_query, user` : `index=* url="*<DOMAIN>*"\n| table _time, host, url, user`,
+      hash:         (v) => v ? `index=* (file_hash="${v}" OR sha256="${v}" OR md5="${v}")\n| table _time, host, user, file_path, process` : `index=* file_hash="<HASH>"\n| table _time, host, file_path, process`,
+      url:          (v) => v ? `index=* url="${v}"\n| table _time, host, user, url, action` : `index=* url="<URL>"\n| table _time, host, user, url`,
+      email:        (v) => v ? `index=* (sender="${v}" OR recipient="${v}" OR from="${v}")\n| table _time, sender, recipient, subject, action` : `index=* sender="<EMAIL>"\n| table _time, sender, recipient, subject`,
+      cmdline:      (v) => v ? `index=* CommandLine="*${v}*"\n| table _time, host, user, ParentImage, CommandLine` : `index=* (CommandLine="*-enc*" OR CommandLine="*IEX*" OR CommandLine="*DownloadString*")\n| table _time, host, user, CommandLine`,
+      process:      (v) => v ? `index=* (Image="*${v}*" OR process_name="${v}")\n| table _time, host, user, Image, CommandLine, ParentImage` : `index=* Image="*<PROCESS>*"\n| table _time, host, user, Image`,
+      encoded_ps:   () => `index=* source="WinEventLog:Microsoft-Windows-PowerShell/Operational"\n  (CommandLine="*-enc*" OR CommandLine="*-EncodedCommand*" OR CommandLine="*FromBase64String*")\n| rex field=CommandLine "(?i)-enc(?:odedcommand)?\\s+(?P<b64>[A-Za-z0-9+/=]+)"\n| table _time, host, user, CommandLine, b64`,
+      failed_login: () => `index=* EventCode=4625\n| stats count by src_ip, user, host\n| where count > 5\n| sort - count`,
+      new_account:  () => `index=* EventCode=4720\n| table _time, host, user, SAMAccountName, SubjectUserName`,
+      sched_task:   () => `index=* (EventCode=4698 OR TaskName="*")\n| table _time, host, user, TaskName, CommandLine`,
+      lateral:      () => `index=* (EventCode=4624 Logon_Type=3 OR EventCode=4648)\n| where src_ip!=dest_ip\n| stats count by src_ip, dest_ip, user\n| where count > 3`,
+      c2_port:      () => `index=* (dest_port=4444 OR dest_port=50050 OR dest_port=8080 OR dest_port=1337 OR dest_port=9001)\n| table _time, src_ip, dest_ip, dest_port, process`,
+      lolbin:       () => `index=* (Image="*mshta.exe*" OR Image="*regsvr32.exe*" OR Image="*rundll32.exe*" OR Image="*wscript.exe*" OR Image="*cscript.exe*" OR Image="*certutil.exe*")\n| where NOT match(ParentImage, "(?i)(windows\\\\system32|syswow64)\\\\(svchost|services|wininit)\\.exe")\n| table _time, host, user, Image, CommandLine, ParentImage`,
+      large_upload: () => `index=* bytes_out > 10000000\n| stats sum(bytes_out) as total_bytes by src_ip, dest_ip\n| sort - total_bytes\n| eval total_MB=round(total_bytes/1048576, 2)`,
+    },
+    kql: {
+      ip:           (v) => v ? `union DeviceNetworkEvents, CommonSecurityLog\n| where RemoteIP == "${v}" or SourceIP == "${v}" or DestinationIP == "${v}"\n| project TimeGenerated, DeviceName, RemoteIP, RemotePort, Protocol, InitiatingProcessFileName` : `DeviceNetworkEvents\n| where RemoteIP == "<IOC_IP>"\n| project TimeGenerated, DeviceName, RemoteIP, RemotePort, InitiatingProcessFileName`,
+      domain:       (v) => v ? `union DeviceNetworkEvents, DnsEvents\n| where RemoteUrl contains "${v}" or Name contains "${v}"\n| project TimeGenerated, DeviceName, RemoteUrl, Name, IPAddresses` : `DnsEvents\n| where Name contains "<DOMAIN>"\n| project TimeGenerated, Computer, Name, IPAddresses`,
+      hash:         (v) => v ? `DeviceFileEvents\n| where SHA256 == "${v}" or MD5 == "${v}"\n| project TimeGenerated, DeviceName, FileName, FolderPath, InitiatingProcessAccountName` : `DeviceFileEvents\n| where SHA256 == "<HASH>"\n| project TimeGenerated, DeviceName, FileName, FolderPath`,
+      encoded_ps:   () => `DeviceProcessEvents\n| where ProcessCommandLine matches regex @"(?i)(-enc|-EncodedCommand)"\n| extend B64 = extract(@"(?i)-enc(?:odedCommand)?\\s+([A-Za-z0-9+/=]+)", 1, ProcessCommandLine)\n| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine, B64`,
+      failed_login: () => `SigninLogs\n| where ResultType !in ("0", "50125", "50140")\n| summarize FailedAttempts=count() by UserPrincipalName, IPAddress, bin(TimeGenerated, 1h)\n| where FailedAttempts > 5\n| sort by FailedAttempts desc`,
+      lateral:      () => `DeviceLogonEvents\n| where LogonType in ("Network", "RemoteInteractive")\n| where IsLocalLogon == false\n| summarize count() by RemoteDeviceName, AccountName, DeviceName\n| sort by count_ desc`,
+      c2_port:      () => `DeviceNetworkEvents\n| where RemotePort in (4444, 50050, 8080, 1337, 9001)\n| project TimeGenerated, DeviceName, InitiatingProcessFileName, RemoteIP, RemotePort`,
+      lolbin:       () => `DeviceProcessEvents\n| where FileName in~ ("mshta.exe","regsvr32.exe","rundll32.exe","wscript.exe","cscript.exe","certutil.exe")\n| where InitiatingProcessFileName !in~ ("svchost.exe","services.exe","wininit.exe")\n| project TimeGenerated, DeviceName, AccountName, FileName, ProcessCommandLine, InitiatingProcessFileName`,
+    },
+    elastic: {
+      ip:           (v) => v ? `GET .ds-logs-*/_search\n{\n  "query": {\n    "bool": {\n      "should": [\n        {"term": {"source.ip": "${v}"}},\n        {"term": {"destination.ip": "${v}"}}\n      ]\n    }\n  }\n}` : `GET .ds-logs-*/_search\n{\n  "query": {"term": {"source.ip": "<IOC_IP>"}}\n}`,
+      hash:         (v) => v ? `GET .ds-logs-*/_search\n{\n  "query": {\n    "bool": {\n      "should": [\n        {"term": {"file.hash.sha256": "${v}"}},\n        {"term": {"file.hash.md5": "${v}"}}\n      ]\n    }\n  }\n}` : `GET .ds-logs-*/_search\n{\n  "query": {"term": {"file.hash.sha256": "<HASH>"}}\n}`,
+      encoded_ps:   () => `GET .ds-logs-*/_search\n{\n  "query": {\n    "wildcard": {\n      "process.command_line": "*-EncodedCommand*"\n    }\n  }\n}`,
+      failed_login: () => `GET .ds-logs-*/_search\n{\n  "query": {\n    "bool": {\n      "must": [\n        {"term": {"event.action": "logon-failed"}},\n        {"range": {"@timestamp": {"gte": "now-1h"}}}\n      ]\n    }\n  },\n  "aggs": {\n    "by_user": {"terms": {"field": "user.name"}},\n    "by_ip": {"terms": {"field": "source.ip"}}\n  }\n}`,
+    },
+    qradar: {
+      ip:           (v) => v ? `SELECT * FROM events WHERE sourceip='${v}' OR destinationip='${v}' LAST 24 HOURS` : `SELECT * FROM events WHERE sourceip='<IOC_IP>' LAST 24 HOURS`,
+      hash:         (v) => v ? `SELECT * FROM events WHERE "filehash"='${v}' LAST 24 HOURS` : `SELECT * FROM events WHERE "filehash"='<HASH>' LAST 24 HOURS`,
+      encoded_ps:   () => `SELECT * FROM events WHERE "CommandLine" ILIKE '%-enc%' OR "CommandLine" ILIKE '%-EncodedCommand%' LAST 24 HOURS`,
+      failed_login: () => `SELECT sourceip, username, count(*) AS attempts FROM events\nWHERE eventid=4625 GROUP BY sourceip, username\nHAVING count(*) > 5 LAST 1 HOURS`,
+      lateral:      () => `SELECT sourceip, destinationip, username, count(*) FROM events\nWHERE eventid=4624 AND "LogonType"='3' GROUP BY sourceip, destinationip, username LAST 1 HOURS`,
+    },
+    cs: {
+      ip:           (v) => v ? `event_simpleName=NetworkConnectIP4 (RemoteAddressIP4="${v}" OR LocalAddressIP4="${v}")\n| table _time, ComputerName, UserName, RemoteAddressIP4, RemotePort, FileName` : `event_simpleName=NetworkConnectIP4 RemoteAddressIP4="<IOC_IP>"\n| table _time, ComputerName, UserName, RemoteAddressIP4`,
+      hash:         (v) => v ? `(MD5HashData="${v}" OR SHA256HashData="${v}")\n| table _time, ComputerName, UserName, FileName, FilePath, CommandLine` : `SHA256HashData="<HASH>"\n| table _time, ComputerName, UserName, FileName, FilePath`,
+      encoded_ps:   () => `event_simpleName=ProcessRollup2 (CommandLine="*-enc *" OR CommandLine="*-EncodedCommand *" OR CommandLine="*FromBase64String*")\n| table _time, ComputerName, UserName, CommandLine, ParentBaseFileName`,
+      failed_login: () => `event_simpleName=UserLogon\n| stats count by UserName, RemoteAddressIP4\n| where count > 5\n| sort - count`,
+      lolbin:       () => `event_simpleName=ProcessRollup2 ImageFileName IN ("mshta.exe","regsvr32.exe","rundll32.exe","wscript.exe","cscript.exe")\n| table _time, ComputerName, UserName, ImageFileName, CommandLine, ParentBaseFileName`,
+    },
+  };
+
+  function buildDQBQuery() {
+    const platform = $("dqb-platform")?.value || "splunk";
+    const pattern  = $("dqb-pattern")?.value || "ip";
+    const rawVals  = ($("dqb-ioc-input")?.value||"").trim().split("\n").map(v=>v.trim()).filter(Boolean);
+    const val      = rawVals[0] || "";
+    const platformQ = DQB_QUERIES[platform] || DQB_QUERIES.splunk;
+    const genFn    = platformQ[pattern] || platformQ.ip;
+    let query;
+    if (rawVals.length > 1 && ["ip","domain","hash","email","url","process"].includes(pattern)) {
+      // Multi-value: build OR'd query
+      if (platform === "splunk") {
+        const orPart = rawVals.map(v => `"${v}"`).join(" OR ");
+        query = `index=* (${orPart})\n| table _time, host, user, src_ip, dest_ip, process, CommandLine`;
+      } else if (platform === "kql") {
+        const field = pattern === "ip" ? "RemoteIP" : pattern === "hash" ? "SHA256" : "RemoteUrl";
+        query = `DeviceNetworkEvents\n| where ${field} in (${rawVals.map(v=>`"${v}"`).join(", ")})\n| project TimeGenerated, DeviceName, AccountName, ${field}`;
+      } else {
+        query = genFn(val) + `\n// Remaining IOCs: ${rawVals.slice(1).join(", ")}`;
+      }
+    } else {
+      query = genFn(val);
+    }
+    const out = $("dqb-output");
+    if (out) out.textContent = `// Platform: ${platform.toUpperCase()} | Pattern: ${pattern.replace(/_/g," ")}\n// Generated: ${new Date().toLocaleString()}\n\n${query}`;
+  }
+
+  $("dqb-generate")?.addEventListener("click", buildDQBQuery);
+  $("dqb-copy")?.addEventListener("click", async () => {
+    const txt = $("dqb-output")?.textContent || "";
+    try { await navigator.clipboard.writeText(txt); } catch {}
+  });
+  $("dqb-test-toggle")?.addEventListener("click", () => {
+    const p = $("dqb-test-panel");
+    if (p) p.style.display = p.style.display === "none" ? "block" : "none";
+  });
+  $("dqb-test-run")?.addEventListener("click", () => {
+    const logLine = $("dqb-test-input")?.value?.trim() || "";
+    const query   = $("dqb-output")?.textContent || "";
+    const resultEl = $("dqb-test-result");
+    if (!logLine || !resultEl) return;
+    // Extract quoted strings from query and check if any appear in log line
+    const terms = [...(query.matchAll(/"([^"]+)"/g))].map(m => m[1]).filter(t => t.length > 2 && !t.includes("\\n"));
+    const hit = terms.some(t => logLine.toLowerCase().includes(t.toLowerCase()));
+    resultEl.textContent = hit ? "✅ MATCH — log line would be captured" : "❌ NO MATCH";
+    resultEl.className = hit ? "dqb-match" : "dqb-no-match";
+    resultEl.style.border = "1px solid";
+    resultEl.style.borderRadius = "6px";
+    resultEl.style.padding = "3px 10px";
+    resultEl.style.fontWeight = "700";
+    resultEl.style.fontSize = "11px";
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // FEATURE 4 — THREAT HUNTING QUERY LIBRARY
+  // ════════════════════════════════════════════════════════════════
+  const HUNT_PACKS = [
+    { title:"PowerShell Encoded Command Execution", mitre:"T1059.001", cat:"execution",       desc:"Detect PowerShell launched with Base64-encoded commands — common in phishing payloads and malware loaders.",
+      queries:{ splunk:`index=* source="WinEventLog:Microsoft-Windows-PowerShell/Operational"\n  (CommandLine="*-enc*" OR CommandLine="*-EncodedCommand*" OR CommandLine="*FromBase64String*")\n| rex field=CommandLine "(?i)-enc\\s+(?P<b64>[A-Za-z0-9+/=]{20,})"\n| table _time, host, user, CommandLine, b64`, kql:`DeviceProcessEvents | where ProcessCommandLine matches regex @"(?i)(-enc |-EncodedCommand )" | project TimeGenerated, DeviceName, AccountName, ProcessCommandLine`, cs:`event_simpleName=ProcessRollup2 FileName="powershell.exe" CommandLine="*-enc *"\n| table _time, ComputerName, UserName, CommandLine` }},
+    { title:"LOLBin Spawned by Office Application", mitre:"T1566.001", cat:"initial_access",  desc:"Detect Office apps (Word, Excel, Outlook) spawning cmd.exe, powershell, mshta or wscript — hallmark of malicious macro execution.",
+      queries:{ splunk:`index=* ParentImage IN ("*winword.exe*","*excel.exe*","*outlook.exe*","*powerpnt.exe*") FileName IN ("cmd.exe","powershell.exe","wscript.exe","mshta.exe","rundll32.exe")\n| table _time, host, user, ParentImage, Image, CommandLine`, kql:`DeviceProcessEvents | where InitiatingProcessFileName has_any ("WINWORD.EXE","EXCEL.EXE","OUTLOOK.EXE") and FileName in~ ("cmd.exe","powershell.exe","wscript.exe","mshta.exe") | project TimeGenerated, DeviceName, AccountName, InitiatingProcessFileName, FileName, ProcessCommandLine`, cs:`event_simpleName=ProcessRollup2 ParentBaseFileName IN ("WINWORD.EXE","EXCEL.EXE","OUTLOOK.EXE") ImageFileName IN ("cmd.exe","powershell.exe","wscript.exe")\n| table _time, ComputerName, UserName, ParentBaseFileName, ImageFileName, CommandLine` }},
+    { title:"LSASS Memory Access (Credential Dumping)", mitre:"T1003.001", cat:"credential",   desc:"Detect processes accessing lsass.exe memory — used by Mimikatz, procdump, and comsvcs.dll for credential extraction.",
+      queries:{ splunk:`index=* (TargetImage="*lsass.exe*" OR CommandLine="*lsass*") (GrantedAccess="0x1010" OR GrantedAccess="0x1fffff" OR GrantedAccess="0x1410")\n| table _time, host, user, SourceImage, TargetImage, GrantedAccess`, kql:`DeviceEvents | where ActionType == "OpenProcess" and TargetProcessFileName =~ "lsass.exe" and ProcessCommandLine !has_any ("MsMpEng","svchost") | project TimeGenerated, DeviceName, AccountName, InitiatingProcessFileName, ProcessCommandLine`, cs:`event_simpleName=ProcessAccess TargetImageFileName="*lsass.exe*"\n| where GrantedAccess IN ("0x1010","0x1fffff","0x1410")\n| table _time, ComputerName, UserName, SourceImageFileName, GrantedAccess` }},
+    { title:"Scheduled Task Creation via Command Line", mitre:"T1053.005", cat:"persistence",  desc:"Detect scheduled task creation using schtasks.exe — common persistence mechanism used by malware and attackers.",
+      queries:{ splunk:`index=* (Image="*schtasks.exe*" OR CommandLine="*schtasks*") CommandLine="*/create*"\n| table _time, host, user, CommandLine, ParentImage`, kql:`DeviceProcessEvents | where FileName =~ "schtasks.exe" and ProcessCommandLine has "/create" | project TimeGenerated, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName`, cs:`event_simpleName=ProcessRollup2 ImageFileName="schtasks.exe" CommandLine="*/create*"\n| table _time, ComputerName, UserName, CommandLine, ParentBaseFileName` }},
+    { title:"New Local Admin Account Created", mitre:"T1136.001", cat:"persistence",           desc:"Detect creation of new local accounts followed by addition to Administrators group — post-exploitation backdoor tactic.",
+      queries:{ splunk:`index=* EventCode IN (4720,4732)\n| eval event_type=if(EventCode==4720,"Account Created","Added to Admins")\n| table _time, host, user, SAMAccountName, SubjectUserName, event_type`, kql:`SecurityEvent | where EventID in (4720, 4732) | project TimeGenerated, Computer, SubjectUserName, TargetUserName, Activity`, cs:`event_simpleName=UserAccountCreated OR event_simpleName=UserAccountAddedToGroup\n| table _time, ComputerName, UserName, GroupRid` }},
+    { title:"Impossible Travel / Concurrent Logins", mitre:"T1078.004", cat:"identity",        desc:"Detect successful logins from two different countries within a short window — strong indicator of credential compromise.",
+      queries:{ splunk:`index=* EventCode=4624 Logon_Type=3\n| eval hour=strftime(_time,"%Y-%m-%d %H")\n| stats values(src_ip) as ips, values(Country) as countries, count by user, hour\n| where mvcount(countries) > 1`, kql:`SigninLogs | where ResultType == "0" | summarize Locations=make_set(Location), IPs=make_set(IPAddress) by UserPrincipalName, bin(TimeGenerated, 1h) | where array_length(Locations) > 1`, cs:`event_simpleName=UserLogon\n| stats dc(RemoteAddressIP4) as unique_ips, values(RemoteAddressIP4) as ips by UserName\n| where unique_ips > 2` }},
+    { title:"MFA Fatigue / Push Spam Detection", mitre:"T1621", cat:"identity",                desc:"Detect accounts receiving excessive MFA push requests — Scattered Spider and others use this to wear down users.",
+      queries:{ splunk:`index=* sourcetype=okta (eventType="user.mfa.okta_verify.deny_push" OR eventType="user.mfa.challenge")\n| stats count by user, src_ip, _time\n| where count > 5`, kql:`SigninLogs | where AuthenticationRequirement == "multiFactorAuthentication" and ResultType != "0" | summarize PushCount=count() by UserPrincipalName, bin(TimeGenerated, 1h) | where PushCount > 5`, cs:`event_simpleName=UserLogon AuthenticationMethod="MFA" AuthenticationResult="Denied"\n| stats count by UserName\n| where count > 5` }},
+    { title:"Lateral Movement via RDP (T1021.001)", mitre:"T1021.001", cat:"lateral",           desc:"Detect RDP logins from internal hosts — lateral movement indicator, especially with admin shares or pass-the-hash.",
+      queries:{ splunk:`index=* EventCode=4624 Logon_Type=10\n| where src_ip!=host\n| stats count by src_ip, host, user\n| where count > 2\n| sort - count`, kql:`DeviceLogonEvents | where LogonType == "RemoteInteractive" and IsLocalLogon == false | summarize count() by RemoteDeviceName, DeviceName, AccountName | sort by count_ desc`, cs:`event_simpleName=UserLogon LogonType="10"\n| stats count by UserName, LocalAddressIP4, RemoteAddressIP4\n| sort - count` }},
+    { title:"Suspicious Outbound DNS (DGA Detection)", mitre:"T1568.002", cat:"c2",            desc:"Detect high-entropy, long, or high-frequency DNS queries — indicators of DGA malware C2 communication.",
+      queries:{ splunk:`index=* sourcetype=stream:dns\n| eval domain_len=len(query)\n| where domain_len > 30 OR (src_ip=* AND reply_code="NXDOMAIN")\n| stats count by query, src_ip\n| sort - count`, kql:`DnsEvents | where Name matches regex "[a-z0-9]{15,}\\.(com|net|org|io)" or ResultCode == "NXDOMAIN" | summarize count() by Computer, Name | sort by count_ desc`, cs:`event_simpleName=DnsRequest (DomainName=~"[a-z0-9]{20,}.*" OR RequestType="NXDOMAIN")\n| table _time, ComputerName, UserName, DomainName` }},
+    { title:"Large Data Exfiltration (Staging)", mitre:"T1041", cat:"exfil",                   desc:"Detect unusually large outbound transfers — potential data exfiltration via HTTP, FTP, DNS tunneling, or cloud storage.",
+      queries:{ splunk:`index=* bytes_out > 50000000\n| stats sum(bytes_out) as total by src_ip, dest_ip, app\n| eval total_MB=round(total/1048576,1)\n| sort - total_MB\n| where total_MB > 50`, kql:`DeviceNetworkEvents | where LocalPort > 1024 and RemoteIPType == "Public" | summarize BytesSent=sum(tolong(SentBytes)) by DeviceName, RemoteIP, RemotePort | where BytesSent > 50000000 | sort by BytesSent desc`, cs:`event_simpleName=NetworkConnectIP4\n| stats sum(BytesSent) as total_bytes by ComputerName, RemoteAddressIP4\n| where total_bytes > 50000000` }},
+    { title:"Certutil LOLBin Abuse (Payload Download)", mitre:"T1105", cat:"defense_evasion",  desc:"Detect certutil.exe used for downloading or decoding payloads — a classic LOLBin technique to bypass web filters.",
+      queries:{ splunk:`index=* Image="*certutil.exe*" (CommandLine="*-urlcache*" OR CommandLine="*-decode*" OR CommandLine="*-encode*")\n| table _time, host, user, CommandLine, ParentImage`, kql:`DeviceProcessEvents | where FileName =~ "certutil.exe" and ProcessCommandLine has_any ("-urlcache","-decode","-encode") | project TimeGenerated, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName` }},
+    { title:"Windows Defender Exclusion Added", mitre:"T1562.001", cat:"defense_evasion",      desc:"Detect attackers adding AV exclusions to prevent detection of malware they've deployed.",
+      queries:{ splunk:`index=* (CommandLine="*Add-MpPreference*" AND CommandLine="*Exclusion*") OR (EventCode=5007 Message="*ExclusionPath*")\n| table _time, host, user, CommandLine`, kql:`DeviceRegistryEvents | where RegistryKey has "Exclusions" and RegistryKey contains "Windows Defender" | project TimeGenerated, DeviceName, ActionType, RegistryKey, RegistryValueName, InitiatingProcessAccountName` }},
+    { title:"Kerberoasting Detection", mitre:"T1558.003", cat:"credential",                    desc:"Detect Kerberoasting — requesting service tickets for service accounts to crack offline.",
+      queries:{ splunk:`index=* EventCode=4769 TicketEncryptionType IN (0x17,0x18,0x23)\n| stats count by user, ServiceName, src_ip\n| where count > 3\n| sort - count`, kql:`SecurityEvent | where EventID == 4769 and TicketEncryptionType in ("0x17","0x18","0x23") | summarize count() by Account, IpAddress, ServiceName | sort by count_ desc` }},
+    { title:"Shadow Copy Deletion (Ransomware Prep)", mitre:"T1490", cat:"exfil",              desc:"Detect VSS shadow copy deletion — a pre-ransomware step to prevent recovery.",
+      queries:{ splunk:`index=* (CommandLine="*vssadmin*delete*" OR CommandLine="*wmic*shadowcopy*delete*" OR CommandLine="*bcdedit*/set*recoveryenabled no*")\n| table _time, host, user, CommandLine`, kql:`DeviceProcessEvents | where ProcessCommandLine has_any ("vssadmin delete","shadowcopy delete","bcdedit /set recoveryenabled") | project TimeGenerated, DeviceName, AccountName, ProcessCommandLine` }},
+    { title:"Token Impersonation / Privilege Escalation", mitre:"T1134", cat:"privilege_esc",  desc:"Detect token manipulation and privilege escalation via CreateProcessWithTokenW or similar APIs.",
+      queries:{ splunk:`index=* (EventCode=4674 OR (EventCode=4688 ParentProcessName!="explorer.exe" Image="*cmd.exe*"))\n| where user!="SYSTEM"\n| table _time, host, user, Image, CommandLine`, kql:`DeviceEvents | where ActionType == "CreateProcessWithTokenW" or (ActionType == "TokenPrivilegeEnabled" and AdditionalFields has "SeDebugPrivilege") | project TimeGenerated, DeviceName, AccountName, ActionType, InitiatingProcessFileName` }},
+    { title:"OAuth App Consent Grant (BEC Precursor)", mitre:"T1528", cat:"identity",          desc:"Detect OAuth app consent grants in Azure AD — used by Scattered Spider and others for persistent mailbox access.",
+      queries:{ splunk:`index=* sourcetype=o365 Operation="Consent to application"\n| table _time, user, AppDisplayName, Scope, IsAdminConsent`, kql:`AuditLogs | where OperationName == "Consent to application" | extend App=tostring(TargetResources[0].displayName) | project TimeGenerated, InitiatedBy, App, AADTenantId, Result` }},
+    { title:"New Service Installed (Persistence)", mitre:"T1543.003", cat:"persistence",       desc:"Detect new service installation — attackers install malicious services for persistence and privilege.",
+      queries:{ splunk:`index=* EventCode=7045\n| table _time, host, user, ServiceName, ImagePath, StartType`, kql:`SecurityEvent | where EventID == 7045 | project TimeGenerated, Computer, ServiceName, ServiceFileName, ServiceStartType, SubjectUserName` }},
+    { title:"DNS Tunneling Detection", mitre:"T1071.004", cat:"c2",                            desc:"Detect DNS tunneling — data exfiltration or C2 hidden in unusually long TXT or high-frequency queries.",
+      queries:{ splunk:`index=* sourcetype=stream:dns query_type IN ("TXT","NULL")\n| eval q_len=len(query)\n| where q_len > 50\n| stats count, values(query) by src_ip\n| sort - count`, kql:`DnsEvents | where QueryType in ("TXT","NULL") | where strlen(Name) > 50 | summarize count(), Queries=make_set(Name) by Computer, ClientIP | sort by count_ desc` }},
+    { title:"Pass-the-Hash Detection (NTLM Lateral Move)", mitre:"T1550.002", cat:"lateral",   desc:"Detect pass-the-hash attacks — NTLM Type3 auth with no prior Type1/2, or 4776 events from unexpected hosts.",
+      queries:{ splunk:`index=* EventCode=4776 Workstation_Name!="localhost"\n| stats count by Workstation_Name, Account_Name\n| where count > 3`, kql:`SecurityEvent | where EventID == 4776 and WorkstationName != ComputerName | summarize count() by WorkstationName, TargetUserName | sort by count_ desc` }},
+    { title:"Web Shell Detection (Post-Exploit)", mitre:"T1505.003", cat:"execution",          desc:"Detect web server processes spawning command shells — indicates web shell execution after initial compromise.",
+      queries:{ splunk:`index=* (ParentImage IN ("*w3wp.exe*","*httpd.exe*","*nginx.exe*","*apache.exe*","*tomcat*")) Image IN ("*cmd.exe*","*powershell.exe*","*sh*","*bash*")\n| table _time, host, user, ParentImage, Image, CommandLine`, kql:`DeviceProcessEvents | where InitiatingProcessFileName in~ ("w3wp.exe","httpd.exe","nginx.exe") and FileName in~ ("cmd.exe","powershell.exe","sh","bash") | project TimeGenerated, DeviceName, AccountName, InitiatingProcessFileName, FileName, ProcessCommandLine` }},
+  ];
+
+  function renderHuntGrid(platform, category) {
+    const grid = $("hunt-grid");
+    if (!grid) return;
+    const filtered = HUNT_PACKS.filter(p => category === "all" || p.cat === category);
+    if (!filtered.length) { grid.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;">No hunt queries for this category.</div>`; return; }
+    grid.innerHTML = filtered.map((p, idx) => {
+      const q = p.queries[platform] || p.queries.splunk || Object.values(p.queries)[0];
+      return `<div class="hunt-card">
+        <div class="hunt-card-head">
+          <span class="hunt-card-title">${esc(p.title)}</span>
+          <span class="hunt-card-mitre">${esc(p.mitre)}</span>
+          <span class="hunt-card-cat">${esc(p.cat.replace(/_/g," "))}</span>
+        </div>
+        <div class="hunt-card-desc">${esc(p.desc)}</div>
+        <pre class="hunt-query-block">${esc(q)}</pre>
+        <div class="hunt-card-actions">
+          <button class="hunt-copy-btn" onclick="copyHuntQuery(${idx},'${platform}')">📋 Copy Query</button>
+          <button class="hunt-copy-btn" onclick="sendHuntToQB(${idx},'${platform}')">⚙️ Edit in Query Builder</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  window.copyHuntQuery = (idx, platform) => {
+    const p = HUNT_PACKS[idx]; if (!p) return;
+    const q = p.queries[platform] || p.queries.splunk || Object.values(p.queries)[0];
+    navigator.clipboard.writeText(q).catch(()=>{});
+  };
+  window.sendHuntToQB = (idx, platform) => {
+    const p = HUNT_PACKS[idx]; if (!p) return;
+    const q = p.queries[platform] || p.queries.splunk || Object.values(p.queries)[0];
+    const out = $("dqb-output");
+    if (out) { out.textContent = q; switchTab("utils"); }
+  };
+
+  $("hunt-filter-btn")?.addEventListener("click", () => {
+    renderHuntGrid($("hunt-platform")?.value||"splunk", $("hunt-category")?.value||"all");
+  });
+  // Auto-render on first click of hunt tab
+  document.querySelectorAll(".cti-sub-btn").forEach(btn => {
+    if (btn.dataset.ctitab === "hunt") {
+      btn.addEventListener("click", () => {
+        if (!$("hunt-grid")?.children.length) renderHuntGrid("splunk","all");
+      }, { once: true });
+    }
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // FEATURE 5 — INCIDENT SEVERITY CALCULATOR
+  // ════════════════════════════════════════════════════════════════
+  const SEV_DESCS = {
+    asset: ["Public-facing dev/test system","Internal business system","Critical business application","Exec, domain controller, or crown jewel"],
+    threat:["Possible alert, unconfirmed","Likely malicious based on IOC reputation","Confirmed TP — malicious activity verified","Active attack in progress / ransomware"],
+    blast: ["Single endpoint isolated","One department or team affected","Organization-wide / multiple systems","Includes external parties or supply chain"],
+    data:  ["Public or non-sensitive data","Internal business information","Confidential / proprietary data","PII, PCI, PHI, or regulated data"],
+  };
+  const SEV_MATRIX = { p1:"🔴 P1 — CRITICAL", p2:"🟠 P2 — HIGH", p3:"🟡 P3 — MEDIUM", p4:"🟢 P4 — LOW" };
+  const SEV_SLA    = { p1:"Respond immediately · Escalate now · Max 1 hour to contain", p2:"Respond within 4 hours · Assign senior analyst", p3:"Respond within 24 hours · Standard triage", p4:"Respond within 72 hours · Monitor and document" };
+
+  window.updateSevCalc = function() {
+    const a = parseInt($("sev-asset")?.value)||2;
+    const t = parseInt($("sev-threat")?.value)||2;
+    const b = parseInt($("sev-blast")?.value)||2;
+    const d = parseInt($("sev-data")?.value)||2;
+    // Update descriptions
+    if ($("sev-asset-desc"))  $("sev-asset-desc").textContent  = SEV_DESCS.asset[a-1];
+    if ($("sev-threat-desc")) $("sev-threat-desc").textContent = SEV_DESCS.threat[t-1];
+    if ($("sev-blast-desc"))  $("sev-blast-desc").textContent  = SEV_DESCS.blast[b-1];
+    if ($("sev-data-desc"))   $("sev-data-desc").textContent   = SEV_DESCS.data[d-1];
+    const score = (a + t + b + d);
+    const prio  = score >= 14 ? "p1" : score >= 10 ? "p2" : score >= 7 ? "p3" : "p4";
+    const result= $("sev-result");
+    if (!result) return;
+    result.className = `sev-result sev-${prio}`;
+    result.innerHTML = `
+      <div class="sev-result-badge">${SEV_MATRIX[prio]}</div>
+      <div class="sev-result-sla">${SEV_SLA[prio]}</div>
+      <div class="sev-result-just">Justification: ${SEV_DESCS.asset[a-1].toLowerCase()} (asset) × ${SEV_DESCS.threat[t-1].toLowerCase()} (threat) × ${SEV_DESCS.blast[b-1].toLowerCase()} (scope) × ${SEV_DESCS.data[d-1].toLowerCase()} (data). Score: ${score}/16.</div>`;
+    window._sevResult = { prio, label: SEV_MATRIX[prio], sla: SEV_SLA[prio], score, justification: result.querySelector(".sev-result-just")?.textContent||"" };
+  };
+  updateSevCalc();
+
+  $("sev-copy-btn")?.addEventListener("click", async () => {
+    const r = window._sevResult; if (!r) return;
+    const txt = `Severity: ${r.label}\nSLA: ${r.sla}\n${r.justification}`;
+    try { await navigator.clipboard.writeText(txt); } catch {}
+  });
+  $("sev-to-case-btn")?.addEventListener("click", () => {
+    const r = window._sevResult; if (!r) return;
+    if (activeCase) { activeCase.notes = (activeCase.notes||"") + `\n[Severity] ${r.label} — ${r.sla}`; saveActiveCase(); }
+    switchTab("case");
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // FEATURE 6 — IP GEOLOCATION & TRAVEL CHECK
+  // ════════════════════════════════════════════════════════════════
+  async function geolocateIPs(ips) {
+    const results = [];
+    for (const ip of ips.slice(0,10)) {
+      try {
+        const r = await fetch(`https://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,regionName,city,org,as,proxy,hosting,query`, { signal: AbortSignal.timeout(6000) });
+        const d = await r.json();
+        results.push({ ip, country: d.country||"—", region: d.regionName||"—", city: d.city||"—", org: (d.org||d.as||"—").slice(0,40), proxy: d.proxy, hosting: d.hosting, status: d.status });
+      } catch {
+        results.push({ ip, country:"Error", region:"—", city:"—", org:"Fetch failed", proxy:false, hosting:false, status:"fail" });
+      }
+    }
+    return results;
+  }
+
+  $("geo-lookup-btn")?.addEventListener("click", async () => {
+    const raw = $("geo-ips-input")?.value?.trim() || "";
+    const ips  = raw.split("\n").map(v=>v.trim()).filter(Boolean);
+    if (!ips.length) return;
+    const tableWrap = $("geo-results-table");
+    const mapEl     = $("geo-map");
+    if (tableWrap) tableWrap.innerHTML = `<div style="font-size:11px;color:var(--muted);padding:8px;">Looking up ${ips.length} IP(s)...</div>`;
+    const data = await geolocateIPs(ips);
+    if (tableWrap) {
+      tableWrap.innerHTML = `<table class="geo-table">
+        <thead><tr><th>IP</th><th>Country</th><th>City</th><th>Org / ISP</th><th>Flags</th></tr></thead>
+        <tbody>${data.map(d => `<tr>
+          <td style="font-family:monospace;color:#38bdf8;">${esc(d.ip)}</td>
+          <td>${esc(d.country)}</td>
+          <td>${esc(d.city)}, ${esc(d.region)}</td>
+          <td>${esc(d.org)}</td>
+          <td>${d.proxy ? `<span style="color:#fb923c;font-size:9px;border:1px solid rgba(251,146,60,0.3);border-radius:20px;padding:1px 6px;">PROXY</span>` : ""}${d.hosting ? `<span style="color:#a78bfa;font-size:9px;border:1px solid rgba(167,139,250,0.3);border-radius:20px;padding:1px 6px;">HOSTING</span>` : ""}</td>
+        </tr>`).join("")}</tbody>
+      </table>`;
+    }
+    // Render Leaflet map
+    if (mapEl) {
+      mapEl.id = "geo-map-container";
+      mapEl.innerHTML = "";
+      mapEl.className = "";
+      const coords = data.filter(d => d.status === "success").map(d => d._latlon).filter(Boolean);
+      // Show simple map placeholder with link
+      mapEl.style.cssText = "border-radius:8px;border:1px solid var(--border);padding:10px;font-size:11px;color:var(--muted);background:var(--bg2);min-height:80px;";
+      const locationSummary = data.map(d => `${d.ip}: ${d.city}, ${d.country}`).join(" | ");
+      mapEl.innerHTML = `<div style="font-size:10px;font-weight:700;margin-bottom:6px;">📍 Location Summary</div>${data.map(d => `<div style="margin-bottom:4px;font-family:monospace;font-size:10px;">${esc(d.ip)} → ${esc(d.city)}, ${esc(d.country)} ${d.proxy?"🔒":""}${d.hosting?"🖥️":""}</div>`).join("")}<a href="https://www.ip-tracker.org/locator/ip-locator.php?track=${encodeURIComponent(ips[0])}" target="_blank" style="font-size:10px;color:#38bdf8;text-decoration:none;margin-top:6px;display:inline-block;">🗺️ View on map →</a>`;
+    }
+  });
+
+  $("geo-clear-btn")?.addEventListener("click", () => {
+    if ($("geo-ips-input")) $("geo-ips-input").value = "";
+    const t = $("geo-results-table"); if (t) t.innerHTML = "";
+    const m = $("geo-map"); if (m) { m.textContent = "🌍 Map will appear here after lookup"; }
+  });
+
+  $("geo-travel-btn")?.addEventListener("click", async () => {
+    const ip1 = $("geo-ip1")?.value?.trim();
+    const ip2 = $("geo-ip2")?.value?.trim();
+    const t1s  = $("geo-t1")?.value;
+    const t2s  = $("geo-t2")?.value;
+    const res  = $("geo-travel-result");
+    if (!ip1 || !ip2 || !res) return;
+    res.style.display = "block";
+    res.textContent = "Looking up locations...";
+    res.className = "geo-travel-result geo-travel-unknown";
+    const [d1, d2] = await Promise.all([
+      fetch(`https://ip-api.com/json/${encodeURIComponent(ip1)}?fields=lat,lon,city,country,status`).then(r=>r.json()).catch(()=>null),
+      fetch(`https://ip-api.com/json/${encodeURIComponent(ip2)}?fields=lat,lon,city,country,status`).then(r=>r.json()).catch(()=>null),
+    ]);
+    if (!d1?.lat || !d2?.lat) { res.textContent = "⚠️ Could not geolocate one or both IPs"; return; }
+    // Haversine distance
+    const R = 6371;
+    const dLat = (d2.lat-d1.lat) * Math.PI/180;
+    const dLon = (d2.lon-d1.lon) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(d1.lat*Math.PI/180)*Math.cos(d2.lat*Math.PI/180)*Math.sin(dLon/2)**2;
+    const distKm = Math.round(2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+    const minHours = distKm / 900; // ~900 km/h commercial flight
+    if (t1s && t2s) {
+      const diff = Math.abs(new Date(t2s) - new Date(t1s)) / 3600000;
+      const impossible = diff < minHours && distKm > 100;
+      res.className = `geo-travel-result ${impossible ? "geo-travel-impossible" : "geo-travel-possible"}`;
+      res.innerHTML = `${impossible ? "⚡ IMPOSSIBLE TRAVEL DETECTED" : "✅ Travel appears possible"}<br>
+        ${esc(ip1)} → ${esc(d1.city)}, ${esc(d1.country)}<br>
+        ${esc(ip2)} → ${esc(d2.city)}, ${esc(d2.country)}<br>
+        Distance: ${distKm.toLocaleString()} km | Time between logins: ${diff.toFixed(1)}h | Min flight time: ${minHours.toFixed(1)}h<br>
+        ${impossible ? "Account is likely compromised — attacker logged in from a different country." : "Distance is consistent with the time elapsed between logins."}`;
+    } else {
+      res.className = "geo-travel-result geo-travel-unknown";
+      res.innerHTML = `📍 ${esc(ip1)} → ${esc(d1.city)}, ${esc(d1.country)}<br>📍 ${esc(ip2)} → ${esc(d2.city)}, ${esc(d2.country)}<br>Distance: ${distKm.toLocaleString()} km | Min flight: ${minHours.toFixed(1)}h<br><em>Add login timestamps above to check impossibility</em>`;
+    }
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // FEATURE 7 — CERTIFICATE / TLS INSPECTOR
+  // ════════════════════════════════════════════════════════════════
+  async function fetchCertificate(domain) {
+    const enc = encodeURIComponent;
+    const clean = domain.replace(/^https?:\/\//i,"").split("/")[0];
+    const statusEl = $("cert-status");
+    const resultsEl = $("cert-results");
+    if (statusEl) { statusEl.style.display="flex"; statusEl.innerHTML=`<div class="cti-news-spinner"></div> Looking up certificates for <strong>${esc(clean)}</strong>…`; }
+    if (resultsEl) resultsEl.style.display="none";
+    try {
+      const r = await fetch(`https://crt.sh/?q=${enc(clean)}&output=json`, { signal: AbortSignal.timeout(12000) });
+      if (!r.ok) throw new Error("crt.sh returned " + r.status);
+      const data = await r.json();
+      if (!data.length) throw new Error("No certificates found for this domain");
+      // Most recent cert
+      const sorted = data.sort((a,b) => new Date(b.entry_timestamp) - new Date(a.entry_timestamp));
+      const cert   = sorted[0];
+      const allNames = [...new Set(sorted.flatMap(c => (c.name_value||"").split("\n").map(n=>n.trim().toLowerCase())).filter(n=>n && n.includes(".")))];
+      const issued = new Date(cert.not_before||cert.entry_timestamp);
+      const expires= new Date(cert.not_after||0);
+      const now    = new Date();
+      const ageDays= Math.floor((now-issued)/86400000);
+      const daysLeft=Math.floor((expires-now)/86400000);
+      const issuer = cert.issuer_name||"Unknown";
+      const selfSigned = issuer.includes(cert.common_name||"") || issuer.toLowerCase().includes("self");
+      // Flags
+      const flags = [];
+      if (selfSigned)     flags.push({ cls:"cert-flag-bad",  txt:"Self-signed" });
+      if (ageDays < 30)   flags.push({ cls:"cert-flag-warn", txt:`New cert — issued ${ageDays} day(s) ago` });
+      if (daysLeft < 14)  flags.push({ cls:"cert-flag-warn", txt:`Expires in ${daysLeft} day(s)` });
+      if (daysLeft < 0)   flags.push({ cls:"cert-flag-bad",  txt:"EXPIRED" });
+      if (allNames.some(n=>n.startsWith("*."))) flags.push({ cls:"cert-flag-warn", txt:"Wildcard cert" });
+      if (!flags.length)  flags.push({ cls:"cert-flag-ok", txt:"Valid" });
+      // Render
+      $("cert-flags").innerHTML = flags.map(f=>`<span class="cert-flag ${f.cls}">${esc(f.txt)}</span>`).join("");
+      $("cert-details").innerHTML = [
+        { label:"Common Name", value: cert.common_name || clean },
+        { label:"Issuer",      value: issuer.split(",").find(p=>p.trim().startsWith("O="))?.split("=")[1]?.trim() || issuer.slice(0,60) },
+        { label:"Issued",      value: issued.toLocaleDateString() + ` (${ageDays}d ago)` },
+        { label:"Expires",     value: expires.toLocaleDateString() + ` (${daysLeft}d left)` },
+        { label:"Serial",      value: cert.serial_number || "—" },
+        { label:"crt.sh ID",   value: cert.id ? `#${cert.id}` : "—" },
+      ].map(d=>`<div class="cert-detail-item"><div class="cert-detail-label">${d.label}</div><div class="cert-detail-value">${esc(String(d.value))}</div></div>`).join("");
+      // SANs
+      if (allNames.length > 1) {
+        $("cert-sans-wrap").style.display="block";
+        $("cert-sans").innerHTML = allNames.slice(0,60).map(n=>`<span class="cert-san-tag" onclick="pivotFromEHA('${esc(n)}','domain')" title="Pivot to threat intel">${esc(n)}</span>`).join("");
+        $("cert-sans-bulk")._names = allNames;
+      } else { $("cert-sans-wrap").style.display="none"; }
+      // History
+      if ($("cert-history-btn")._showHistory) {
+        $("cert-history-wrap").style.display="block";
+        $("cert-history-list").innerHTML = sorted.slice(0,20).map(c=>`<div class="cert-history-item"><span class="cert-hist-date">${new Date(c.not_before||c.entry_timestamp).toLocaleDateString()}</span><span>${esc(c.common_name||"—")}</span><span style="color:var(--muted);margin-left:auto;">#${c.id}</span></div>`).join("");
+      }
+      if (statusEl) statusEl.style.display="none";
+      if (resultsEl) resultsEl.style.display="block";
+    } catch(e) {
+      if (statusEl) statusEl.innerHTML = `⚠️ ${esc(e.message)}`;
+    }
+  }
+
+  $("cert-lookup-btn")?.addEventListener("click", () => { const v=$("cert-input")?.value?.trim(); if(v) fetchCertificate(v); });
+  $("cert-history-btn")?.addEventListener("click", () => {
+    const btn = $("cert-history-btn");
+    btn._showHistory = !btn._showHistory;
+    btn.textContent = btn._showHistory ? "📜 Hide History" : "📜 Cert History";
+    const v=$("cert-input")?.value?.trim(); if(v) fetchCertificate(v);
+  });
+  $("cert-sans-bulk")?.addEventListener("click", () => {
+    const names = $("cert-sans-bulk")._names || [];
+    const bulkInput = $("bulk-input");
+    if (bulkInput) { bulkInput.value = names.join("\n"); switchTab("bulk"); $("bulk-extract-btn")?.click(); }
+  });
+  // Wire cert type into the single IOC tab type detection
+  const origDetectType = window.detectTypeInternal;
+
+  // ════════════════════════════════════════════════════════════════
+  // FEATURE 8 — SHIFT HANDOFF GENERATOR
+  // ════════════════════════════════════════════════════════════════
+  $("ho-generate-btn")?.addEventListener("click", () => {
+    const analyst  = $("ho-analyst")?.value?.trim() || "Analyst";
+    const team     = $("ho-team")?.value?.trim() || "SOC";
+    const start    = $("ho-shift-start")?.value ? new Date($("ho-shift-start").value).toLocaleString() : "—";
+    const end      = $("ho-shift-end")?.value   ? new Date($("ho-shift-end").value).toLocaleString()   : "—";
+    const findings = $("ho-findings")?.value?.trim() || "";
+    const pending  = $("ho-pending")?.value?.trim() || "";
+    const recs     = $("ho-recommendations")?.value?.trim() || "";
+    const fmt      = $("ho-format")?.value || "text";
+    // Auto-pull from session
+    const caseCount = activeCase ? 1 : 0;
+    const iocCount  = sessionHistory?.length || 0;
+    const openCases = activeCase ? [`${activeCase.name} (${activeCase.status||"open"})`] : [];
+    const findingsList = findings ? findings.split("\n").filter(Boolean) : ["No major findings this shift"];
+    const pendingList  = pending  ? pending.split("\n").filter(Boolean)  : ["None"];
+    const recsList     = recs     ? recs.split("\n").filter(Boolean)     : ["Continue monitoring current alerts"];
+    const now = new Date().toLocaleString();
+    let report = "";
+    if (fmt === "markdown") {
+      report = `# Shift Handoff Report\n**Analyst:** ${analyst} | **Team:** ${team}\n**Shift:** ${start} → ${end}\n**Generated:** ${now}\n\n---\n\n## Session Stats\n- Cases worked: ${caseCount}\n- IOCs investigated: ${iocCount}\n${openCases.length ? `- Open cases: ${openCases.join(", ")}` : ""}\n\n## Key Findings\n${findingsList.map(f=>`- ${f}`).join("\n")}\n\n## Pending / Open Items\n${pendingList.map(p=>`- ${p}`).join("\n")}\n\n## Recommendations for Next Shift\n${recsList.map(r=>`- ${r}`).join("\n")}\n\n---\n*Generated by HawkEye v${TOOLKIT_VERSION}*`;
+    } else if (fmt === "exec") {
+      report = `SHIFT SUMMARY — ${analyst} (${team})\n${start} to ${end}\n\n${findingsList.length} finding(s): ${findingsList[0]}${findingsList.length>1?` (+${findingsList.length-1} more)`:""}.\n${pendingList[0] !== "None" ? `${pendingList.length} item(s) pending next shift.` : "No open items."}\nRecommendation: ${recsList[0]}`;
+    } else {
+      report = `════════════════════════════════════════
+SHIFT HANDOFF REPORT
+════════════════════════════════════════
+Analyst   : ${analyst}
+Team/Tier : ${team}
+Shift     : ${start} → ${end}
+Generated : ${now}
+────────────────────────────────────────
+SESSION METRICS
+  Cases worked    : ${caseCount}
+  IOCs investigated: ${iocCount}
+${openCases.length ? `  Open cases      : ${openCases.join(", ")}\n` : ""}
+────────────────────────────────────────
+KEY FINDINGS
+${findingsList.map((f,i)=>`  ${i+1}. ${f}`).join("\n")}
+
+PENDING / OPEN ITEMS
+${pendingList.map((p,i)=>`  ${i+1}. ${p}`).join("\n")}
+
+RECOMMENDATIONS FOR NEXT SHIFT
+${recsList.map((r,i)=>`  ${i+1}. ${r}`).join("\n")}
+════════════════════════════════════════
+Generated by HawkEye v${TOOLKIT_VERSION}`;
+    }
+    const out = $("ho-output");
+    if (out) out.textContent = report;
+  });
+
+  $("ho-copy-btn")?.addEventListener("click", async () => {
+    const txt = $("ho-output")?.textContent || "";
+    try { await navigator.clipboard.writeText(txt); } catch {}
+  });
+  $("ho-download-btn")?.addEventListener("click", () => {
+    const txt = $("ho-output")?.textContent || "";
+    if (!txt || txt.startsWith("←")) return;
+    const a = document.createElement("a");
+    a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(txt);
+    a.download = `hawkeye-handoff-${new Date().toISOString().slice(0,10)}.txt`;
+    a.click();
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // FEATURE 9 — STIX 2.1 EXPORT
+  // ════════════════════════════════════════════════════════════════
+  $("case-stix-btn")?.addEventListener("click", () => {
+    if (!activeCase || !activeCase.iocs?.length) {
+      alert("No active case with IOCs to export. Add IOCs to a case first.");
+      return;
+    }
+    const uuid = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+      const r = Math.random()*16|0, v = c==="x" ? r : (r&0x3|0x8); return v.toString(16);
+    });
+    const now  = new Date().toISOString();
+    const STIX_TYPE_MAP = { ip:"ipv4-addr", domain:"domain-name", url:"url", hash:"file", email:"email-addr", md5:"file", sha256:"file", sha1:"file" };
+    const STIX_PATTERN  = { ip: v=>`[ipv4-addr:value = '${v}']`, domain: v=>`[domain-name:value = '${v}']`, url: v=>`[url:value = '${v}']`, hash: v=>`[file:hashes.'SHA-256' = '${v}']`, email: v=>`[email-addr:value = '${v}']` };
+    const identity = { type:"identity", spec_version:"2.1", id:`identity--${uuid()}`, created:now, modified:now, name:"HawkEye Analyst", identity_class:"individual" };
+    const indicators = activeCase.iocs.map(ioc => {
+      const t = ioc.type||"domain";
+      const patFn = STIX_PATTERN[t] || STIX_PATTERN.domain;
+      return { type:"indicator", spec_version:"2.1", id:`indicator--${uuid()}`, created:now, modified:now, name:`${t.toUpperCase()} - ${ioc.value}`, description:`Extracted from case: ${activeCase.name}`, pattern: patFn(ioc.value), pattern_type:"stix", valid_from:now, labels:["malicious-activity"] };
+    });
+    const bundle = { type:"bundle", id:`bundle--${uuid()}`, objects:[identity,...indicators] };
+    const json = JSON.stringify(bundle, null, 2);
+    const a = document.createElement("a");
+    a.href = "data:application/json;charset=utf-8," + encodeURIComponent(json);
+    a.download = `hawkeye-stix-${activeCase.name.replace(/\s+/g,"-").toLowerCase()}-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // FEATURE 10 — CLIPBOARD WATCHER
+  // ════════════════════════════════════════════════════════════════
+  let _clipWatchInterval = null;
+  let _lastClipValue     = "";
+
+  function startClipWatcher() {
+    if (_clipWatchInterval) return;
+    _clipWatchInterval = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const text = (await navigator.clipboard.readText()).trim();
+        if (!text || text === _lastClipValue || text.length > 300) return;
+        _lastClipValue = text;
+        const detected = detectType(text, text);
+        if (detected.type && detected.type !== "unknown" && detected.q) {
+          const inp = $("input");
+          if (inp && inp.value !== detected.q) {
+            inp.value = detected.q;
+            syncSearchboxState();
+            $("clip-watch-status").textContent = `✅ Detected: ${detected.type} — ${detected.q.slice(0,25)}`;
+            $("clip-watch-status").style.color = "#1D9E75";
+            if (document.querySelector('[data-tab="single"]')?.classList.contains("active") ||
+                document.querySelector('#tab-single')?.classList.contains("active")) {
+              doSearch({ silent: true });
+            }
+            setTimeout(() => { if ($("clip-watch-status")) { $("clip-watch-status").textContent = "Watching clipboard…"; $("clip-watch-status").style.color = ""; } }, 4000);
+          }
+        }
+      } catch { /* Permission denied or clipboard empty */ }
+    }, 1500);
+    $("clip-watch-status").textContent = "Watching clipboard…";
+    $("clip-watch-track").style.background = "#1D9E75";
+    $("clip-watch-thumb").style.transform = "translateX(16px)";
+  }
+
+  function stopClipWatcher() {
+    clearInterval(_clipWatchInterval);
+    _clipWatchInterval = null;
+    $("clip-watch-status").textContent = "Auto-detect IOCs you copy";
+    $("clip-watch-status").style.color = "";
+    $("clip-watch-track").style.background = "";
+    $("clip-watch-thumb").style.transform = "";
+  }
+
+  $("clip-watch-toggle")?.addEventListener("change", async (e) => {
+    if (e.target.checked) {
+      try {
+        const perm = await navigator.permissions.query({ name:"clipboard-read" });
+        if (perm.state === "denied") { e.target.checked = false; alert("Clipboard permission denied. Please allow clipboard access in your browser settings."); return; }
+        startClipWatcher();
+      } catch { startClipWatcher(); } // Some browsers don't support permission query
+    } else {
+      stopClipWatcher();
+    }
+  });
+
   // ── CTI Threat News Panel ─────────────────────────────────────
+
   // Uses Anthropic API when available (claude.ai context), falls back
   // to a comprehensive built-in threat intelligence database otherwise.
 
