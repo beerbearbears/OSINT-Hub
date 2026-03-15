@@ -1106,38 +1106,83 @@
 
         <!-- ── FEATURE 3: Detection Query Builder ── -->
         <div class="utils-card utils-card-wide">
-          <div class="utils-card-head">⚙️ Detection Query Builder</div>
-          <p class="utils-card-desc">Generate ready-to-paste SIEM detection queries from IOCs or select a pre-built pattern. Supports Splunk SPL, KQL, Elastic DSL, QRadar AQL, CrowdStrike NG-SIEM.</p>
+          <div class="utils-card-head">⚙️ Detection Query Builder
+            <div class="dqb-mode-toggle" id="dqb-mode-toggle">
+              <button class="dqb-mode-btn active" data-mode="ioc" type="button">🔍 IOC Pattern</button>
+              <button class="dqb-mode-btn" data-mode="source" type="button">🏭 Alert Source</button>
+            </div>
+          </div>
+          <p class="utils-card-desc" id="dqb-desc">Generate ready-to-paste SIEM detection queries from IOCs or select a pre-built pattern. Supports Splunk SPL, KQL, Elastic DSL, QRadar AQL, CrowdStrike NG-SIEM.</p>
           <div class="dqb-layout">
             <div class="dqb-left">
-              <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-                <select id="dqb-platform" class="aw-input" style="flex:1;min-width:130px;">
-                  <option value="splunk">Splunk SPL</option>
-                  <option value="kql">KQL (Sentinel)</option>
-                  <option value="elastic">Elastic DSL</option>
-                  <option value="qradar">QRadar AQL</option>
-                  <option value="cs">CrowdStrike NG-SIEM</option>
-                </select>
-                <select id="dqb-pattern" class="aw-input" style="flex:1;min-width:160px;">
-                  <option value="ip">IP Address Lookup</option>
-                  <option value="domain">Domain Lookup</option>
-                  <option value="hash">File Hash Lookup</option>
-                  <option value="url">URL Search</option>
-                  <option value="email">Email Address</option>
-                  <option value="cmdline">Suspicious CommandLine</option>
-                  <option value="process">Process Name</option>
-                  <option value="encoded_ps">Encoded PowerShell</option>
-                  <option value="failed_login">Failed Logins (brute force)</option>
-                  <option value="new_account">New Account Created</option>
-                  <option value="sched_task">Scheduled Task Creation</option>
-                  <option value="lateral">Lateral Movement (RDP/SMB)</option>
-                  <option value="c2_port">C2 Port Activity</option>
-                  <option value="lolbin">LOLBin Execution</option>
-                  <option value="large_upload">Large Outbound Transfer</option>
-                </select>
+
+              <!-- IOC Pattern Mode (existing) -->
+              <div id="dqb-ioc-mode">
+                <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                  <select id="dqb-platform" class="aw-input" style="flex:1;min-width:130px;">
+                    <option value="splunk">Splunk SPL</option>
+                    <option value="kql">KQL (Sentinel)</option>
+                    <option value="elastic">Elastic DSL</option>
+                    <option value="qradar">QRadar AQL</option>
+                    <option value="cs">CrowdStrike NG-SIEM</option>
+                  </select>
+                  <select id="dqb-pattern" class="aw-input" style="flex:1;min-width:160px;">
+                    <option value="ip">IP Address Lookup</option>
+                    <option value="domain">Domain Lookup</option>
+                    <option value="hash">File Hash Lookup</option>
+                    <option value="url">URL Search</option>
+                    <option value="email">Email Address</option>
+                    <option value="cmdline">Suspicious CommandLine</option>
+                    <option value="process">Process Name</option>
+                    <option value="encoded_ps">Encoded PowerShell</option>
+                    <option value="failed_login">Failed Logins (brute force)</option>
+                    <option value="new_account">New Account Created</option>
+                    <option value="sched_task">Scheduled Task Creation</option>
+                    <option value="lateral">Lateral Movement (RDP/SMB)</option>
+                    <option value="c2_port">C2 Port Activity</option>
+                    <option value="lolbin">LOLBin Execution</option>
+                    <option value="large_upload">Large Outbound Transfer</option>
+                  </select>
+                </div>
+                <textarea id="dqb-ioc-input" spellcheck="false" rows="3" placeholder="Enter IOC value(s), one per line — or leave blank to get the pattern template...&#10;e.g. 185.220.101.45&#10;     evil-domain.xyz"></textarea>
               </div>
-              <textarea id="dqb-ioc-input" spellcheck="false" rows="3" placeholder="Enter IOC value(s), one per line — or leave blank to get the pattern template...&#10;e.g. 185.220.101.45&#10;     evil-domain.xyz"></textarea>
-              <div class="utils-actions">
+
+              <!-- Alert Source Mode (new) -->
+              <div id="dqb-source-mode" style="display:none;">
+                <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                  <select id="dqb-alert-source" class="aw-input" style="flex:1;min-width:160px;">
+                    <option value="">— Select Alert Source —</option>
+                    <option value="crowdstrike">CrowdStrike Falcon</option>
+                    <option value="zscaler">Zscaler ZIA / ZPA</option>
+                    <option value="azure_ad">Azure AD / Entra ID</option>
+                    <option value="defender">Microsoft Defender / MDE</option>
+                    <option value="okta">Okta / SSO</option>
+                    <option value="proofpoint">Proofpoint TAP</option>
+                    <option value="aws">AWS CloudTrail</option>
+                    <option value="sentinelone">SentinelOne</option>
+                    <option value="paloalto">Palo Alto NGFW</option>
+                    <option value="darktrace">Darktrace / NDR</option>
+                    <option value="suricata">Suricata / Snort IDS</option>
+                    <option value="siem_generic">QRadar / Splunk SIEM</option>
+                  </select>
+                  <select id="dqb-alert-type" class="aw-input" style="flex:1;min-width:180px;" disabled>
+                    <option value="">— Select alert source first —</option>
+                  </select>
+                </div>
+                <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                  <select id="dqb-siem-platform" class="aw-input" style="flex:1;min-width:160px;">
+                    <option value="cs">CrowdStrike NG-SIEM</option>
+                    <option value="splunk">Splunk SPL</option>
+                    <option value="kql">KQL (Sentinel / Defender)</option>
+                    <option value="elastic">Elastic / OpenSearch</option>
+                    <option value="qradar">IBM QRadar AQL</option>
+                  </select>
+                  <input id="dqb-src-ioc" class="aw-input" placeholder="IOC value from alert (optional, e.g. IP, user, hash)" style="flex:1;min-width:160px;"/>
+                </div>
+                <div id="dqb-source-hint" style="font-size:10px;color:var(--muted);padding:6px 8px;background:var(--bg);border-radius:6px;border:1px solid var(--border);min-height:32px;line-height:1.6;"></div>
+              </div>
+
+              <div class="utils-actions" style="margin-top:8px;">
                 <button id="dqb-generate" type="button">⚡ Generate Query</button>
                 <button id="dqb-copy" type="button">📋 Copy</button>
                 <button id="dqb-test-toggle" type="button">🧪 Test Against Log</button>
@@ -1155,6 +1200,7 @@
             </div>
           </div>
         </div>
+
 
         <!-- ── FEATURE 5: Incident Severity Calculator ── -->
         <div class="utils-card">
