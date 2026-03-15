@@ -4,7 +4,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusEl = document.getElementById("status");
   const statusText = statusEl ? statusEl.querySelector("span") : null;
 
+  const TOOLKIT_VERSION = "2.0.0";
   const $ = (id) => document.getElementById(id);
+  // HTML escape — prevents XSS when rendering user input in innerHTML
+  const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   const enc = encodeURIComponent;
 
   const setHref = (id, href) => { const el = $(id); if (el) el.href = href; };
@@ -2959,7 +2962,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const warnBadge = (type==="hash" && q.length===32) ? `<span style="font-size:10px;background:#f8711122;color:#f87171;border:1px solid #f8711144;border-radius:20px;padding:2px 8px;margin-left:8px;">⚠️ MD5/NTLM — verify algorithm</span>` :
                       (type==="hash" && q.length===40) ? `<span style="font-size:10px;background:#fb923c22;color:#fb923c;border:1px solid #fb923c44;border-radius:20px;padding:2px 8px;margin-left:8px;">⚠️ SHA-1 deprecated</span>` : "";
     banner.style.display="flex"; banner.style.borderColor=v.color+"44"; banner.style.background=v.color+"11";
-    banner.innerHTML = `<span class="verdict-icon" style="color:${v.color}">${v.icon}</span><div style="flex:1"><span class="verdict-type" style="color:${v.color}">${v.label}</span>${warnBadge}<span class="verdict-value">${q||"detected from pasted text"}</span></div>`;
+    banner.innerHTML = `<span class="verdict-icon" style="color:${v.color}">${v.icon}</span><div style="flex:1"><span class="verdict-type" style="color:${v.color}">${v.label}</span>${warnBadge}<span class="verdict-value">${esc(q)||"detected from pasted text"}</span></div>`;
   }
 
   // ─── Threat Score Panel ───────────────────────────────────────
@@ -3260,6 +3263,19 @@ document.addEventListener("DOMContentLoaded", () => {
   async function fetchDomainAge(domain) {
     const banner = $("verdict-banner");
     if (!banner) return;
+    // RDAP sends the domain to rdap.org — show one-time notice
+    const rdapConsent = (() => { try { return localStorage.getItem("osint_rdap_ok"); } catch { return null; } })();
+    if (!rdapConsent) {
+      banner.style.display = "block";
+      banner.innerHTML = `<div style="font-size:10px;color:var(--muted);background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.25);border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;">
+        <span>📡 Domain age lookup sends the domain to <strong>rdap.org</strong> (public WHOIS service).</span>
+        <button onclick="try{localStorage.setItem('osint_rdap_ok','1')}catch(e){}this.closest('[id]').style.display='none';fetchDomainAge('${domain}')" 
+          style="font-size:10px;padding:2px 8px;border-radius:6px;border:1px solid rgba(251,146,60,0.4);background:transparent;color:#fb923c;cursor:pointer;white-space:nowrap">Allow once</button>
+        <button onclick="try{localStorage.setItem('osint_rdap_ok','1')}catch(e){}this.closest('[id]').style.display='none'" 
+          style="font-size:10px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Skip</button>
+      </div>`;
+      return;
+    }
     try {
       const res = await fetch(`https://rdap.org/domain/${domain}`);
       if (!res.ok) return;
@@ -3574,6 +3590,31 @@ document.addEventListener("DOMContentLoaded", () => {
   // ── Dark mode persistence ─────────────────────────────────────
   const toggleDark = $("toggle-dark");
   try { if (localStorage.getItem("osint_theme") === "light") document.body.classList.add("light"); } catch {}
+
+  // First-run notice — show once, then dismiss permanently
+  try {
+    if (!localStorage.getItem("osint_welcomed")) {
+      const notice = document.createElement("div");
+      notice.id = "first-run-notice";
+      notice.style.cssText = "position:fixed;bottom:20px;right:20px;z-index:9999;max-width:340px;background:var(--bg2);border:1px solid rgba(56,189,248,0.35);border-radius:12px;padding:14px 16px;box-shadow:0 8px 32px rgba(0,0,0,0.4);font-size:11px;line-height:1.6;";
+      notice.innerHTML = `
+        <div style="font-weight:800;font-size:13px;margin-bottom:6px;color:var(--text)">👋 Welcome to OSINT SOC Toolkit <span style="font-size:10px;background:rgba(56,189,248,0.1);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);border-radius:20px;padding:1px 7px;">v${TOOLKIT_VERSION}</span></div>
+        <div style="color:var(--muted);margin-bottom:10px;">
+          🔒 <strong>Privacy:</strong> All processing happens locally in your browser.<br>
+          📦 IOC history is saved in <em>this browser only</em> — not sent anywhere.<br>
+          🔗 Tool lookups open external sites — only when you click them.<br>
+          ⚠️ Do not paste credentials, PII, or classified data.
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="try{localStorage.setItem('osint_welcomed','1')}catch(e){}document.getElementById('first-run-notice').remove()" 
+            style="flex:1;padding:6px;border-radius:8px;border:none;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;font-weight:700;font-size:11px;cursor:pointer">
+            Got it — Let's go
+          </button>
+        </div>`;
+      document.body.appendChild(notice);
+    }
+  } catch(e) {}
+
   if (toggleDark) toggleDark.addEventListener("click", () => {
     document.body.classList.toggle("light");
     try { localStorage.setItem("osint_theme", document.body.classList.contains("light") ? "light" : "dark"); } catch {}
@@ -3756,12 +3797,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     // Export Splunk
     $("bulk-exp-splunk")?.addEventListener("click", async () => {
-      const lines = deduped.map(i => `| makeresults | eval ${i.type}="${i.q}"`).join("\n");
+      const lines = deduped.map(i => `| makeresults | eval ${i.type}="${i.q.replace(/"/g, "\\\"")}"`).join("\n");
       try { await navigator.clipboard.writeText(lines); setBulkStatus("Splunk format copied to clipboard"); } catch {}
     });
     // Export Sigma IOC list
     $("bulk-exp-sigma")?.addEventListener("click", async () => {
-      const lines = ["# Sigma IOC List — paste into detection rules",...deduped.map(i=>`  - '${i.q}'  # ${i.type}`)];
+      const lines = ["# Sigma IOC List — paste into detection rules",...deduped.map(i=>`  - '${i.q.replace(/'/g,"''")}' # ${i.type}`)];
       try { await navigator.clipboard.writeText(lines.join("\n")); setBulkStatus("Sigma IOC list copied to clipboard"); } catch {}
     });
   }
@@ -5377,12 +5418,21 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>`;
   }
 
+  let _lastNewsFetch = 0;
+  const NEWS_COOLDOWN_MS = 30000; // 30 seconds between API calls
   async function fetchThreatNews(topic) {
     const btn      = $("cti-news-refresh");
     const results  = $("cti-news-results");
     const statusEl = $("cti-news-status");
     const tsEl     = $("cti-news-timestamp");
     if (!results) return;
+    // Rate limit — skip API call if within cooldown (still shows built-in KB)
+    const now = Date.now();
+    const sinceLastFetch = now - _lastNewsFetch;
+    if (sinceLastFetch < NEWS_COOLDOWN_MS && _lastNewsFetch > 0) {
+      const wait = Math.ceil((NEWS_COOLDOWN_MS - sinceLastFetch) / 1000);
+      btn.title = `Please wait ${wait}s before refreshing`;
+    }
 
     btn.disabled = true;
     btn.textContent = "⏳ Loading...";
@@ -5444,8 +5494,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tsEl) tsEl.textContent = `Built-in Intel DB (as of early 2025) · ${new Date().toLocaleDateString()}`;
     }
 
+    _lastNewsFetch = Date.now();
     btn.disabled = false;
     btn.textContent = "⚡ Get Latest";
+    btn.title = "";
   }
 
   $("cti-news-refresh")?.addEventListener("click", () => {
@@ -5527,7 +5579,7 @@ document.addEventListener("DOMContentLoaded", () => {
       actor.tools.some(t => t.toLowerCase().includes(q))
     );
     if (!ctiActorResults) return;
-    if (!matches.length) { ctiActorResults.innerHTML = `<div class="bulk-empty">No matching actors found for "${q}". Try an alias, tool name, or partial name.</div>`; return; }
+    if (!matches.length) { ctiActorResults.innerHTML = `<div class="bulk-empty">No matching actors found for "${esc(q)}". Try an alias, tool name, or partial name.</div>`; return; }
     ctiActorResults.innerHTML = matches.map(([n,a]) => renderActorCard(n,a)).join("");
     ctiActorResults.querySelectorAll(".cti-hunt-btn").forEach(btn => {
       btn.addEventListener("click", () => {
