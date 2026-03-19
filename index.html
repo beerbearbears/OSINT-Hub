@@ -464,6 +464,10 @@
           <a id="cve_exploitdb" target="_blank"><div class="title">💥 Exploit-DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_exploitdb"></div></a>
           <a id="cve_vulners" target="_blank"><div class="title">🧠 Vulners <span class="lock">🔒</span></div><div class="meta" data-meta="cve_vulners"></div></a>
           <a id="cve_github" target="_blank"><div class="title">🧑‍💻 GitHub PoC Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_github"></div></a>
+          <a id="cve_socradar" target="_blank"><div class="title">📡 SOCRadar CVE Intel <span class="lock">🔒</span></div><div class="meta" data-meta="cve_socradar"></div></a>
+          <a id="cve_rapid7" target="_blank"><div class="title">⚡ Rapid7 AttackerKB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_rapid7"></div></a>
+          <a id="cve_snyk" target="_blank"><div class="title">🔬 Snyk Vuln DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_snyk"></div></a>
+          <a id="cve_assetnote" target="_blank"><div class="title">🎯 Nuclei Templates Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_assetnote"></div></a>
         </div>
       </div>
 
@@ -495,10 +499,14 @@
 
       <!-- ===================== CVE ↔ KEV / EPSS ===================== -->
       <div class="tool-section" data-type="cveplus">
-        <div class="section-head"><h2>📊 CVE ↔ KEV / EPSS</h2><div class="pill">Exploitability pivots</div></div>
+        <div class="section-head"><h2>📊 CVE ↔ KEV / EPSS / Threat Intel</h2><div class="pill">Exploitability pivots</div></div>
         <div class="tool-grid">
           <a id="cvep_cisa_kev" target="_blank"><div class="title">🧨 CISA KEV Search <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_cisa_kev"></div></a>
-          <a id="cvep_epss" target="_blank"><div class="title">📈 EPSS Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_epss"></div></a>
+          <a id="cvep_epss" target="_blank"><div class="title">📈 EPSS Score (FIRST.org) <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_epss"></div></a>
+          <a id="cvep_socradar" target="_blank"><div class="title">📡 SOCRadar Threat Intel <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_socradar"></div></a>
+          <a id="cvep_greynoise" target="_blank"><div class="title">🌫 GreyNoise CVE Trends <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_greynoise"></div></a>
+          <a id="cvep_shodan" target="_blank"><div class="title">🛰 Shodan CVE Exposure <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_shodan"></div></a>
+          <a id="cvep_vulncheck" target="_blank"><div class="title">✅ VulnCheck KEV <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_vulncheck"></div></a>
         </div>
       </div>
 
@@ -882,6 +890,8 @@
           <button id="lt-analyze-btn" type="button">🔍 Auto-Triage</button>
           <button id="lt-prefill-btn" type="button">📝 Pre-fill Write-up</button>
           <button id="lt-copy-btn" type="button">📋 Copy Results</button>
+          <button id="lt-casenotes-btn" type="button" title="Copy a ready-to-paste case note summary">📝 Copy Case Notes</button>
+          <button id="lt-addall-btn" type="button" title="Add all extracted IOCs to the active case">📁 Add All to Case</button>
           <button id="lt-clear-btn" type="button">🗑 Clear</button>
         </div>
         <div id="lt-status" class="status" style="margin-top:10px;">
