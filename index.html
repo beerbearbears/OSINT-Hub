@@ -890,15 +890,55 @@
           <button id="lt-analyze-btn" type="button">🔍 Auto-Triage</button>
           <button id="lt-prefill-btn" type="button">📝 Pre-fill Write-up</button>
           <button id="lt-copy-btn" type="button">📋 Copy Results</button>
-          <button id="lt-casenotes-btn" type="button" title="Copy a ready-to-paste case note summary">📝 Copy Case Notes</button>
+          <button id="lt-casenotes-btn" type="button" title="Copy structured case notes">📝 Copy Case Notes</button>
+          <button id="lt-soc-note-btn" type="button" title="Generate full SOC prose case note" style="background:linear-gradient(135deg,#1D9E75,#0ea5e9);color:#fff;border:none;font-weight:800;">✍️ Generate SOC Note</button>
           <button id="lt-addall-btn" type="button" title="Add all extracted IOCs to the active case">📁 Add All to Case</button>
           <button id="lt-clear-btn" type="button">🗑 Clear</button>
+        </div>
+        <!-- SOC Note Generator Controls -->
+        <div id="lt-soc-note-controls" style="display:none;margin-top:10px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
+          <div style="font-size:11px;font-weight:800;color:var(--text);margin-bottom:8px;">✍️ SOC Case Note Generator</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="lt-soc-analyst" class="aw-input" placeholder="Analyst name" style="flex:1;min-width:120px;font-size:11px;"/>
+            <select id="lt-soc-verdict" class="aw-input" style="flex:1;min-width:130px;font-size:11px;">
+              <option value="TP_blocked">TP – Blocked</option>
+              <option value="TP_detected">TP – Detected (not blocked)</option>
+              <option value="TP_confirmed">TP – Confirmed Compromise</option>
+              <option value="FP">FP – False Positive</option>
+              <option value="BEN">Benign – Expected Activity</option>
+              <option value="TBD">TBD – Under Investigation</option>
+            </select>
+            <select id="lt-soc-disposition" class="aw-input" style="flex:1;min-width:130px;font-size:11px;">
+              <option value="NFA">No Further Action (NFA)</option>
+              <option value="escalated">Escalated to Tier 2 / IR</option>
+              <option value="contained">Contained – Endpoint Isolated</option>
+              <option value="monitoring">Continue Monitoring</option>
+              <option value="remediated">Remediated</option>
+              <option value="user_notified">User Notified</option>
+            </select>
+            <button id="lt-soc-generate-btn" type="button" style="background:linear-gradient(135deg,#1D9E75,#0ea5e9);color:#fff;border:none;font-weight:800;padding:6px 16px;border-radius:8px;font-size:11px;cursor:pointer;">⚡ Generate</button>
+          </div>
+          <textarea id="lt-soc-extra-context" spellcheck="false" rows="2" placeholder="Optional: add any extra context the auto-analysis may have missed (e.g. 'user confirmed they visited the site', 'ticket #INC-1234')" style="margin-top:8px;width:100%;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px;font-family:inherit;resize:vertical;"></textarea>
+        </div>
         </div>
         <div id="lt-status" class="status" style="margin-top:10px;">
           <span>Paste a log or alert above and click Auto-Triage</span><span class="badge">TRIAGE</span>
         </div>
       </div>
       <div id="lt-results" class="sa-results"></div>
+      <!-- SOC Case Note Output Panel -->
+      <div id="lt-soc-note-panel" style="display:none;margin-top:14px;">
+        <div style="background:var(--bg2);border:1px solid rgba(29,158,117,0.35);border-radius:12px;overflow:hidden;">
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 16px 10px;border-bottom:1px solid var(--border);background:rgba(29,158,117,0.06);">
+            <span style="font-size:14px;">✍️</span>
+            <span style="font-size:12px;font-weight:800;color:var(--text);">SOC Case Note</span>
+            <span style="font-size:10px;color:var(--muted);flex:1;">Analyst-grade prose — ready to paste into your ticketing system</span>
+            <button id="lt-soc-copy-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📋 Copy</button>
+            <button id="lt-soc-addcase-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📁 Add to Case</button>
+          </div>
+          <div id="lt-soc-note-body" style="padding:16px;font-size:12px;line-height:1.9;color:var(--text);white-space:pre-wrap;font-family:inherit;"></div>
+        </div>
+      </div>
     </div>
 
     <!-- ===== THREAT ACTOR TAB ===== -->
@@ -1012,7 +1052,7 @@
         <!-- Hex / Octal Decoder -->
         <div class="utils-card">
           <div class="utils-card-head">🔢 Hex / Octal / Char Decoder</div>
-          <textarea id="util-hex-input" spellcheck="false" placeholder="Examples:&#10;\x68\x65\x6c\x6c\x6f&#10;0x48 0x65 0x6c&#10;72 101 108&#10;\150\145\154"></textarea>
+          <textarea id="util-hex-input" spellcheck="false" placeholder="Examples:&#10;\x68\x65\x6c&#10;0x48 0x65 0x6c&#10;72 101 108"></textarea>
           <div class="utils-actions">
             <button id="util-hex-decode-hex" type="button">HEX → Text</button>
             <button id="util-hex-decode-oct" type="button">OCT → Text</button>
