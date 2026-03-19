@@ -1799,3 +1799,12 @@ body.light .lt-vt-body { background: rgba(0,0,0,0.05); }
 body.light .eha-auth-check-detail { color:#374151; font-weight:500; }
 body.light .eha-auth-check-label { color:#374151; font-weight:800; }
 body.light .eha-score-banner { border:1px solid rgba(0,0,0,0.12); }
+
+/* ── Email Header — flag category headings ── */
+.eha-flag-cat-head {
+  font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:0.8px;
+  color:var(--muted); padding:10px 0 4px; margin-top:4px;
+  border-top:1px solid var(--border);
+}
+.eha-flag-cat-head:first-child { border-top:none; padding-top:0; }
+body.light .eha-flag-cat-head { color:#374151; }
