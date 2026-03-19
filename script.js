@@ -1242,6 +1242,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // 6. SURICATA / SNORT IDS-IPS
     if (/\[Classification:|ET\s+\w+|GPL\s+\w+|Suricata|snort|alert tcp|alert udp|alert icmp|Priority:\s*\d|GID:\s*\d|SID:\s*\d|\[1:[0-9]+:[0-9]+\]/i.test(t)) {
       results.eventType = /suricata/i.test(t) ? "Suricata IDS/IPS" : "Snort IDS/IPS";
+      const idsSig = (t.match(/(?:alert\.signature|msg|signature|sig_name)\s*[=:"\[]+\s*"?([^"\]\n]{5,100})/i)||[])[1]?.replace(/^"+|"+$/g,"")||"";
+      if (idsSig) results.prefillData.threat_name = idsSig;
       const sigName   = (t.match(/\[\d+:\d+:\d+\]\s*([^\[]{3,100})|alert.*(?:tcp|udp|icmp)[^(]+\(msg:"([^"]{3,100})"/i)||[])[1]?.trim()||
                         (t.match(/msg:\s*"([^"]{3,100})"/i)||[])[1]||"";
       const srcIp     = (t.match(/(\d{1,3}(?:\.\d{1,3}){3}):\d+\s*->/)||[])[1]||"";
@@ -1324,7 +1326,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (method)    results.indicators.push(`Method: ${method}`);
       if (url)       results.indicators.push(`URL: ${url.slice(0,80)}`);
       if (status)    results.indicators.push(`Status: ${status}`);
-      if (useragent) results.indicators.push(`UA: ${useragent.slice(0,60)}`);
+      if (useragent) { results.indicators.push(`UA: ${useragent.slice(0,60)}`); results.prefillData.useragent = useragent; }
+      const referer2 = (t.match(/(?:referer|referrer|cs\(referer\))\s*[=:"]+\s*"?([^"\n\s]{5,200})/i)||[])[1]||"";
+      if (referer2) results.prefillData.referer = referer2;
+      if (status)   results.prefillData.http_status = status;
       if (status && status.startsWith("4")) results.findings.push(`⚠️ HTTP ${status} — access denied or not found`);
       if (method === "POST" && url) results.findings.push("ℹ️ POST request — check for data submission or exfiltration");
       if (useragent && /curl|wget|python|go-http|nmap|nikto|sqlmap|masscan|zgrab/i.test(useragent)) { results.findings.push(`⚠️ Suspicious User-Agent: ${useragent.slice(0,60)}`); results.mitre.add("T1595"); if(!["critical","high"].includes(results.severity)) results.severity="medium"; }
@@ -1711,11 +1716,22 @@ document.addEventListener("DOMContentLoaded", () => {
       const dstIp     = (t.match(/(?:dstIP|serverIP|dst)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
       const user      = (t.match(/(?:user|userName|login)\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1]||"";
       const bytes     = (t.match(/(?:bytesTotal|txBytes|totalBytes)\s*[=:"]+\s*(\d+)/i)||[])[1]||"";
+      const referer   = (t.match(/(?:referer|referrer|cs\(referer\))\s*[=:"]+\s*"?([^"\n\s]{5,200})/i)||[])[1]||"";
+      const useragent = (t.match(/(?:user[_-]?agent|cs\(user-agent\))\s*[=:"]+\s*"?([^"\n]{5,200})/i)||[])[1]||"";
+      const httpstatus= (t.match(/(?:responseCode|statusCode|sc-status|status)\s*[=:"]+\s*(\d{3})/i)||[])[1]||"";
+      const hostname  = (t.match(/(?:clientHostname|hostname|deviceName|machine)\s*[=:"]+\s*([a-zA-Z0-9_.-]{2,60})/i)||[])[1]||"";
       if (user)     { results.indicators.push(`User: ${user}`);      results.prefillData.username = user; }
       if (srcIp)    { results.indicators.push(`SrcIP: ${srcIp}`);    results.prefillData.src_ip = srcIp; }
       if (dstIp)      results.indicators.push(`DstIP: ${dstIp}`);
+      if (hostname) { results.indicators.push(`Host: ${hostname}`);  results.prefillData.hostname = hostname; }
       if (category)   results.indicators.push(`Category: ${category}`);
       if (action)     results.indicators.push(`Action: ${action}`);
+      if (referer)  { results.prefillData.referer = referer; }
+      if (useragent){ results.prefillData.useragent = useragent; }
+      if (httpstatus){ results.prefillData.http_status = httpstatus; }
+      if (threat)   { results.prefillData.threat_name = threat; }
+      if (category) { results.prefillData.category = category; }
+      if (bytes)    { results.prefillData.bytes = bytes; }
       if (threat)   { results.findings.push(`🚨 Zscaler detected threat: ${threat}`); results.mitre.add("T1071"); results.severity="high"; }
       if (/block|blocked/i.test(action)) results.findings.push(`✅ Traffic was blocked by Zscaler policy — confirm no endpoint compromise`);
       if (/allow/i.test(action) && threat) { results.findings.push("⚠️ Malicious traffic was ALLOWED — check policy and investigate endpoint"); results.severity="critical"; }
@@ -1897,7 +1913,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (policy)   results.indicators.push(`Policy: ${policy}`);
       if (dport)  { results.indicators.push(`DPort: ${dport}`); if(PORT_HINTS[dport]) results.findings.push(`ℹ️ Port ${dport} = ${PORT_HINTS[dport]}`); }
       if (user)   { results.indicators.push(`User: ${user}`); results.prefillData.username = user; }
-      if (threat) { results.findings.push(`🚨 Threat detected: ${threat}`); results.severity="critical"; results.mitre.add("T1059"); }
+      if (threat) { results.findings.push(`🚨 Threat detected: ${threat}`); results.severity="critical"; results.mitre.add("T1059"); results.prefillData.threat_name = threat; }
+      if (app)    results.prefillData.app = app;
+      if (policy) results.prefillData.policy = policy;
       if (/allow/i.test(action) && dport === "4444") { results.findings.push("🚨 Allowed traffic on port 4444 (Metasploit default)"); results.mitre.add("T1071"); results.severity="critical"; }
       if (/allow/i.test(action) && dport === "50050") { results.findings.push("🚨 Allowed traffic on port 50050 (Cobalt Strike)"); results.mitre.add("T1071"); results.severity="critical"; }
       if (/allow/i.test(action) && dport === "3389") { results.findings.push("⚠️ RDP allowed outbound — verify necessity"); results.mitre.add("T1021.001"); if(results.severity!=="critical") results.severity="high"; }
@@ -2874,6 +2892,268 @@ document.addEventListener("DOMContentLoaded", () => {
     return { tpPct, fpPct: 100-tpPct, verdict, cls, tpReasons, fpReasons };
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // SOC CASE NOTE GENERATOR — Analyst-grade prose case note
+  // Produces the full flowing narrative matching professional SOC format:
+  //   P1: Timeline + who + what happened + why/how (cause → effect chain)
+  //   P2: What the security control did + impact scope (what DIDN'T happen)  
+  //   P3: Final Verdict + Disposition
+  // ═══════════════════════════════════════════════════════════════
+  function generateSOCCaseNote(res, analystVerdict, analystDisposition, analystName, extraContext) {
+    // exposed as window.generateSOCCaseNote below
+    const iocs     = res.iocs     || {};
+    const pf       = res.prefillData || {};
+    const findings = res.findings  || [];
+    const et       = res.eventType || "Security Event";
+    const sev      = res.severity  || "info";
+    const raw      = (res._rawText || "").toLowerCase();
+    const findingsStr = findings.join(" ").toLowerCase();
+
+    // ── Extract all rich context fields ──────────────────────
+    const user       = pf.username   || iocs.usernames?.[0]  || "";
+    const host       = pf.hostname   || iocs.hostnames?.[0]  || "";
+    const srcIP      = pf.src_ip     || "";
+    const dstIP      = pf.dest_ip    || (iocs.ips||[]).find(ip=>!isPrivateIPv4(ip)&&ip!==srcIP) || "";
+    // Prefer URL hostname as the target domain, then IOC domains (excluding sender's own corp domain)
+    const _urlHost = pf.url ? (() => { try { return new URL(pf.url).hostname; } catch { return ""; }})() : "";
+    const _corpDomain = (pf.username||"").split("@")[1]?.toLowerCase() || "";
+    const domain = _urlHost || (iocs.domains||[]).find(d => d !== _corpDomain) || iocs.domains?.[0] || "";
+    const url        = pf.url        || iocs.urls?.[0]       || "";
+    const hash       = iocs.hashes?.[0] || "";
+    const process    = iocs.processes?.[0] || pf.process || "";
+    const cmdline    = pf.cmdline    || iocs.cmdlines?.[0]   || "";
+    const email      = pf.sender     || iocs.emails?.[0]     || "";
+    const threatName = pf.threat_name || (findings.filter(f=>/🚨/.test(f)).map(f=>f.replace(/^🚨\s*/,""))[0]) || "";
+    const signature  = pf.threat_name || threatName || "";
+    const category   = pf.category   || "";
+    const referer    = pf.referer    || "";
+    const useragent  = pf.useragent  || "";
+    const httpStatus = pf.http_status || "";
+    const bytes      = pf.bytes      || "";
+    const dstPort    = pf.dest_port  || iocs.ports?.[0]      || "";
+    const proto      = pf.proto      || pf.app               || "";
+    const verdict    = pf.verdict    || (iocs.verdicts||[])[0] || "";
+    const ts         = pf.timestamp  || iocs.timestamps?.[0] || "";
+    const mitre      = (res.mitre||[]).slice(0,3);
+
+    // ── Parse timestamp into readable form ───────────────────
+    let timeStr = "";
+    let dateStr = "";
+    if (ts) {
+      try {
+        const d = new Date(ts);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" });
+          const hrs  = d.getUTCHours().toString().padStart(2,"0");
+          const mins = d.getUTCMinutes().toString().padStart(2,"0");
+          const mins2 = Math.min(59, parseInt(mins)+2).toString().padStart(2,"0");
+          timeStr = `${hrs}:${mins}–${hrs}:${mins2} UTC`;
+        }
+      } catch {}
+      if (!dateStr) { dateStr = ts.split("T")[0] || ts.split(" ")[0] || ts; timeStr = ts.includes("T") ? ts.split("T")[1]?.slice(0,5)+" UTC" : ""; }
+    }
+
+    // ── Parse User-Agent for browser/OS ──────────────────────
+    let browser = "", os = "";
+    if (useragent) {
+      if (/Chrome\/[\d.]+.*Safari/i.test(useragent) && !/Chromium|Edge/i.test(useragent)) browser = "Chrome";
+      else if (/Firefox\//i.test(useragent)) browser = "Firefox";
+      else if (/Edg\//i.test(useragent)) browser = "Microsoft Edge";
+      else if (/Safari\//i.test(useragent) && !/Chrome/i.test(useragent)) browser = "Safari";
+      else if (/MSIE|Trident/i.test(useragent)) browser = "Internet Explorer";
+      else if (/curl|wget|python|go-http/i.test(useragent)) browser = "automated tool (" + (useragent.match(/^([^\s/]+)/)||[])[1] + ")";
+      if (/Windows NT 10/i.test(useragent)) os = "Windows 10";
+      else if (/Windows NT 11/i.test(useragent)||/Windows NT 10\.0.*Build 22/i.test(useragent)) os = "Windows 11";
+      else if (/Windows NT 6\.1/i.test(useragent)) os = "Windows 7";
+      else if (/Mac OS X/i.test(useragent)) os = "macOS";
+      else if (/Linux/i.test(useragent) && !/Android/i.test(useragent)) os = "Linux";
+      else if (/Android/i.test(useragent)) os = "Android";
+      else if (/iPhone|iPad/i.test(useragent)) os = "iOS";
+    }
+    const clientDesc = browser && os ? `${browser} on ${os}` : browser || os || "an unknown client";
+
+    // ── Determine source type and control ────────────────────
+    const sourceLabel = /zscaler|zia|zpa/i.test(et)        ? "Zscaler"
+                      : /proofpoint/i.test(et)              ? "Proofpoint TAP"
+                      : /crowdstrike|falcon/i.test(et)      ? "CrowdStrike Falcon"
+                      : /defender|mde/i.test(et)            ? "Microsoft Defender"
+                      : /sentinelone/i.test(et)             ? "SentinelOne"
+                      : /suricata|snort|ids|ips/i.test(et)  ? "the IDS/IPS engine"
+                      : /darktrace|ndr/i.test(et)           ? "Darktrace"
+                      : /palo alto|ngfw|fortinet/i.test(et) ? "the NGFW"
+                      : /azure ad|entra/i.test(et)          ? "Azure AD / Entra ID"
+                      : /aws|cloudtrail/i.test(et)          ? "AWS CloudTrail"
+                      : /okta/i.test(et)                    ? "Okta"
+                      : /qradar|splunk|siem/i.test(et)      ? "the SIEM"
+                      : et.replace(/ Log$| Alert$/i,"");
+
+    // ── Verdict map ───────────────────────────────────────────
+    const verdictMap = {
+      TP_blocked:  (() => {
+        const sigShort = signature ? signature.split(" ").slice(0,5).join(" ") : "Malware";
+        return `TP – Blocked Malware Attempt (${sigShort})`;
+      })(),
+      TP_detected: `TP – Detected (Not Blocked) – ${signature ? signature.split(" ").slice(0,5).join(" ") : "Malicious Activity"}`,
+      TP_confirmed:"TP – Confirmed Compromise",
+      FP:          "FP – False Positive",
+      BEN:         "Benign – Expected Activity",
+      TBD:         "TBD – Pending Investigation",
+    };
+    const dispositionMap = {
+      NFA:          "No Further Action (NFA)",
+      escalated:    "Escalated to Tier 2 / Incident Response",
+      contained:    "Host Contained – Endpoint Isolated",
+      monitoring:   "Continue Monitoring",
+      remediated:   "Remediated",
+      user_notified:"User Notified and Warned",
+    };
+    const finalVerdict     = verdictMap[analystVerdict]     || analystVerdict     || verdictMap.TBD;
+    const finalDisposition = dispositionMap[analystDisposition] || analystDisposition || dispositionMap.NFA;
+
+    // ── PARAGRAPH 1: WHAT HAPPENED ────────────────────────────
+    const parts1 = [];
+
+    // Opening: When + Who + What
+    if (dateStr || timeStr) {
+      let opening = `On ${dateStr}${timeStr ? ` at approximately ${timeStr}` : ""}`;
+      if (user && host) opening += `, user ${user} on host ${host}`;
+      else if (user)    opening += `, user ${user}`;
+      else if (host)    opening += `, host ${host}`;
+      else if (srcIP)   opening += `, source ${srcIP}`;
+      parts1.push(opening);
+    } else if (user || host) {
+      parts1.push(`User ${user||host}${host&&user?" on host "+host:""}`);
+    }
+
+    // Source-specific WHAT clause
+    if (/zscaler|proxy|web.*log/i.test(et)) {
+      const accessVerb = /block/i.test(verdict) ? "attempted to access" : "accessed";
+      const targetDesc = domain || url || dstIP || "an external resource";
+      let what = ` ${accessVerb} ${targetDesc}`;
+      if (signature) what += `, which was identified as malicious${category?" under the category \""+category+"\"":""} and blocked under ${signature.includes(".")?`the signature ${signature}`:`the IPS signature ${signature}`}`;
+      else if (category) what += `, which was classified as ${category} and ${/block/i.test(verdict)?"blocked":"flagged"}`;
+      what += ".";
+      parts1[parts1.length-1] += what;
+
+      // Referer / why it happened
+      if (referer && referer !== url) {
+        const refDomain = (() => { try { return new URL(referer).hostname; } catch { return referer.slice(0,60); }})();
+        parts1.push(`The request shows a referrer from ${refDomain}, suggesting the user likely visited a potentially compromised or malicious website that initiated a redirect or embedded malicious content leading to the flagged domain.`);
+      }
+      // Technique explanation
+      if (/clickfix/i.test(signature)) {
+        parts1.push(`The detection indicates an attempt to deliver or interact with malicious HTML content commonly associated with ClickFix-style trojans, which typically involve social engineering techniques or script-based execution attempts designed to trick users into running malicious commands.`);
+      } else if (/phish/i.test(signature||category)) {
+        parts1.push(`This pattern is consistent with a phishing infrastructure redirect, where a compromised or attacker-controlled site serves as an initial landing page before forwarding victims to a credential harvesting or malware delivery endpoint.`);
+      } else if (/c2|command.*control|beacon/i.test(signature||findingsStr)) {
+        parts1.push(`The destination is consistent with known command-and-control infrastructure, suggesting the host may have an active implant attempting to beacon home to a remote attacker.`);
+      } else if (/malware|trojan|ransomware/i.test(signature||category)) {
+        parts1.push(`The flagged destination is associated with malware distribution or delivery infrastructure, indicating a likely attempt to download or execute a malicious payload on the endpoint.`);
+      }
+    } else if (/proofpoint|email|mail/i.test(et)) {
+      const sender = email || pf.sender || "[unknown sender]";
+      const recipient = pf.recipient || user || "[recipient]";
+      parts1[parts1.length-1] += ` received a${/phish/i.test(signature||category)?" phishing":""} email from ${sender} targeting ${recipient}.`;
+      if (url) parts1.push(`The message contained a malicious URL: ${url.slice(0,100)}${url.length>100?"…":""}${signature?`, detected under the signature ${signature}`:""}. `);
+      if (/spf.*fail|dkim.*fail/i.test(findingsStr)) parts1.push(`Email authentication checks failed (SPF/DKIM), confirming the sender domain was spoofed or the message was not legitimately sent by the claimed domain.`);
+    } else if (/crowdstrike|falcon|endpoint|edr|defender|sentinelone/i.test(et)) {
+      parts1[parts1.length-1] += ` triggered an endpoint detection${signature ? ` for ${signature}` : ""} on ${host||"the affected endpoint"}.`;
+      if (process) parts1.push(`The flagged process was \`${process}\`${cmdline?` executed with command: \`${cmdline.slice(0,120)}${cmdline.length>120?"…":""}\``:""}. `);
+      if (/encoded|base64/i.test(findingsStr)) parts1.push(`The command line contained a Base64-encoded payload, a deliberate obfuscation technique used to evade static detection and conceal the true intent of the executed script.`);
+      if (/lolbin|rundll|mshta/i.test(findingsStr)) parts1.push(`A Living-off-the-Land Binary (LOLBin) was abused to execute the malicious payload using a trusted Windows system binary, bypassing application whitelisting controls.`);
+    } else if (/azure ad|entra|okta|identity|impossible.*travel|concurrent.*location|riskdetail/i.test(et+raw+findingsStr)) {
+      const idUser = user || email || "[unknown user]";
+      if (idUser !== "[unknown user]" && parts1.length && !parts1[0].includes(idUser)) {
+        parts1[parts1.length-1] += `, account ${idUser}`;
+      }
+      parts1[parts1.length-1] += ` triggered an identity security alert${srcIP?" — authentication originated from IP "+srcIP:""}.`;
+      if (/impossible.*travel|concurrent.*location|riskdetail.*impossible/i.test(findingsStr+raw)) {
+        const allIPs = (iocs.ips||[]).filter(Boolean);
+        const ipDesc = allIPs.length >= 2 
+          ? `${allIPs.length} geographically distinct IP addresses (${allIPs.slice(0,3).join(", ")}) within a timeframe that makes legitimate physical travel between those locations implausible`
+          : `IP ${srcIP||allIPs[0]||"unknown"}, which does not match the user's expected location`;
+        parts1.push(`The account authenticated from ${ipDesc}, indicating the credentials may have been compromised and are actively being used by a remote threat actor.`);
+      }
+      if (/mfa.*fail|mfa.*push|push.*deny/i.test(findingsStr+raw)) parts1.push(`Multiple MFA push notifications were denied, consistent with a credential stuffing attack combined with MFA fatigue or push-bombing tactics.`);
+    } else if (/suricata|snort|ids|ips|firewall|network/i.test(et)) {
+      const sigDesc = signature || "a security signature";
+      parts1[parts1.length-1] += ` generated a network alert matching ${sigDesc}`;
+      if (srcIP && dstIP) parts1[parts1.length-1] += ` for traffic from ${srcIP} to ${dstIP}${dstPort?" on port "+dstPort:""}`;
+      parts1[parts1.length-1] += ".";
+    } else if (/aws|cloudtrail/i.test(et)) {
+      parts1[parts1.length-1] += ` performed a${/AttachUserPolicy|CreateUser|AddUserToGroup/i.test(raw)?" privileged IAM":" cloud"} action from IP ${srcIP||"unknown"}.`;
+      if (/AttachUserPolicy|AttachRolePolicy/i.test(raw)) parts1.push(`The detected action involves attaching an IAM policy, which if performed without authorization, could grant the actor elevated or administrative permissions across the AWS environment.`);
+    } else {
+      // Generic
+      parts1[parts1.length-1] += ` triggered a ${sev.toUpperCase()} severity alert${signature?" ("+signature+")":""}${sourceLabel?" in "+sourceLabel:""}.`;
+    }
+
+    // MITRE context
+    if (mitre.length) {
+      parts1.push(`This activity maps to MITRE ATT&CK technique${mitre.length>1?"s":""} ${mitre.map(t=>t+" ("+getMitreName(t)+")").join(", ")}.`);
+    }
+
+    // ── PARAGRAPH 2: WHAT THE CONTROL DID + IMPACT SCOPE ─────
+    const parts2 = [];
+
+    // What the security control did
+    const isBlocked   = /block|blocked|denied|dropped|prevented/i.test(verdict||findingsStr||raw);
+    const isDetected  = !isBlocked && /detect|alert|found|identified/i.test(findingsStr||raw);
+    const isAllowed   = /allow|allowed|permit|pass/i.test(verdict||"") && !isBlocked;
+
+    if (isBlocked) {
+      let controlAction = `${sourceLabel} successfully blocked the${/zscaler|proxy|web/i.test(et)?" inbound malicious response":/email|mail/i.test(et)?" phishing email":/crowdstrike|defender|sentinelone|edr/i.test(et)?" malicious execution":" malicious traffic"}`;
+      if (httpStatus) controlAction += ` (HTTP ${httpStatus})`;
+      const preventDesc = /payload|download|malware|trojan/i.test(findingsStr+raw) 
+        ? "payload delivery and any potential execution"
+        : /email|phish/i.test(et) ? "the phishing email from reaching the recipient's inbox"
+        : "the malicious activity from reaching the endpoint";
+      controlAction += `, preventing ${preventDesc}.`;
+      parts2.push(controlAction);
+    } else if (isDetected) {
+      parts2.push(`${sourceLabel} detected and alerted on this activity${/endpoint|edr/i.test(et)?" — the threat was flagged but manual remediation may be required":" — verify whether the activity was fully contained"}.`);
+    } else if (isAllowed) {
+      parts2.push(`⚠️ IMPORTANT: ${sourceLabel} allowed this traffic through. The malicious activity was not blocked at the network layer — endpoint investigation is required immediately to determine whether the payload was delivered and executed.`);
+    }
+
+    // Client context
+    if (browser || os) {
+      parts2.push(`The activity appears to be ${/curl|wget|python|automated/i.test(clientDesc)?"driven by an automated tool":"browser-driven"} (${clientDesc}) with ${/curl|wget|python|automated/i.test(clientDesc)?"possible scripted or scheduled behavior":"no indication of automated tools or background processes"}.`);
+    }
+
+    // Impact scope — what DIDN'T happen
+    const noFollowOn = [];
+    if (isBlocked) {
+      if (iocs.hashes?.length === 0) noFollowOn.push("file downloads");
+      if (!process && !/process.*creat|lsass|cmd\.exe|powershell/i.test(findingsStr)) noFollowOn.push("process execution");
+      if (!/persist|registry|sched.*task|startup|run.*key/i.test(findingsStr+raw)) noFollowOn.push("persistence mechanisms");
+      if (!/c2|beacon|cobalt.*strike|command.*control/i.test(findingsStr+raw)) noFollowOn.push("command-and-control communication");
+      if (noFollowOn.length) {
+        parts2.push(`There is no evidence in the available logs of follow-on activity such as ${noFollowOn.slice(0,-1).join(", ")}${noFollowOn.length>1?", or "+noFollowOn[noFollowOn.length-1]:noFollowOn[0]}. This suggests the threat was contained at the ${/zscaler|proxy|web|firewall|network|ids|ips/i.test(et)?"network":"detection"} layer before reaching the endpoint.`);
+      }
+    } else if (!isBlocked) {
+      if (/azure ad|entra|okta|identity|impossible.*travel/i.test(et+raw)) {
+        parts2.push(`The identity platform logged and flagged this authentication event but did not automatically block access. Immediate action is required — the account should be reviewed for active sessions, MFA devices, and any changes made during the suspicious login window.`);
+      } else {
+        parts2.push(`Given that the traffic was not blocked, a thorough endpoint investigation is recommended — review EDR telemetry for the affected host during and after the alert timeframe for signs of payload execution, persistence, or lateral movement.`);
+      }
+    }
+
+    // Extra context from analyst
+    if (extraContext?.trim()) {
+      parts2.push(extraContext.trim());
+    }
+
+    // ── PARAGRAPH 3: VERDICT + DISPOSITION ───────────────────
+    const part3 = `Final Verdict: ${finalVerdict}\nDisposition: ${finalDisposition}${analystName ? "\nAnalyst: "+analystName : ""}`;
+
+    // ── ASSEMBLE ──────────────────────────────────────────────
+    const p1 = parts1.filter(Boolean).join(" ");
+    const p2 = parts2.filter(Boolean).join(" ");
+
+    return [p1, p2, part3].filter(Boolean).join("\n\n");
+  }
+
   function generateCaseNotes(res) {
     const iocs  = res.iocs || {};
     const pf    = res.prefillData || {};
@@ -3299,6 +3579,11 @@ document.addEventListener("DOMContentLoaded", () => {
     $("lt-casenotes-btn")?.addEventListener("click", () => {
       $("lt-cn-copy-btn")?.click();
     });
+    // SOC Note toggle
+    $("lt-soc-note-btn")?.addEventListener("click", () => {
+      const ctrl = $("lt-soc-note-controls");
+      if (ctrl) ctrl.style.display = ctrl.style.display === "none" ? "block" : "none";
+    });
 
     // Per-row mini pivot/copy/case buttons
     ltResults.querySelectorAll(".lt-ioc-pivot-mini").forEach(btn => {
@@ -3354,10 +3639,46 @@ document.addEventListener("DOMContentLoaded", () => {
     // ── ALERT CONTEXT SUMMARY (Feature 8 + 11) ───────────────────
 
   if (ltAnalyzeBtn)
+  // ── SOC Case Note Generator — global listeners ───────────
+  $("lt-soc-generate-btn")?.addEventListener("click", () => {
+    if (!lastTriageResult) { alert("Run Auto-Triage first on a pasted log."); return; }
+    const verdict     = $("lt-soc-verdict")?.value     || "TBD";
+    const disposition = $("lt-soc-disposition")?.value || "NFA";
+    const analyst     = $("lt-soc-analyst")?.value?.trim() || "";
+    const extra       = $("lt-soc-extra-context")?.value?.trim() || "";
+    const note        = generateSOCCaseNote(lastTriageResult, verdict, disposition, analyst, extra);
+    const panel = $("lt-soc-note-panel");
+    const body  = $("lt-soc-note-body");
+    if (panel) panel.style.display = "block";
+    if (body)  body.textContent = note;
+    panel?.scrollIntoView({ behavior:"smooth", block:"start" });
+    // Store for copy
+    panel._socNote = note;
+  });
+  $("lt-soc-copy-btn")?.addEventListener("click", async () => {
+    const note = $("lt-soc-note-panel")?._socNote || $("lt-soc-note-body")?.textContent || "";
+    try { await navigator.clipboard.writeText(note); setLTStatus("SOC case note copied to clipboard"); } catch {}
+  });
+  $("lt-soc-addcase-btn")?.addEventListener("click", () => {
+    const note = $("lt-soc-note-panel")?._socNote || $("lt-soc-note-body")?.textContent || "";
+    if (!note) return;
+    if (!activeCase) { alert("No active case. Create a case in the Case Manager tab first."); return; }
+    activeCase.notes = (activeCase.notes||"") + "\n\n─────────────────────────────────\nSOC CASE NOTE\n─────────────────────────────────\n" + note;
+    saveActiveCase();
+    setLTStatus("SOC case note added to active case");
+    switchTab("case");
+  });
+
+  // Expose key functions globally for testing and external access
+  window.generateSOCCaseNote = generateSOCCaseNote;
+  window.triageLog = triageLog;
+  window.analyzeEmailHeadersFull = analyzeEmailHeadersFull;
+
   if (ltAnalyzeBtn) ltAnalyzeBtn.addEventListener("click", () => {
     const text = ($("lt-input")?.value || "").trim();
     if (!text) { setLTStatus("Paste a log first."); return; }
     lastTriageResult = triageLog(text);
+    window.lastTriageResult = lastTriageResult;
     renderLTResults(lastTriageResult);
     const total = Object.values(lastTriageResult.iocs).reduce((s,a)=>s+(a?.length||0),0);
     setLTStatus(`Triage complete — ${lastTriageResult.eventType} · ${total} IOCs extracted`);
@@ -6192,80 +6513,90 @@ document.addEventListener("DOMContentLoaded", () => {
   function analyzeEmailHeadersFull(raw) {
     const t = (raw || "").replace(/\r\n/g, "\n");
     const getH = re => (t.match(re) || [])[1]?.trim() || "";
+    const getAllH = re => (t.match(re) || []).slice(1);
+    const lower = t.toLowerCase();
 
-    // ── Basic fields ────────────────────────────────────────────
-    const from       = getH(/^from:\s*(.+)$/im);
-    const to         = getH(/^to:\s*(.+)$/im);
-    const replyTo    = getH(/^reply-to:\s*(.+)$/im);
-    const cc         = getH(/^cc:\s*(.+)$/im);
-    const subject    = getH(/^subject:\s*(.+)$/im);
-    const date       = getH(/^date:\s*(.+)$/im);
-    const msgId      = getH(/^message-id:\s*<?([^>\n]+)>?/im);
-    const returnPath = getH(/^return-path:\s*<?([^>\s]+)>?/im);
-    const xOrigIP    = getH(/^x-originating-ip:\s*\[?([^\]\s\n]+)/im) ||
-                       getH(/^x-sender-ip:\s*([^\s\n]+)/im) ||
-                       getH(/^x-forwarded-ip:\s*([^\s\n]+)/im);
-    const xMailer    = getH(/^x-mailer:\s*(.+)$/im);
-    const xSpamScore = getH(/^x-spam-score:\s*(.+)$/im);
-    const xSpamStatus= getH(/^x-spam-status:\s*(.+)$/im);
-    const contentType= getH(/^content-type:\s*([^\n;]+)/im);
-    const mimeVersion= getH(/^mime-version:\s*(.+)$/im);
-    const listUnsub  = getH(/^list-unsubscribe:\s*(.+)$/im);
-    const xPhishScore= getH(/^x-phishscore:\s*(.+)$/im);
+    // ── Basic fields ────────────────────────────────────────
+    const from         = getH(/^from:\s*(.+)$/im);
+    const to           = getH(/^to:\s*(.+)$/im);
+    const replyTo      = getH(/^reply-to:\s*(.+)$/im);
+    const cc           = getH(/^cc:\s*(.+)$/im);
+    const subject      = getH(/^subject:\s*(.+)$/im);
+    const date         = getH(/^date:\s*(.+)$/im);
+    const msgId        = getH(/^message-id:\s*<?([^>\n]+)>?/im);
+    const returnPath   = getH(/^return-path:\s*<?([^>\s]+)>?/im);
+    const contentType  = getH(/^content-type:\s*([^\n;]+)/im);
+    const contentTE    = getH(/^content-transfer-encoding:\s*(.+)$/im);
+    const mimeVersion  = getH(/^mime-version:\s*(.+)$/im);
+    const listUnsub    = getH(/^list-unsubscribe:\s*(.+)$/im);
+    const listId       = getH(/^list-id:\s*(.+)$/im);
+    const precedence   = getH(/^precedence:\s*(.+)$/im);
+    const xMailer      = getH(/^x-mailer:\s*(.+)$/im);
+    const xOrigIP      = getH(/^x-originating-ip:\s*\[?([^\]\s\n]+)/im) ||
+                         getH(/^x-sender-ip:\s*([^\s\n]+)/im) ||
+                         getH(/^x-forwarded-ip:\s*([^\s\n]+)/im);
+    const xSpamScore   = getH(/^x-spam-score:\s*(.+)$/im);
+    const xSpamStatus  = getH(/^x-spam-status:\s*(.+)$/im);
+    const xSpamReport  = getH(/^x-spam-report:\s*([\s\S]+?)(?=\n[A-Za-z0-9])/im);
+    const xPhishScore  = getH(/^x-phishscore:\s*(.+)$/im);
     const xVirusStatus = getH(/^x-virus-status:\s*(.+)$/im);
-    const proofpointResult = getH(/^x-proofpoint-spam-details:\s*(.+)$/im);
-    const microsoftSCL = getH(/^x-microsoft-antispam:[^S]*SCL=(\d)/im) ||
-                         getH(/^x-microsoft-antispam-prvs:\s*(.+)$/im);
+    const xBulk        = getH(/^x-bulk-mail:\s*(.+)$/im);
+    const xCampaignId  = getH(/^x-campaign-id:\s*(.+)$/im) || getH(/^x-mc-unique:\s*(.+)$/im);
+    const xSenderReputation = getH(/^x-sender-reputation:\s*(.+)$/im);
+    const barracuda    = getH(/^x-barracuda-spam-score:\s*(.+)$/im);
+    const proofpointSig= getH(/^x-proofpoint-spam-details:\s*(.+)$/im);
+    const msMicrosoftAntispam = getH(/^x-microsoft-antispam:\s*(.+)$/im);
+    const microsoftSCL = (() => { const m=t.match(/SCL=(-?\d)/i); return m?.[1]||""; })();
+    const xExchangeAntispam = getH(/^x-exchange-antispam-report-cfa-test:\s*(.+)$/im);
+    const xForefrontAntispam = getH(/^x-forefront-antispam-report:\s*(.+)$/im);
 
-    // ── Email address extraction ──────────────────────────────
-    const fromEmail  = (from.match(/\b([^@\s<"]+@[^@\s>"]+)\b/i)||[])[1]||"";
-    const fromName   = (from.match(/^"?([^"<]+)"?\s*</)||[])[1]?.trim()||"";
-    const fromNameClean = fromName.replace(/[^a-zA-Z0-9 ]/g,"").trim();
-    const replyEmail = (replyTo.match(/\b([^@\s<"]+@[^@\s>"]+)\b/i)||[])[1]||"";
-    const toEmail    = (to.match(/\b([^@\s<"]+@[^@\s>"]+)\b/i)||[])[1]||"";
-    const retDomain  = returnPath.split("@")[1]?.toLowerCase().replace(/[>)]/g,"")||"";
-    const fromDomain = fromEmail.split("@")[1]?.toLowerCase()||"";
-    const toDomain   = toEmail.split("@")[1]?.toLowerCase()||"";
-    const replyDomain= replyEmail.split("@")[1]?.toLowerCase()||"";
+    // Collect all X- headers for inventory
+    const xHeaders = [];
+    (t.match(/^(x-[a-zA-Z0-9-]+):\s*(.+)$/gim)||[]).forEach(h => {
+      const [, name, val] = h.match(/^(x-[a-zA-Z0-9-]+):\s*(.+)$/i)||[];
+      if (name && val) xHeaders.push({ name, val: val.slice(0,120) });
+    });
 
-    // ── ALL Authentication-Results blocks (can be multiple) ──
-    const authBlocks = t.match(/^authentication-results:[\s\S]+?(?=\n[A-Za-z0-9][A-Za-z0-9-]*:\s|\n\n|$)/gim)||[];
-    const allAuth    = authBlocks.map(b => b.replace(/\n\s+/g," ")).join(" ");
+    // ── Email address + domain extraction ───────────────────
+    const fromEmail    = (from.match(/\b([^@\s<"]+@[^@\s>"]+)\b/i)||[])[1]||"";
+    const fromName     = (from.match(/^"?([^"<]+)"?\s*</)||[])[1]?.trim()||"";
+    const replyEmail   = (replyTo.match(/\b([^@\s<"]+@[^@\s>"]+)\b/i)||[])[1]||"";
+    const toEmail      = (to.match(/\b([^@\s<"]+@[^@\s>"]+)\b/i)||[])[1]||"";
+    const retDomain    = returnPath.split("@")[1]?.toLowerCase().replace(/[>)]/g,"")||"";
+    const fromDomain   = fromEmail.split("@")[1]?.toLowerCase()||"";
+    const toDomain     = toEmail.split("@")[1]?.toLowerCase()||"";
+    const replyDomain  = replyEmail.split("@")[1]?.toLowerCase()||"";
 
-    // ── SPF ──────────────────────────────────────────────────
+    // ── Authentication blocks ────────────────────────────────
+    // RFC 2822 folded header — each continuation line starts with whitespace
+    const authBlocks = t.match(/^authentication-results:[^\n]*(\n[ \t]+[^\n]*)*/gim)||[];
+    const allAuth    = authBlocks.map(b => b.replace(/\n[ \t]+/g," ")).join(" ");
+
     const spfResult  = (allAuth.match(/\bspf=(pass|fail|softfail|neutral|none|temperror|permerror)\b/i)||[])[1]?.toLowerCase()||"none";
     const spfMailFrom= (allAuth.match(/smtp\.mailfrom=([^\s;]+)/i)||[])[1]?.toLowerCase()||"";
     const spfMailFromDomain = spfMailFrom.split("@")[1] || spfMailFrom;
-    const spfFrom    = (allAuth.match(/smtp\.helo=([^\s;]+)/i)||[])[1]?.toLowerCase()||"";
 
-    // ── DKIM ─────────────────────────────────────────────────
     const dkimResult = (allAuth.match(/\bdkim=(pass|fail|neutral|none|policy|temperror|permerror)\b/i)||[])[1]?.toLowerCase()||"none";
     const dkimDomainFromAuth = (allAuth.match(/\bdkim=\w+[^;]*header\.d=([^\s;]+)/i)||[])[1]?.toLowerCase()||"";
-    // Also parse DKIM-Signature header
-    const dkimSigBlock = (t.match(/^dkim-signature:[\s\S]+?(?=\n[A-Za-z0-9][A-Za-z0-9-]*:\s|$)/im)||[])[0]||"";
+    const dkimSigBlock = (t.match(/^dkim-signature:[^\n]*(\n[ \t]+[^\n]*)*/im)||[])[0]||"";
     const dkimSigClean = dkimSigBlock.replace(/\n\s+/g," ");
     const dkimSelector = (dkimSigClean.match(/\bs=([^;\s]+)/i)||[])[1]||"";
     const dkimDomain   = (dkimSigClean.match(/\bd=([^;\s]+)/i)||[])[1]?.toLowerCase() || dkimDomainFromAuth;
     const dkimAlgo     = (dkimSigClean.match(/\ba=([^;\s]+)/i)||[])[1]||"";
-    const dkimBodyHash = (dkimSigClean.match(/\bbh=([^;\s]+)/i)||[])[1]||"";
 
-    // ── DMARC ─────────────────────────────────────────────────
     const dmarcResult = (allAuth.match(/\bdmarc=(pass|fail|bestguesspass|none)\b/i)||[])[1]?.toLowerCase()||"none";
-    const dmarcAction = (allAuth.match(/\bdmarc=\w+[^;]*action=([^\s;]+)/i)||[])[1]?.toLowerCase()||"";
     const dmarcDisposition = (allAuth.match(/\bdmarc=\w+[^;]*disposition=([^\s;]+)/i)||[])[1]?.toLowerCase()||"";
     const dmarcFromDomain  = (allAuth.match(/\bdmarc=\w+[^;]*header\.from=([^\s;]+)/i)||[])[1]?.toLowerCase()||"";
 
-    // ── ARC ──────────────────────────────────────────────────
-    const arcResult  = (allAuth.match(/\barc=(pass|fail|none)\b/i)||[])[1]?.toLowerCase()||"none";
-    const hasARC     = /^arc-seal:/im.test(t);
+    const arcResult   = (allAuth.match(/\barc=(pass|fail|none)\b/i)||[])[1]?.toLowerCase()||"none";
+    const hasARC      = /^arc-seal:/im.test(t);
 
-    // ── Compauth (Microsoft) ─────────────────────────────────
     const compauthResult = (allAuth.match(/\bcompauth=(pass|fail|softfail|none)\b/i)||[])[1]?.toLowerCase()||"";
-    const compauthReason  = (allAuth.match(/\bcompauth=\w+\s+reason=(\d+)/i)||[])[1]||"";
+    const compauthReason = (allAuth.match(/\bcompauth=\w+\s+reason=(\d+)/i)||[])[1]||"";
 
-    // ── Received hops ─────────────────────────────────────────
-    const receivedBlocks = t.match(/^received:[\s\S]+?(?=\n[A-Za-z0-9-]{2,}:\s|$)/gim)||[];
-    const hops = receivedBlocks.map((block) => {
+    // ── Received hops ────────────────────────────────────────
+    const receivedBlocks = t.match(/^received:[^\n]*(\n[ \t]+[^\n]*)*/gim)||[];
+    const hops = receivedBlocks.map(block => {
       const clean = block.replace(/\n\s+/g," ");
       const by    = (clean.match(/by\s+([\w.\-\[\]]+)/i)||[])[1]||"";
       const fr    = (clean.match(/from\s+([\w.\-\[\]()]+)/i)||[])[1]||"";
@@ -6277,43 +6608,148 @@ document.addEventListener("DOMContentLoaded", () => {
       const tls   = /using TLS|with ESMTPS|STARTTLS/i.test(clean);
       const via   = (clean.match(/with\s+(ESMTP[SA]?|SMTP|HTTP|HTTPS|LMTP)\b/i)||[])[1]||"";
       return { by, from: fr, ip: ip||withIp, ts, tls, via, raw: clean };
-    }).reverse().map((h, idx) => ({ ...h, hop: idx + 1 }));
+    }).reverse().map((h,idx) => ({ ...h, hop: idx+1 }));
 
-    // Calculate delays between hops
     for (let i=1; i<hops.length; i++) {
       if (hops[i].ts && hops[i-1].ts) {
         const diff = (hops[i].ts - hops[i-1].ts) / 1000;
-        hops[i].delay = diff < -300 ? "⚠️clock skew" : diff < 0 ? "?" : diff < 60 ? `${Math.round(diff)}s` : `${Math.round(diff/60)}m`;
-        hops[i].delayWarn = diff > 300; // >5min delay is suspicious
+        hops[i].delay = diff < -300 ? "⚠️ clock skew" : diff < 0 ? "?" : diff < 60 ? `${Math.round(diff)}s` : `${Math.round(diff/60)}m`;
+        hops[i].delayWarn = diff > 300;
       }
     }
 
-    // ── Phishing scoring ──────────────────────────────────────
+    // ── LOOKALIKE / BRAND IMPERSONATION detection ─────────────
+    const KNOWN_BRANDS = [
+      "microsoft","apple","google","amazon","paypal","netflix","facebook","instagram",
+      "twitter","linkedin","dropbox","docusign","chase","wellsfargo","bankofamerica",
+      "citibank","irs","fedex","ups","dhl","usps","zoom","slack","salesforce","adobe",
+      "intuit","quickbooks","turbotax","coinbase","binance","kraken","metamask",
+      "okta","office365","sharepoint","outlook","onedrive","icloud","adobesign",
+    ];
+    // Levenshtein distance — detect near-matches
+    function levenshtein(a, b) {
+      const m=a.length, n=b.length;
+      const dp=Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i||j));
+      for(let i=1;i<=m;i++) for(let j=1;j<=n;j++)
+        dp[i][j]=a[i-1]===b[j-1]?dp[i-1][j-1]:1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+      return dp[m][n];
+    }
+    let lookalikeBrand = "", lookalikeDomain = "";
+    const domainBase = fromDomain.split(".")[0];
+    for (const brand of KNOWN_BRANDS) {
+      // Exact match in display name but not in domain = impersonation
+      if (fromName.toLowerCase().includes(brand) && fromDomain && !fromDomain.includes(brand)) {
+        lookalikeBrand = brand; lookalikeDomain = fromDomain; break;
+      }
+      // Levenshtein ≤2 on domain base segment but not exact = typosquat
+      if (domainBase && domainBase !== brand && levenshtein(domainBase.toLowerCase(), brand) <= 2 && brand.length > 4) {
+        lookalikeBrand = brand; lookalikeDomain = fromDomain; break;
+      }
+      // Domain contains brand name with extra chars: paypal-secure.com, amazon-support.net
+      if (fromDomain && fromDomain.includes(brand) && !new RegExp("^" + brand + "\\.(com|net|org|io|co)$").test(fromDomain)) {
+        lookalikeBrand = brand; lookalikeDomain = fromDomain; break;
+      }
+    }
+    // Punycode / homograph / IDN
+    const isPunycode = /xn--/i.test(fromDomain) || /xn--/i.test(msgId);
+
+    // ── SPAM SIGNALS ─────────────────────────────────────────
+    const isBulkPrecedence = /bulk|list|junk/i.test(precedence);
+    const isBulkHeaders    = !!(listId || xBulk || xCampaignId);
+    const hasListUnsub     = !!listUnsub;
+    // Spam-associated ESPs — legitimate bulk senders leave these
+    const spamESPs = ["mailchimp","sendgrid","constantcontact","klaviyo","hubspot",
+                      "marketo","pardot","bronto","silverpop","exacttarget","responsys"];
+    const senderESP= spamESPs.find(e => xMailer?.toLowerCase().includes(e) ||
+                                        (t.match(/^received:.*by.*([a-z0-9-]+\.smtp\.mcsv\.net|mta\.mailchimp\.com|smtp\.sendgrid\.net|em\.klaviyo\.com)/im)||[])[0]?.toLowerCase().includes(e));
+    // Subject spam patterns
+    const spamSubjectPatterns = [
+      { re:/(\$\d{1,3}(,\d{3})*(\.\d{2})?)|(free|win|winner|prize|claim|reward|offer|discount|deal|sale|\d+%\s*off)/i, label:"Commercial/promotional language" },
+      { re:/urgent|immediately|act now|limited time|expires|last chance|don't miss|final notice/i, label:"Urgency / scarcity pressure" },
+      { re:/unsubscribe|opt.?out|remove me|no longer|stop receiving/i, label:"Unsubscribe language in subject" },
+      { re:/re:|fwd:/i, label:"RE/FWD prefix (possible thread hijacking)" },
+      { re:/!!!|\?\?\?|💰|🎁|🏆|🔥|💸/, label:"Excessive punctuation or emoji" },
+      { re:/\[.{2,30}\]/, label:"Bracketed prefix (newsletter/alert pattern)" },
+    ];
+    const spamSubjectHits = spamSubjectPatterns.filter(p => p.re.test(subject||""));
+
+    // ── ATTACK TYPE DETECTION ─────────────────────────────────
+    // BEC signals
+    const isBEC = !!(
+      (replyEmail && replyEmail !== fromEmail) ||
+      lookalikeBrand ||
+      isPunycode ||
+      /ceo|cfo|cto|president|executive|hr|payroll|wire|transfer|payment|invoice|urgent.*request/i.test(subject||"")
+    );
+    // Phishing signals
+    const isPhishing = !!(
+      (spfResult==="fail" || dkimResult==="fail") ||
+      (spfResult!=="pass" && dmarcResult==="fail") ||
+      /verify|confirm|suspended|locked|unusual.*activity|sign.?in|login|account|password|credential|click.*here|update.*info/i.test(subject||"")
+    );
+    // Spam signals
+    const isSpam = !!(isBulkPrecedence || isBulkHeaders || senderESP || spamSubjectHits.length >= 2);
+    // QRishing
+    const isQRishing = /qr.*code|scan.*qr|qr.*scan/i.test(subject||"") || /qr.*code|scan.*qr/i.test(t);
+    // Voicemail phishing
+    const isVoicemail = /voicemail|voice.*message|missed.*call|new.*fax|audio.*message/i.test(subject||"");
+    // Callback / TOAD phishing
+    const hasPhoneInSubject = /\+?[\d][\d\s\-().]{8,20}[\d]/.test(subject||"");
+    const isTOAD = hasPhoneInSubject || /call.*\+?[\d][\d\s\-().]{8,20}|contact.*\+?[\d][\d\s\-().]{8,20}/i.test(t.slice(0,2000));
+    // AiTM indicators (token stealing via reverse proxy)
+    const isAiTM = hops.length > 0 && hops.some(h => /evilginx|modlishka|muraena|phishing.*proxy/i.test(h.raw||""));
+    // Malware delivery
+    const attachmentName = (t.match(/(?:name|filename)="([^"]+)"/gi)||[]).map(m=>(m.match(/"([^"]+)"/)||[])[1]).filter(Boolean);
+    const maliciousAttach = attachmentName.filter(n => /\.(exe|dll|js|vbs|bat|cmd|ps1|hta|jar|iso|img|lnk|scr|wsf|msi|reg|inf)$/i.test(n));
+    const isMalwareDelivery = maliciousAttach.length > 0;
+    // HTML-only with no plain text = common in phishing
+    const isHTMLOnly = /text\/html/i.test(contentType) && !/text\/plain/i.test(t.slice(0,3000));
+    // Tracking pixel indicators
+    const hasTrackingPixel = /1x1|pixel\.gif|tracking|open\.php|track\.php/i.test(t);
+
+    // ── Attack classification ────────────────────────────────
+    let attackType = "UNKNOWN";
+    let attackDetail = "";
+    if (isMalwareDelivery)   { attackType = "MALWARE DELIVERY";  attackDetail = `Suspicious attachment: ${maliciousAttach.join(", ")}`; }
+    else if (isAiTM)         { attackType = "AiTM PHISHING";     attackDetail = "Adversary-in-the-Middle reverse proxy detected in relay chain"; }
+    else if (isQRishing)     { attackType = "QRishing";          attackDetail = "QR code lure detected — may bypass URL scanners"; }
+    else if (isVoicemail)    { attackType = "VISHING LURE";      attackDetail = "Voicemail or missed-call phishing lure"; }
+    else if (isTOAD)         { attackType = "CALLBACK PHISHING"; attackDetail = "Phone number present — Telephone-Oriented Attack Delivery (TOAD)"; }
+    else if (isBEC)          { attackType = "BEC / FRAUD";       attackDetail = lookalikeBrand ? `Brand impersonation: ${lookalikeBrand}` : "Business email compromise indicators"; }
+    else if (isPhishing)     { attackType = "PHISHING";          attackDetail = "Authentication failure + suspicious content pattern"; }
+    else if (isSpam)         { attackType = "SPAM / BULK";       attackDetail = senderESP ? `Sent via ${senderESP} ESP` : "Bulk email infrastructure"; }
+    else if (spfResult==="pass" && dkimResult==="pass" && dmarcResult==="pass") {
+      attackType = "LIKELY CLEAN";   attackDetail = "All authentication checks pass";
+    } else {
+      attackType = "SUSPICIOUS";     attackDetail = "Some signals present — investigate further";
+    }
+
+    // ── Score + flags ────────────────────────────────────────
     let score = 0;
     const flags = [];
     const authChecks = [];
 
     // SPF
     if (spfResult === "pass") {
-      authChecks.push({ label:"SPF", result:"pass", detail:`Authorized by ${spfMailFromDomain||fromDomain}`, cls:"eha-auth-pass" });
+      authChecks.push({ label:"SPF", result:"pass", detail:`Authorized by ${spfMailFromDomain||fromDomain||"sender domain"}`, cls:"eha-auth-pass" });
     } else if (spfResult === "fail") {
-      score += 30; flags.push({ sev:"crit", msg:`SPF FAIL — ${fromDomain} did NOT authorize this sender. The email is forged or misconfigured.` });
-      authChecks.push({ label:"SPF", result:"fail", detail:"Sender not authorized", cls:"eha-auth-fail" });
+      score += 30; flags.push({ sev:"crit", cat:"auth", msg:`SPF FAIL — ${fromDomain||"sender"} did NOT authorize this sending IP. Strong indicator of spoofing.` });
+      authChecks.push({ label:"SPF", result:"fail", detail:"Sender not authorized by DNS", cls:"eha-auth-fail" });
     } else if (spfResult === "softfail") {
-      score += 15; flags.push({ sev:"warn", msg:`SPF SOFTFAIL — the domain discourages but does not reject this sender. Treat with caution.` });
-      authChecks.push({ label:"SPF", result:"softfail", detail:"Sender discouraged", cls:"eha-auth-fail" });
+      score += 15; flags.push({ sev:"warn", cat:"auth", msg:`SPF SOFTFAIL (~all) — domain discourages but does not reject. Treat with caution.` });
+      authChecks.push({ label:"SPF", result:"softfail", detail:"Sender discouraged (~all)", cls:"eha-auth-fail" });
     } else if (spfResult === "neutral") {
-      authChecks.push({ label:"SPF", result:"neutral", detail:"Domain makes no claim", cls:"eha-auth-none" });
+      authChecks.push({ label:"SPF", result:"neutral", detail:"Domain makes no claim (?all)", cls:"eha-auth-none" });
     } else {
-      authChecks.push({ label:"SPF", result:"none", detail:"No SPF record found", cls:"eha-auth-none" });
+      authChecks.push({ label:"SPF", result:"none", detail:"No SPF record published", cls:"eha-auth-none" });
     }
 
     // DKIM
     if (dkimResult === "pass") {
-      authChecks.push({ label:"DKIM", result:"pass", detail:`Signature valid (${dkimDomain||"domain"}${dkimSelector?" s="+dkimSelector:""})`, cls:"eha-auth-pass" });
+      authChecks.push({ label:"DKIM", result:"pass", detail:`Valid signature — ${dkimDomain||"domain"}${dkimSelector?" [s="+dkimSelector+"]":""}${dkimAlgo?" "+dkimAlgo:""}`, cls:"eha-auth-pass" });
     } else if (dkimResult === "fail") {
-      score += 25; flags.push({ sev:"crit", msg:`DKIM FAIL — digital signature is invalid. Message was altered in transit OR sender domain is spoofed.` });
-      authChecks.push({ label:"DKIM", result:"fail", detail:"Signature invalid/missing", cls:"eha-auth-fail" });
+      score += 25; flags.push({ sev:"crit", cat:"auth", msg:`DKIM FAIL — cryptographic signature is invalid. Message was modified in transit or domain is spoofed.` });
+      authChecks.push({ label:"DKIM", result:"fail", detail:"Signature broken / missing", cls:"eha-auth-fail" });
     } else if (dkimResult === "neutral") {
       authChecks.push({ label:"DKIM", result:"neutral", detail:"No verifiable signature", cls:"eha-auth-none" });
     } else {
@@ -6324,117 +6760,187 @@ document.addEventListener("DOMContentLoaded", () => {
     if (dmarcResult === "pass") {
       authChecks.push({ label:"DMARC", result:"pass", detail:`Policy enforced${dmarcFromDomain?" for "+dmarcFromDomain:""}`, cls:"eha-auth-pass" });
     } else if (dmarcResult === "fail") {
-      score += 25; flags.push({ sev:"crit", msg:`DMARC FAIL — email does not align with the domain's published policy. ${dmarcDisposition?"Action: "+dmarcDisposition.toUpperCase():""}` });
-      authChecks.push({ label:"DMARC", result:"fail", detail:dmarcDisposition?"Action: "+dmarcDisposition:"No alignment", cls:"eha-auth-fail" });
+      score += 25; flags.push({ sev:"crit", cat:"auth", msg:`DMARC FAIL — From: domain does not align with SPF/DKIM results.${dmarcDisposition?" Policy action: "+dmarcDisposition.toUpperCase():""}` });
+      authChecks.push({ label:"DMARC", result:"fail", detail:dmarcDisposition?"Policy: "+dmarcDisposition:"Alignment failed", cls:"eha-auth-fail" });
     } else {
       authChecks.push({ label:"DMARC", result:"none", detail:"No DMARC policy found", cls:"eha-auth-none" });
     }
 
     // ARC
     if (hasARC) {
-      authChecks.push({ label:"ARC", result:arcResult, detail:arcResult==="pass"?"Chain validated":"Check ARC chain", cls:arcResult==="pass"?"eha-auth-pass":"eha-auth-none" });
+      authChecks.push({ label:"ARC", result:arcResult, detail:arcResult==="pass"?"Forwarding chain validated":"ARC chain — review hops", cls:arcResult==="pass"?"eha-auth-pass":"eha-auth-none" });
     }
 
-    // Compauth (Microsoft 365)
+    // CompAuth (Microsoft)
     if (compauthResult) {
-      const compauthReasonDesc = {
-        "000":"All auth passed","001":"DMARC fail — no sender override","002":"DMARC fail — override applied",
-        "010":"DMARC fail with override","100":"SPF soft fail","400":"SPF fail","600":"No SPF record",
-        "610":"SPF pass but alignment fails","700":"DKIM fail","800":"DKIM not present",
+      const COMPAUTH_CODES = {
+        "000":"All checks passed","001":"DMARC fail, no sender override","002":"DMARC fail, override applied",
+        "010":"DMARC fail with override","100":"SPF softfail","400":"SPF fail","600":"No SPF record",
+        "610":"SPF pass but From: misaligned","700":"DKIM fail","800":"No DKIM signature",
+        "801":"DKIM signature but not From: domain","802":"DKIM neutral","900":"DMARC none policy",
       };
-      authChecks.push({ label:"CompAuth", result:compauthResult, detail:compauthReasonDesc[compauthReason]||`Reason: ${compauthReason}`, cls:compauthResult==="pass"?"eha-auth-pass":"eha-auth-fail" });
-      if (compauthResult === "fail") { score += 15; flags.push({ sev:"warn", msg:`Microsoft composite authentication FAILED (reason ${compauthReason})` }); }
+      authChecks.push({ label:"CompAuth", result:compauthResult, detail:COMPAUTH_CODES[compauthReason]||`Code: ${compauthReason}`, cls:compauthResult==="pass"?"eha-auth-pass":"eha-auth-fail" });
+      if (compauthResult==="fail") { score+=15; flags.push({ sev:"warn", cat:"auth", msg:`Microsoft Composite Auth FAILED — code ${compauthReason}: ${COMPAUTH_CODES[compauthReason]||"unknown reason"}` }); }
     }
 
-    // Alignment checks
-    if (spfResult==="pass" && spfMailFromDomain && fromDomain && spfMailFromDomain !== fromDomain) {
-      score += 10; flags.push({ sev:"warn", msg:`SPF domain (${spfMailFromDomain}) differs from From: domain (${fromDomain}) — display name phishing possible` });
+    // ── Alignment checks ─────────────────────────────────────
+    if (spfResult==="pass" && spfMailFromDomain && fromDomain && spfMailFromDomain!==fromDomain) {
+      score+=10; flags.push({ sev:"warn", cat:"spoof", msg:`SPF MailFrom domain (${spfMailFromDomain}) ≠ From: domain (${fromDomain}) — display name spoofing possible` });
     }
     if (dkimResult==="pass" && dkimDomain && fromDomain && !fromDomain.endsWith(dkimDomain) && !dkimDomain.endsWith(fromDomain)) {
-      score += 10; flags.push({ sev:"warn", msg:`DKIM signing domain (${dkimDomain}) doesn't match From: domain (${fromDomain}) — third-party signing` });
+      score+=8; flags.push({ sev:"warn", cat:"spoof", msg:`DKIM signing domain (${dkimDomain}) ≠ From: domain (${fromDomain}) — third-party signing, verify if expected` });
     }
 
-    // Other suspicious signals
-    if (replyEmail && replyEmail !== fromEmail) {
-      score += 20; flags.push({ sev:"warn", msg:`Reply-To mismatch: From is <${fromEmail}> but replies go to <${replyEmail}> — classic BEC/phishing pattern` });
+    // ── Spoofing / BEC / Identity ────────────────────────────
+    if (replyEmail && replyEmail!==fromEmail) {
+      score+=22; flags.push({ sev:"crit", cat:"bec", msg:`Reply-To hijack — From: <${fromEmail}> but Reply-To: <${replyEmail}> — replies will go to attacker-controlled address` });
     }
-    if (retDomain && fromDomain && retDomain !== fromDomain) {
-      score += 15; flags.push({ sev:"warn", msg:`Return-Path domain (${retDomain}) differs from From domain (${fromDomain}) — inconsistent sender identity` });
+    if (retDomain && fromDomain && retDomain!==fromDomain) {
+      score+=15; flags.push({ sev:"warn", cat:"spoof", msg:`Return-Path domain (${retDomain}) ≠ From: domain (${fromDomain}) — bounce handling inconsistency, common in spoofed mail` });
     }
-    if (xOrigIP) {
-      flags.push({ sev:"info", msg:`X-Originating-IP: ${xOrigIP} — this is the sender's actual mail client IP address` });
+    if (lookalikeBrand) {
+      score+=35; flags.push({ sev:"crit", cat:"brand", msg:`Brand impersonation detected — domain "${lookalikeDomain}" impersonates "${lookalikeBrand}". This is a ${levenshtein(fromDomain.split(".")[0].toLowerCase(),lookalikeBrand)===0?"display name spoof":"lookalike/typosquat domain"}.` });
     }
+    if (isPunycode) {
+      score+=30; flags.push({ sev:"crit", cat:"brand", msg:`Punycode/IDN homograph detected (xn-- encoding) in domain "${fromDomain}" — visually similar to a legitimate domain using Unicode substitution` });
+    }
+
+    // ── Spam detection ───────────────────────────────────────
+    if (isBulkPrecedence) {
+      flags.push({ sev:"info", cat:"spam", msg:`Precedence: ${precedence} — bulk/list email, not targeted` });
+    }
+    if (listId) {
+      flags.push({ sev:"info", cat:"spam", msg:`List-ID: ${listId.slice(0,80)} — mailing list email` });
+    }
+    if (xCampaignId) {
+      flags.push({ sev:"info", cat:"spam", msg:`Campaign ID detected (${xCampaignId.slice(0,60)}) — marketing automation platform` });
+    }
+    if (senderESP) {
+      flags.push({ sev:"info", cat:"spam", msg:`Sent via ${senderESP} ESP — may be legitimate marketing or abused bulk sender` });
+    }
+    spamSubjectHits.forEach(hit => {
+      score += (hit.label.includes("Thread hijacking")||hit.label.includes("RE/FWD")) ? 15 : 5;
+      flags.push({ sev: hit.label.includes("RE/FWD")||hit.label.includes("Urgency") ? "warn" : "info",
+                   cat:"spam", msg:`Subject pattern: ${hit.label} — "${(subject||"").slice(0,60)}"` });
+    });
     if (xSpamScore) {
-      const spamNum = parseFloat(xSpamScore);
-      if (spamNum > 5) { score += 10; flags.push({ sev:"warn", msg:`Spam score: ${xSpamScore} — exceeds typical threshold` }); }
-      else flags.push({ sev:"info", msg:`Spam score: ${xSpamScore}` });
+      const n=parseFloat(xSpamScore);
+      if (n>5) { score+=12; flags.push({ sev:"warn", cat:"spam", msg:`SpamAssassin score ${xSpamScore} (threshold typically 5.0) — classified as spam` }); }
+      else      flags.push({ sev:"info", cat:"spam", msg:`SpamAssassin score: ${xSpamScore}` });
     }
-    if (xPhishScore) {
-      const phishNum = parseFloat(xPhishScore);
-      if (phishNum > 3) { score += 15; flags.push({ sev:"warn", msg:`Phish score: ${xPhishScore} — elevated phishing risk detected by gateway` }); }
+    if (barracuda) {
+      const n=parseFloat(barracuda);
+      if (n>3.5) { score+=10; flags.push({ sev:"warn", cat:"spam", msg:`Barracuda spam score ${barracuda} — elevated risk` }); }
+      else        flags.push({ sev:"info", cat:"spam", msg:`Barracuda score: ${barracuda}` });
     }
     if (microsoftSCL) {
-      const scl = parseInt(microsoftSCL);
-      if (scl >= 5) { score += 10; flags.push({ sev:"warn", msg:`Microsoft SCL ${scl} — spam confidence level above threshold (≥5 = likely spam)` }); }
+      const scl=parseInt(microsoftSCL);
+      if (scl>=5) { score+=10; flags.push({ sev:"warn", cat:"spam", msg:`Microsoft SCL=${scl} — Spam Confidence Level above delivery threshold (5+)` }); }
+      else if (scl===-1) flags.push({ sev:"ok",  cat:"spam", msg:`Microsoft SCL=-1 — message bypasses spam filtering (safelisted sender)` });
+      else               flags.push({ sev:"info", cat:"spam", msg:`Microsoft SCL=${scl}` });
     }
-    const freeProviders = ["gmail.com","yahoo.com","hotmail.com","outlook.com","live.com","aol.com","protonmail.com","tutanota.com"];
-    if (fromDomain && freeProviders.includes(fromDomain) && fromName && fromName.length > 3) {
-      score += 10; flags.push({ sev:"warn", msg:`Sender uses free email (${fromDomain}) with display name "${fromName}" — possible impersonation of a corporate identity` });
-    }
-    if (hops.length === 0) {
-      score += 20; flags.push({ sev:"crit", msg:"No Received headers found — headers may be completely forged" });
-    } else if (hops.length === 1) {
-      score += 10; flags.push({ sev:"warn", msg:"Only one relay hop detected — may indicate header truncation or spoofing" });
-    }
-    if (hops.some(h => h.delayWarn)) {
-      flags.push({ sev:"info", msg:"Unusual relay delay detected in hop chain — may indicate queuing or clock skew" });
-    }
-    if (!subject) {
-      score += 5; flags.push({ sev:"warn", msg:"No Subject line — unusual for legitimate bulk or transactional mail" });
-    }
-    if (listUnsub && (spfResult==="fail" || dkimResult==="fail")) {
-      score += 5; flags.push({ sev:"warn", msg:"List-Unsubscribe present but authentication fails — possible spam campaign" });
+    if (xPhishScore && parseFloat(xPhishScore)>3) {
+      score+=18; flags.push({ sev:"warn", cat:"phish", msg:`Phish score ${xPhishScore} — email security gateway detected elevated phishing risk` });
     }
 
-    // Clean bill of health
-    if (score === 0 && spfResult==="pass" && dkimResult==="pass" && dmarcResult==="pass") {
-      flags.push({ sev:"ok", msg:"✅ SPF, DKIM, and DMARC all PASS with proper domain alignment — email authentication is strong" });
-    } else if (score < 10 && spfResult==="pass" && dkimResult==="pass") {
-      flags.push({ sev:"ok", msg:"SPF and DKIM PASS — no major authentication failures detected" });
+    // ── Modern attack patterns ───────────────────────────────
+    if (isQRishing) {
+      score+=25; flags.push({ sev:"crit", cat:"attack", msg:`QRishing detected — QR code lure in subject/body. QR codes bypass most URL scanners. High-risk vector for credential theft.` });
+    }
+    if (isVoicemail) {
+      score+=20; flags.push({ sev:"crit", cat:"attack", msg:`Voicemail/vishing lure detected — fake voicemail notification is a known phishing template used to deliver malicious links or executables` });
+    }
+    if (isTOAD) {
+      score+=25; flags.push({ sev:"crit", cat:"attack", msg:`Callback phishing (TOAD) pattern — phone number present in email. Attacker answers calls and socially engineers victims into installing RATs or sharing credentials.` });
+    }
+    if (isMalwareDelivery) {
+      score+=40; flags.push({ sev:"crit", cat:"attack", msg:`Malicious attachment type detected: ${maliciousAttach.join(", ")} — these file types are commonly used for malware delivery. Do NOT open.` });
+    }
+    if (isAiTM) {
+      score+=40; flags.push({ sev:"crit", cat:"attack", msg:`AiTM phishing infrastructure detected in relay chain — adversary-in-the-middle proxy can steal session cookies and MFA tokens in real time` });
+    }
+    if (isHTMLOnly) {
+      score+=5; flags.push({ sev:"info", cat:"attack", msg:`HTML-only email (no plain text alternative) — common in phishing campaigns that use styled HTML to impersonate legitimate brands` });
+    }
+    if (hasTrackingPixel) {
+      flags.push({ sev:"info", cat:"spam", msg:`Tracking pixel / open-tracking indicator detected — sender can confirm delivery and read receipts` });
     }
 
-    return { from, to, cc, replyTo, subject, date, msgId, returnPath, xOrigIP, xMailer,
-             contentType, xSpamScore, xSpamStatus, microsoftSCL,
-             fromEmail, fromName, fromDomain, replyEmail, replyDomain, toEmail, toDomain, retDomain,
-             spf: spfResult, spfMailFrom: spfMailFromDomain,
-             dkim: dkimResult, dkimDomain, dkimSelector, dkimAlgo,
-             dmarc: dmarcResult, dmarcAction, dmarcDisposition, dmarcFromDomain,
-             arc: arcResult, compauth: compauthResult,
-             authChecks, hops, flags, score };
+    // ── Free provider impersonation ──────────────────────────
+    const FREE_PROVIDERS = ["gmail.com","yahoo.com","hotmail.com","outlook.com","live.com","aol.com","protonmail.com","tutanota.com","icloud.com","me.com","ymail.com"];
+    if (fromDomain && FREE_PROVIDERS.includes(fromDomain) && fromName && fromName.length>3 && !FREE_PROVIDERS.some(p=>fromName.toLowerCase().includes(p.split(".")[0]))) {
+      score+=12; flags.push({ sev:"warn", cat:"bec", msg:`Free provider (${fromDomain}) with corporate-sounding display name "${fromName}" — possible impersonation to bypass domain-based filters` });
+    }
+
+    // ── Infrastructure / relay ───────────────────────────────
+    if (xOrigIP) flags.push({ sev:"info", cat:"infra", msg:`X-Originating-IP: ${xOrigIP} — the sender's actual mail client or submission IP` });
+    if (hops.length===0) { score+=20; flags.push({ sev:"crit", cat:"infra", msg:"No Received headers — headers may be completely forged or stripped by attacker" }); }
+    else if (hops.length===1) { score+=10; flags.push({ sev:"warn", cat:"infra", msg:"Only 1 relay hop — may indicate direct injection or header truncation" }); }
+    if (hops.some(h=>h.delayWarn)) flags.push({ sev:"info", cat:"infra", msg:"Unusual relay delay (>5 min) detected — may indicate queuing, grey-listing, or clock skew" });
+    if (!subject) { score+=5; flags.push({ sev:"warn", cat:"spam", msg:"No Subject line — atypical for legitimate mail" }); }
+
+    // ── Clean verdict ────────────────────────────────────────
+    if (score===0 && spfResult==="pass" && dkimResult==="pass" && dmarcResult==="pass") {
+      flags.push({ sev:"ok", cat:"auth", msg:"SPF + DKIM + DMARC all PASS with correct alignment — strong authentication posture" });
+    } else if (score<10 && spfResult==="pass" && dkimResult==="pass") {
+      flags.push({ sev:"ok", cat:"auth", msg:"SPF and DKIM PASS — no major authentication failures" });
+    }
+
+    return {
+      from, to, cc, replyTo, subject, date, msgId, returnPath, xOrigIP, xMailer,
+      contentType, contentTE, listUnsub, listId, precedence, xSpamScore, xSpamStatus,
+      xPhishScore, microsoftSCL, barracuda, senderESP, xCampaignId, xHeaders,
+      fromEmail, fromName, fromDomain, replyEmail, replyDomain, toEmail, toDomain, retDomain,
+      spf: spfResult, spfMailFrom: spfMailFromDomain,
+      dkim: dkimResult, dkimDomain, dkimSelector, dkimAlgo,
+      dmarc: dmarcResult, dmarcDisposition, dmarcFromDomain,
+      arc: arcResult, compauth: compauthResult,
+      lookalikeBrand, lookalikeDomain, isPunycode,
+      attackType, attackDetail,
+      isBEC, isPhishing, isSpam, isQRishing, isVoicemail, isTOAD, isAiTM, isMalwareDelivery,
+      isHTMLOnly, hasTrackingPixel, attachmentName, maliciousAttach,
+      isBulkHeaders, isBulkPrecedence, spamSubjectHits,
+      authChecks, hops, flags, score,
+    };
   }
-
   function renderEmailHeaderResults(r) {
     const results = $("eha-results");
     if (!results) return;
     results.style.display = "block";
 
+    // ── Attack type badge colors ──────────────────────────────
+    const ATTACK_COLORS = {
+      "MALWARE DELIVERY":  { bg:"#f87171", text:"#fff" },
+      "AiTM PHISHING":     { bg:"#f87171", text:"#fff" },
+      "QRishing":          { bg:"#fb923c", text:"#fff" },
+      "CALLBACK PHISHING": { bg:"#fb923c", text:"#fff" },
+      "VISHING LURE":      { bg:"#fb923c", text:"#fff" },
+      "BEC / FRAUD":       { bg:"#a855f7", text:"#fff" },
+      "PHISHING":          { bg:"#f59e0b", text:"#fff" },
+      "SPAM / BULK":       { bg:"#64748b", text:"#fff" },
+      "SUSPICIOUS":        { bg:"#fbbf24", text:"#1e293b" },
+      "LIKELY CLEAN":      { bg:"#1D9E75", text:"#fff" },
+      "UNKNOWN":           { bg:"#6b7280", text:"#fff" },
+    };
+    const atColor = ATTACK_COLORS[r.attackType] || ATTACK_COLORS["UNKNOWN"];
+
     // ── Score banner ──────────────────────────────────────────
     const banner = $("eha-score-banner");
-    const pct = Math.min(100, r.score);
-    const cls  = pct >= 60 ? "eha-score-phishing" : pct >= 25 ? "eha-score-suspicious" : "eha-score-clean";
-    const lbl  = pct >= 60 ? "LIKELY PHISHING / SPOOFED" : pct >= 25 ? "SUSPICIOUS — VERIFY" : "APPEARS LEGITIMATE";
-    const subMsg = pct >= 60 ? "Multiple authentication failures and suspicious signals detected" :
-                   pct >= 25 ? "Some signals warrant additional investigation" :
-                   "Authentication passed with no major red flags";
-    banner.className = `eha-score-banner ${cls}`;
+    const pct  = Math.min(100, r.score);
+    const sCls = pct >= 60 ? "eha-score-phishing" : pct >= 25 ? "eha-score-suspicious" : "eha-score-clean";
+    const sLbl = pct >= 60 ? "HIGH RISK" : pct >= 25 ? "SUSPICIOUS" : "LOW RISK";
+    banner.className = `eha-score-banner ${sCls}`;
     banner.innerHTML = `
       <div class="eha-score-num">${pct}</div>
-      <div style="flex:1">
-        <div class="eha-score-label">${lbl}</div>
-        <div class="eha-score-sub">${subMsg}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="eha-score-label" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          ${sLbl}
+          <span style="font-size:11px;font-weight:900;padding:2px 12px;border-radius:20px;background:${atColor.bg};color:${atColor.text};letter-spacing:0.5px;">${r.attackType}</span>
+        </div>
+        <div class="eha-score-sub" style="margin-top:3px;">${esc(r.attackDetail)}</div>
       </div>
       <div class="eha-auth-checks">
-        ${(r.authChecks||[]).map(c => `
+        ${(r.authChecks||[]).map(c=>`
           <div class="eha-auth-check-row">
             <span class="eha-auth-check-label">${c.label}</span>
             <span class="eha-auth-badge ${c.cls}">${(c.result||"none").toUpperCase()}</span>
@@ -6444,61 +6950,76 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ── Summary grid ──────────────────────────────────────────
     const summaryItems = [
-      { label:"From",          value: r.fromEmail ? `${r.fromName ? r.fromName+" <" : ""}${r.fromEmail}${r.fromName ? ">" : ""}` : r.from || "—" },
-      { label:"To",            value: r.toEmail   || r.to || "—" },
-      { label:"Reply-To",      value: r.replyEmail ? `${r.replyEmail}${r.replyEmail!==r.fromEmail ? " ⚠️ DIFFERS FROM SENDER" : ""}` : "Same as From" },
-      { label:"Subject",       value: r.subject   || "—" },
-      { label:"Date",          value: r.date      || "—" },
-      { label:"Message-ID",    value: r.msgId     || "—" },
-      { label:"Return-Path",   value: r.returnPath ? `${r.returnPath}${r.retDomain && r.fromDomain && r.retDomain!==r.fromDomain ? " ⚠️ DOMAIN MISMATCH" : ""}` : "—" },
-      { label:"X-Originating-IP", value: r.xOrigIP || "Not disclosed" },
-      { label:"Mailer",        value: r.xMailer   || "Not disclosed" },
-      { label:"Content-Type",  value: r.contentType || "—" },
-      { label:"Relay Hops",    value: `${r.hops.length} hop${r.hops.length!==1?"s":""}${r.hops.some(h=>h.tls)?" (TLS encrypted)":""}` },
-      { label:"Spam Score",    value: r.xSpamScore || "—" },
-    ].filter(s => s.value && s.value !== "—");
+      { label:"From",           value: r.fromEmail ? `${r.fromName?"\""+r.fromName+"\" <":""}${r.fromEmail}${r.fromName?">":""}` : r.from||"—" },
+      { label:"To",             value: r.toEmail||r.to||"—" },
+      { label:"Reply-To",       value: r.replyEmail ? `${r.replyEmail}${r.replyEmail!==r.fromEmail?" ⚠️ DIFFERS":""}` : "Same as From" },
+      { label:"Subject",        value: r.subject||"—" },
+      { label:"Date",           value: r.date||"—" },
+      { label:"Message-ID",     value: r.msgId||"—" },
+      { label:"Return-Path",    value: r.returnPath ? `${r.returnPath}${r.retDomain&&r.fromDomain&&r.retDomain!==r.fromDomain?" ⚠️ MISMATCH":""}` : "—" },
+      { label:"X-Originating-IP", value: r.xOrigIP||"Not disclosed" },
+      { label:"Mailer",         value: r.xMailer||"Not disclosed" },
+      { label:"Content-Type",   value: r.contentType||"—" },
+      { label:"Encoding",       value: r.contentTE||"—" },
+      { label:"Relay Hops",     value: `${r.hops.length} hop${r.hops.length!==1?"s":""}${r.hops.some(h=>h.tls)?" · TLS encrypted":""}` },
+      { label:"Spam Score",     value: r.xSpamScore||"—" },
+      { label:"Phish Score",    value: r.xPhishScore||"—" },
+      { label:"MS SCL",         value: r.microsoftSCL||"—" },
+      { label:"Barracuda",      value: r.barracuda||"—" },
+      { label:"List-ID",        value: r.listId||"—" },
+      { label:"Precedence",     value: r.precedence||"—" },
+      { label:"Campaign ID",    value: r.xCampaignId||"—" },
+      { label:"Attachments",    value: r.attachmentName?.join(", ")||"—" },
+    ].filter(s => s.value && s.value!=="—");
     $("eha-summary").innerHTML = summaryItems.map(s =>
-      `<div class="eha-summary-item"><div class="eha-summary-label">${s.label}</div><div class="eha-summary-value">${esc(String(s.value))}</div></div>`
+      `<div class="eha-summary-item"><div class="eha-summary-label">${s.label}</div><div class="eha-summary-value">${esc(String(s.value).slice(0,140))}</div></div>`
     ).join("");
 
-    // ── Auth details row (kept for backward compat) ──────────
     $("eha-auth").innerHTML = "";
+
+    // ── Flag list grouped by category ────────────────────────
+    const CAT_LABELS = { auth:"🔐 Authentication", bec:"🎭 BEC / Identity", brand:"🏷 Brand / Domain", spoof:"🃏 Spoofing", attack:"⚔️ Attack Pattern", spam:"📬 Spam / Bulk", phish:"🎣 Phishing", infra:"🌐 Infrastructure" };
+    const grouped = {};
+    (r.flags||[]).forEach(f => { const c=f.cat||"infra"; if(!grouped[c]) grouped[c]=[]; grouped[c].push(f); });
+    let flagsHtml = "";
+    for (const [cat, items] of Object.entries(grouped)) {
+      if (items.length) {
+        flagsHtml += `<div class="eha-flag-cat-head">${CAT_LABELS[cat]||cat}</div>`;
+        items.forEach(f => {
+          const cls  = f.sev==="crit"?"eha-flag-crit":f.sev==="warn"?"eha-flag-warn":f.sev==="ok"?"eha-flag-ok":"eha-flag-info";
+          const icon = f.sev==="crit"?"🚨":f.sev==="warn"?"⚠️":f.sev==="ok"?"✅":"ℹ️";
+          flagsHtml += `<div class="eha-flag-item ${cls}">${icon} ${esc(f.msg)}</div>`;
+        });
+      }
+    }
+    $("eha-flags").innerHTML = flagsHtml || `<div class="eha-flag-item eha-flag-info">ℹ️ No signals detected — paste complete headers for analysis</div>`;
 
     // ── Hop chain ─────────────────────────────────────────────
     const hopsEl = $("eha-hops");
     if (r.hops.length) {
-      hopsEl.innerHTML = `<div class="eha-hop-row eha-hop-head"><span>#</span><span>From relay</span><span>By server</span><span>IP</span><span>Protocol</span><span>Delay</span></div>` +
-        r.hops.map(h => `<div class="eha-hop-row${h.delayWarn ? " eha-hop-warn" : ""}">
+      hopsEl.innerHTML = `<div class="eha-hop-row eha-hop-head"><span>#</span><span>From</span><span>By</span><span>IP</span><span>Protocol</span><span>Delay</span></div>` +
+        r.hops.map(h => `<div class="eha-hop-row${h.delayWarn?" eha-hop-warn":""}">
           <div class="eha-hop-num">${h.hop}</div>
-          <div class="eha-hop-host" title="${esc(h.from)}">${esc((h.from||"?").slice(0,35))}${(h.from||"").length>35?"…":""}</div>
-          <div class="eha-hop-host" title="${esc(h.by)}">${esc((h.by||"?").slice(0,30))}${(h.by||"").length>30?"…":""}</div>
-          <div class="eha-hop-ip">${h.ip ? `<a href="https://www.abuseipdb.com/check/${encodeURIComponent(h.ip)}" target="_blank" style="color:#38bdf8;text-decoration:none;" title="Check in AbuseIPDB">${esc(h.ip)}</a><span style="font-size:9px;margin-left:4px;">${!isPrivateIPv4(h.ip)?"🌐":"🏠"}</span>` : "<span style='color:var(--muted)'>—</span>"}</div>
-          <div class="eha-hop-delay" style="font-size:10px;">${h.tls?"🔒":""}${h.via||""}</div>
+          <div class="eha-hop-host" title="${esc(h.from)}">${esc((h.from||"?").slice(0,32))}${(h.from||"").length>32?"…":""}</div>
+          <div class="eha-hop-host" title="${esc(h.by)}">${esc((h.by||"?").slice(0,28))}${(h.by||"").length>28?"…":""}</div>
+          <div class="eha-hop-ip">${h.ip?`<a href="https://www.abuseipdb.com/check/${encodeURIComponent(h.ip)}" target="_blank" style="color:#38bdf8;text-decoration:none;">${esc(h.ip)}</a> ${!isPrivateIPv4(h.ip)?"🌐":"🏠"}`:"<span style='color:var(--muted)'>—</span>"}</div>
+          <div style="font-size:10px;">${h.tls?"🔒 ":""}${h.via||""}</div>
           <div class="eha-hop-delay${h.delayWarn?" eha-hop-delay-warn":""}">${h.delay||"—"}</div>
         </div>`).join("");
     } else {
-      hopsEl.innerHTML = `<div style="padding:12px;font-size:11px;color:var(--muted);">⚠️ No Received headers found — headers may be incomplete or forged.</div>`;
+      hopsEl.innerHTML = `<div style="padding:12px;font-size:11px;color:var(--muted);">⚠️ No Received headers found — may be incomplete or forged.</div>`;
     }
-
-    // ── Flags ─────────────────────────────────────────────────
-    $("eha-flags").innerHTML = r.flags.length
-      ? r.flags.map(f => {
-          const cls  = f.sev==="crit" ? "eha-flag-crit" : f.sev==="warn" ? "eha-flag-warn" : f.sev==="ok" ? "eha-flag-ok" : "eha-flag-info";
-          const icon = f.sev==="crit" ? "🚨" : f.sev==="warn" ? "⚠️" : f.sev==="ok" ? "✅" : "ℹ️";
-          return `<div class="eha-flag-item ${cls}">${icon} ${esc(f.msg)}</div>`;
-        }).join("")
-      : `<div class="eha-flag-item eha-flag-info">ℹ️ No signals detected — paste full headers for better analysis</div>`;
 
     // ── Pivot buttons ─────────────────────────────────────────
     const pivots = [];
     if (r.fromEmail)   pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.fromEmail)}','email')">🔍 Sender email</button>`);
-    if (r.fromDomain)  pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.fromDomain)}','domain')">🌐 Sender domain</button>`);
+    if (r.fromDomain)  pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.fromDomain)}','domain')">🌐 From domain</button>`);
     if (r.xOrigIP)     pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.xOrigIP)}','ip')">🛡 Origin IP</button>`);
-    if (r.replyEmail && r.replyEmail !== r.fromEmail)
-      pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.replyEmail)}','email')">📧 Reply-To</button>`);
-    if (r.dkimDomain && r.dkimDomain !== r.fromDomain)
-      pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.dkimDomain)}','domain')">🔐 DKIM domain</button>`);
-    pivots.push(`<button class="eha-pivot-btn" onclick="copyEHAHops()">📋 Copy hop IPs</button>`);
+    if (r.replyEmail && r.replyEmail!==r.fromEmail) pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.replyEmail)}','email')">📧 Reply-To</button>`);
+    if (r.lookalikeDomain && r.lookalikeDomain!==r.fromDomain) pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.lookalikeDomain)}','domain')">🏷 Lookalike domain</button>`);
+    if (r.dkimDomain && r.dkimDomain!==r.fromDomain) pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.dkimDomain)}','domain')">🔐 DKIM domain</button>`);
+    hops_ips = r.hops.map(h=>h.ip).filter(Boolean);
+    if (hops_ips.length) pivots.push(`<button class="eha-pivot-btn" onclick="copyEHAHops()">📋 Copy ${hops_ips.length} hop IP${hops_ips.length>1?"s":""}</button>`);
     $("eha-pivots").innerHTML = pivots.join("");
     window._ehaResult = r;
   }
@@ -6522,60 +7043,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($("eha-input")) $("eha-input").value = "";
     const res = $("eha-results"); if (res) res.style.display = "none";
   });
-
-    const t = (raw || "").replace(/\r\n/g, "\n");
-    const getH = re => (t.match(re) || [])[1]?.trim() || "";
-    // Basic fields
-    const from       = getH(/^from:\s*(.+)$/im);
-    const to         = getH(/^to:\s*(.+)$/im);
-    const replyTo    = getH(/^reply-to:\s*(.+)$/im);
-    const subject    = getH(/^subject:\s*(.+)$/im);
-    const date       = getH(/^date:\s*(.+)$/im);
-    const msgId      = getH(/^message-id:\s*<?([^>\n]+)>?/im);
-    const returnPath = getH(/^return-path:\s*<?([^>\s]+)>?/im);
-    const xOrigIP    = getH(/^x-originating-ip:\s*\[?([^\]\s\n]+)/im) ||
-                       getH(/^x-sender-ip:\s*([^\s\n]+)/im);
-    const xMailer    = getH(/^x-mailer:\s*(.+)$/im);
-    // Extract email addresses
-    const fromEmail  = (from.match(/\b([^@\s<"]+@[^@\s>"]+)\b/i)||[])[1]||"";
-    const fromName   = (from.match(/^"?([^"<]+)"?\s*</)||[])[1]?.trim()||"";
-    const replyEmail = (replyTo.match(/\b([^@\s<"]+@[^@\s>"]+)\b/i)||[])[1]||"";
-    const retDomain  = returnPath.split("@")[1]?.toLowerCase()||"";
-    const fromDomain = fromEmail.split("@")[1]?.toLowerCase()||"";
-    // Auth block
-    const authBlock = (() => {
-      const m = t.match(/^authentication-results:[\s\S]+?(?=\n[A-Za-z0-9-]{2,}:|$)/im);
-      return (m?.[0]||"").replace(/\n\s+/g," ");
-    })();
-    const spf  = (authBlock.match(/\bspf=(pass|fail|softfail|neutral|none|temperror|permerror)\b/i)||[])[1]?.toLowerCase()||"none";
-    const dkim = (authBlock.match(/\bdkim=(pass|fail|neutral|none|policy|temperror|permerror)\b/i)||[])[1]?.toLowerCase()||"none";
-    const dmarc= (authBlock.match(/\bdmarc=(pass|fail|bestguesspass|none)\b/i)||[])[1]?.toLowerCase()||"none";
-    // Received hops
-    const receivedBlocks = t.match(/^received:[\s\S]+?(?=\n[A-Za-z0-9-]{2,}:|$)/gim)||[];
-    const hops = receivedBlocks.map((block, idx) => {
-      const clean = block.replace(/\n\s+/g," ");
-      const by    = (clean.match(/by\s+([\w.\-]+)/i)||[])[1]||"";
-      const fr    = (clean.match(/from\s+([\w.\-\[\]]+)/i)||[])[1]||"";
-      const ipM   = clean.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/g)||[];
-      const ip    = ipM.find(i => !isPrivateIPv4(i))||ipM[0]||"";
-      const tsM   = clean.match(/;\s*([A-Za-z].*(?:GMT|UTC|[+-]\d{4}))\s*$/i);
-      const ts    = tsM ? new Date(tsM[1]) : null;
-      return { hop: receivedBlocks.length - idx, by, from: fr, ip, ts, raw: clean };
-    }).reverse();
-    // Calculate delays between hops
-    for (let i=1; i<hops.length; i++) {
-      if (hops[i].ts && hops[i-1].ts) {
-        const diff = (hops[i].ts - hops[i-1].ts) / 1000;
-        hops[i].delay = diff < 0 ? "?" : diff < 60 ? `${Math.round(diff)}s` : `${Math.round(diff/60)}m`;
-      }
-    }
-    // Phishing signal scoring
-    let score = 0;
-    const flags = [];
-    if (spf === "fail" || spf === "softfail")  { score += 25; flags.push({ sev:"crit", msg:`SPF ${spf.toUpperCase()} — sender not authorized by domain's DNS policy` }); }
-    if (dkim === "fail")                       { score += 20; flags.push({ sev:"crit", msg:"DKIM FAIL — message was modified in transit or sender domain is spoofed" }); }
-    if (dmarc === "fail")                      { score += 20; flags.push({ sev:"crit", msg:"DMARC FAIL — email fails domain alignment check, strong phishing indicator" }); }
-    if (replyEmail && replyEmail !== fromEmail) { score += 20; flags.push({ sev:"warn", msg:`Reply-To mismatch: From is ${fromEmail} but replies go to ${replyEmail}` }); }
 
   // ════════════════════════════════════════════════════════════════
   // FEATURE 3 — DETECTION QUERY BUILDER
