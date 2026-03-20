@@ -1491,22 +1491,26 @@
             <select id="hunt-platform" class="cti-news-select">
               <option value="splunk">Splunk SPL</option>
               <option value="kql">KQL (Sentinel)</option>
+              <option value="cs">CrowdStrike NG-SIEM</option>
               <option value="elastic">Elastic DSL</option>
               <option value="qradar">QRadar AQL</option>
-              <option value="cs">CrowdStrike NG-SIEM</option>
             </select>
             <select id="hunt-category" class="cti-news-select">
               <option value="all">All Techniques</option>
+              <optgroup label="── By Source ──">
+              <option value="identity">🪪 Identity & Cloud (All)</option>
+              <option value="credential">🔑 Credential Access (All)</option>
+              <option value="c2">📡 C2 / Command & Control</option>
+              <option value="exfil">📤 Exfiltration</option>
+              </optgroup>
+              <optgroup label="── By Platform ──">
               <option value="initial_access">Initial Access</option>
               <option value="execution">Execution</option>
               <option value="persistence">Persistence</option>
               <option value="privilege_esc">Privilege Escalation</option>
               <option value="defense_evasion">Defense Evasion</option>
-              <option value="credential">Credential Access</option>
               <option value="lateral">Lateral Movement</option>
-              <option value="c2">C2 / Command & Control</option>
-              <option value="exfil">Exfiltration</option>
-              <option value="identity">Identity & Cloud</option>
+              </optgroup>
             </select>
             <button id="hunt-filter-btn" class="cti-news-btn" type="button">🔍 Filter</button>
           </div>
