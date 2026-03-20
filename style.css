@@ -211,6 +211,9 @@ body.light ::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.15); }
 
 .tab-panel { display:none; flex-direction:column; gap:20px; }
 .tab-panel.active { display:flex; }
+/* CTI tab uses its own internal layout — no extra gap needed */
+#tab-cti.tab-panel.active { gap:0; }
+#tab-cti .input-panel { margin-bottom:0; border-bottom:none; border-radius:var(--radius) var(--radius) 0 0; }
 
 /* ── Input Panel ──────────────────────────────────────────── */
 .input-panel {
@@ -522,7 +525,7 @@ select.aw-input { cursor:pointer; }
 .cve-enrich-note { font-size:11px; color:var(--muted); line-height:1.5; }
 
 /* Threat Actor */
-.ta-results { padding:12px 0; display:flex; flex-direction:column; gap:14px; }
+.ta-results { padding:0; display:flex; flex-direction:column; gap:14px; min-height:0; }
 .ta-card { background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:16px; padding:16px; }
 .ta-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
 .ta-name { font-size:18px; font-weight:800; color:var(--text); }
@@ -849,7 +852,22 @@ select.aw-input { cursor:pointer; }
    CTI FEED TAB
    ═══════════════════════════════════════════════════════════════ */
 .cti-subtab-bar {
-  display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; padding-bottom:4px;
+  display:flex; flex-wrap:wrap; gap:6px;
+  padding:10px 20px 10px;
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  border-top:1px solid var(--border);
+}
+/* Make the input-panel header in CTI tab rounded only on top */
+#tab-cti .input-panel {
+  border-radius:var(--radius) var(--radius) 0 0 !important;
+  border-bottom:none !important;
+  margin-bottom:0 !important;
+}
+/* CTI panels get a clean card treatment */
+#tab-cti .cti-panel.active {
+  background:transparent;
+  padding-top:16px;
 }
 .cti-sub-btn {
   font-size:12px; padding:7px 14px; border-radius:20px;
@@ -859,7 +877,8 @@ select.aw-input { cursor:pointer; }
 .cti-sub-btn.active, .cti-sub-btn:hover {
   background:var(--accent); color:#0f172a; border-color:var(--accent); font-weight:700;
 }
-.cti-panel { margin-top:16px; }
+.cti-panel { display:none; flex-direction:column; gap:16px; margin-top:0; }
+.cti-panel.active { display:flex; }
 
 /* Feeds grid */
 .cti-feed-controls { display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
@@ -1808,3 +1827,32 @@ body.light .eha-score-banner { border:1px solid rgba(0,0,0,0.12); }
 }
 .eha-flag-cat-head:first-child { border-top:none; padding-top:0; }
 body.light .eha-flag-cat-head { color:#374151; }
+
+
+/* ── Tab isolation — ensure each tab panel is self-contained ── */
+.tab-panel { isolation:isolate; }
+
+/* ── Custom tools tab ── */
+.ct-list { display:flex; flex-direction:column; gap:10px; min-height:0; }
+.ct-list:empty::after {
+  content:"No custom tools added yet. Use the form above to add your first tool.";
+  font-size:12px; color:var(--muted); padding:16px; text-align:center;
+}
+
+/* ── Utils tab — prevent grid overflow ── */
+.utils-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px;
+  display:flex; flex-direction:column; gap:10px;
+  min-height:0; overflow:hidden;
+}
+
+/* ── SOC Utils grid on smaller screens ── */
+@media(max-width:900px) {
+  .utils-grid { grid-template-columns:1fr; }
+}
+
+/* ── CTI panel content should scroll, not overflow ── */
+.cti-panel.active { min-height:0; }
+.cti-feeds-grid { min-height:0; }
+.cti-actor-results, .cti-ioc-results, .cti-campaigns-list { min-height:0; }
