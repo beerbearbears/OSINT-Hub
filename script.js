@@ -1446,7 +1446,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 14. FIREWALL / NETWORK LOGS
     if (/SRC=|DST=|PROTO=|DPT=|SPT=|inbound|outbound|\bACCEPT\b|\bDROP\b|\bDENY\b|firewall|src_ip|dst_ip|action=allow|action=deny/i.test(t) &&
-        !/requesturl|refererurl|malwarecat|urlCategory|threatName|zscaler.*(?:logtype|zia|zpa)|(?:logtype|type)=zscaler/i.test(t)) {
+        !/requesturl|refererurl|malwarecat|urlCategory|threatName|Vendor\.threatname|Vendor\.threatcat|Vendor\.ipsrulelabel|Ngsiem\.event\.vendor.*[Zz]scaler|[Zz]scaler.*Ngsiem\.event\.vendor|zscaler.*(?:logtype|zia|zpa)|(?:logtype|type)=zscaler/i.test(t)) {
       results.eventType = "Firewall / Network Log";
       // iptables/netfilter style
       const src  = (t.match(/(?:SRC|src_ip|srcip|source)[=:\s]+(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
@@ -1483,7 +1483,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // 9. PROXY / WEB LOG
-    if (/GET |POST |PUT |DELETE |HEAD |HTTP\/[12]|\bstatus[=:\s]+[245]\d\d\b|\bcs-uri\b|\brequest_url\b|\burl_path\b/i.test(t)) {
+    if (/GET |POST |PUT |DELETE |HEAD |HTTP\/[12]|\bstatus[=:\s]+[245]\d\d\b|\bcs-uri\b|\brequest_url\b|\burl_path\b/i.test(t) &&
+        !/Ngsiem\.event\.vendor|Vendor\.cdip|Vendor\.threatname|Vendor\.devicehostname|zscalernss-fw/i.test(t)) {
       results.eventType = "Web / Proxy Log";
       const method  = (t.match(/\b(GET|POST|PUT|DELETE|PATCH|HEAD)\b/i)||[])[1]||"";
       const status  = (t.match(/(?:status|sc-status|response_code)[=:\s]+(\d{3})/i)||[])[1]||"";
@@ -1671,6 +1672,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (descr && descr.length > 5 && !/^(?:DetectDescription|description)$/i.test(descr)) {
         results.findings.push(`ℹ️ Falcon detection: ${descr.slice(0, 150)}`);
         results.prefillData.rule  = descr.split(/\s+event_simpleName/i)[0].slice(0, 100);
+        if (!results.prefillData.threat_name) results.prefillData.threat_name = results.prefillData.rule;
         results.prefillData.notes = `Falcon description: ${descr.slice(0, 150)}`;
       }
 
@@ -1919,8 +1921,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // 18. ZSCALER (ZIA / ZPA)
-    if (/zscaler|ZscalerApp|dlpDictionaries|urlCategory.*zscaler|policyAction.*zscaler|transactionID.*zscaler|csfbEnabled|zia.*log|zpa.*log/i.test(t) ||
-        (/zscaler/i.test(t) && /urlCategory|policyAction|threatName|requesturl|malwarecat|refererurl|respcode/i.test(t)) ||
+    if (/zscaler|ZscalerApp|dlpDictionaries|urlCategory.*zscaler|policyAction.*zscaler|transactionID.*zscaler|csfbEnabled|zia.*log|zpa.*log|zscalernss|Ngsiem\.event\.vendor.*[Zz]scaler/i.test(t) ||
+        (/zscaler/i.test(t) && /urlCategory|policyAction|threatName|requesturl|malwarecat|refererurl|respcode|Vendor\.threatname|Vendor\.cdip|Vendor\.csip/i.test(t)) ||
+        (/Vendor\.threatname|Vendor\.threatcat|Vendor\.ipsrulelabel|Vendor\.devicehostname/i.test(t) && /zscaler/i.test(t)) ||
         (/(?:requesturl|refererurl|malwarecat|respcode).*zscaler|zscaler.*(?:requesturl|refererurl|malwarecat)/i.test(t))) {
       results.eventType = /zpa|private.access/i.test(t) ? "Zscaler ZPA Log" : "Zscaler ZIA Log";
 
@@ -1938,55 +1941,71 @@ document.addEventListener("DOMContentLoaded", () => {
         /(?:referer|referrer)\s*[=:"]+\s*"?(https?:\/\/[^\s"\n,]+)/i
       );
       const threat = _first(
+        /Vendor\.threatname\s+((?:(?!\s+Vendor\.|\s+[a-z]+\.[a-z]).){2,80})/im,
         /(?:threat\.indicator\.name|threat\.name|malwarecat|malwarename|threatName|malwareCategory|threatCategory|rule\.name|threatsignature|threat_name)\s*[=:"]+\s*"?([^\s"\n,]{2,80})/i
       );
       const categoryRaw = _first(
+        /Vendor\.threatcat\s+((?:(?!\s+Vendor\.).){2,80})/im,
         /(?:rule\.category|urlCategory|cloudApp|url\.category|threat\.category|category)\s*[=:"]+\s*"([^"\n]{2,80})"/i,
         /(?:rule\.category|urlCategory|cloudApp|url\.category|threat\.category|category)\s*[=:"]+\s*([^"\n,;\t]{2,60})(?:\s+\w+=|$)/im
       );
       const category = categoryRaw ? categoryRaw.trim().replace(/\s+\w+=.*$/,'').replace(/[,\s]+$/,'') : "";
       const action = _first(
+        /Vendor\.action\s+((?:(?!\s+Vendor\.).){2,40})/im,
+        /event\.action\s+([^\n\t]{2,30})(?=\s+event\.|$)/im,
         /(?:event\.action|policyAction|result|verdict)\s*[=:"]+\s*"?([^\s"\n,]{2,30})/i,
         /(?:^|\s)action\s*[=:"]+\s*"?([^\s"\n,]{2,30})/im
       );
       const srcIp = _first(
-        /(?:source\.ip|src\.ip|srcIP|clientIP|srcip|client_ip)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i,
+        /Vendor\.csip\s+(\d{1,3}(?:\.\d{1,3}){3})/i,
+        /(?:source\.ip|src\.ip|client\.ip|srcIP|clientIP|srcip|client_ip|client\.address)\s*[=:"\s]+([\s]?\d{1,3}(?:\.\d{1,3}){3})/i,
         /(?:^|\s)src\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/im
       );
       const dstIp = _first(
-        /(?:destination\.ip|dst\.ip|dstIP|serverIP|server_ip|dstip)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i,
+        /Vendor\.cdip\s+(\d{1,3}(?:\.\d{1,3}){3})/i,
+        /(?:destination\.ip|dst\.ip|dstIP|serverIP|server_ip|dstip|server\.ip|destination\.address)\s*[=:"\s]+(\d{1,3}(?:\.\d{1,3}){3})/i,
         /(?:^|\s)dst\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/im
       );
       const dstPort = _first(
-        /(?:destination\.port|dst\.port|dstport|serverport|destinationport)\s*[=:"]+\s*(\d{1,5})/i,
+        /Vendor\.cdport\s+(\d{1,5})/i,
+        /(?:destination\.port|dst\.port|dstport|serverport|destinationport)\s*[=:"\s]+(\d{1,5})/i,
         /(?:^|\s)dport\s*[=:"]+\s*(\d{1,5})/im
       );
       const user = _first(
-        /(?:user\.name|user\.email|userName|login|email)\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+        /Vendor\.user\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+        /(?:user\.name|user\.email|userName|login|email)\s*[=:"\s]+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
         /(?:^|\s)user\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/im
       );
       const hostname = _first(
-        /(?:host\.name|host\.hostname|clientHostname|deviceName|machine|endpoint)\s*[=:"]+\s*([a-zA-Z0-9_.-]{2,60})/i
+        /Vendor\.devicehostname\s+([a-zA-Z0-9_.-]{2,60})/i,
+        /(?:host\.name|host\.hostname|clientHostname|deviceName|machine|endpoint|devicehostname)\s*[=:"\s]+([a-zA-Z0-9_.-]{2,60})/i
       );
       const useragent = _first(
-        /(?:user_agent\.original|http\.request\.user_agent|user[_-]?agent|cs\(user-agent\)|useragent)\s*[=:"]+\s*"?([^\n"]{5,250})/i
+        /(?:user_agent\.original|http\.request\.user_agent|user[_-]?agent|cs\(user-agent\)|useragent)\s*[=:"]+\s*"?([^\n"]{5,250})/i,
+        /(Mozilla\/\d\.\d[^\n"]{5,250})/i
       );
       const httpStatus = _first(
-        /(?:http\.response\.status_code|responseCode|statusCode|sc-status|respcode|responsecode|sc_status|http_status|cs-status)\s*[=:"]+\s*(\d{3})/i
+        /(?:http\.response\.status_code|responseCode|statusCode|sc-status|respcode|responsecode|sc_status|http_status|cs-status)\s*[=:"]+\s*(\d{3})/i,
+        /\b(403|200|301|302|404|500|502|503)\b/
       );
       const bytes = _first(
-        /(?:network\.bytes|http\.response\.bytes|bytesTotal|txBytes|totalBytes|rxbytes|rxbytes|sendbytes|transferbytes|totalbytes|bytes_received)\s*[=:"]+\s*(\d+)/i
+        /Vendor\.inbytes\s+(\d+)/i,
+        /(?:network\.bytes|http\.response\.bytes|bytesTotal|txBytes|totalBytes|rxbytes|sendbytes|transferbytes|totalbytes|bytes_received|destination\.bytes|inbytes)\s*[=:"\s]+(\d+)/i
       );
       const proto = _first(
         /(?:network\.transport|network\.protocol|proto|protocol)\s*[=:"]+\s*([a-zA-Z]{2,10})/i
       );
       const location = _first(
-        /(?:location|geo\.country|src\.geo\.country_name)\s*[=:"]+\s*"?([^\n"]{2,40})/i
+        /Vendor\.locationname\s+((?:(?!\s+Vendor\.).){2,60})/im,
+        /(?:location|locationname|geo\.country|src\.geo\.country_name|destination\.geo\.country_name)\s*[=:"\s]+([^\n"\t]{2,40})/i
       );
       const rule = _first(
-        /(?:ruleName|rule\.name|policyName|policy\.name|filterName|profileName|rule)\s*[=:"]+\s*"?([^"\n,]{2,80})/i
+        /Vendor\.ipsrulelabel\s+((?:(?!\s+Vendor\.).){2,80})/im,
+        /Vendor\.rulelabel\s+((?:(?!\s+Vendor\.).){2,80})/im,
+        /(?:rule\.name|ruleName|policyName|policy\.name|filterName|profileName)\s*[=:"\s]+([^"\n,]{2,80})(?:\s+\w|$)/im
       );
       const department = _first(
+        /Vendor\.department\s+(\S+)/i,
         /(?:department|dept|ou)\s*[=:"]+\s*"?([^\n"]{2,60})/i
       );
 
@@ -2006,7 +2025,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         if (!threat && /command.*control|c2|malware|phish|botnet|ransomware|exploit/i.test(category))
                           results.prefillData.threat_name = category; }
       if (proto)      { results.prefillData.proto        = proto; }
-      if (location)   { results.prefillData.location     = location; }
+      if (location)   { results.prefillData.location = decodeURIComponent(location.replace(/\+/g,' ')); }
       if (department) { results.prefillData.department = department.split(/\s+/)[0]; }
       if (rule)       { results.prefillData.rule         = rule;
                         results.indicators.push(`Rule: ${rule}`); }
@@ -2015,6 +2034,23 @@ document.addEventListener("DOMContentLoaded", () => {
         results.findings.push(`🚨 Zscaler detected threat: ${threat}`);
         results.mitre.add("T1071");
         results.severity = "high";
+      }
+      // ── NGSIEM log-tail parsing ───────────────────────────────
+      // Format: "blocked|allowed [action] ... [threatname] [code] GET [dstIP] [domain]/ [referer]/ [UA]"
+      // Extract URL/referer from the plain-text log section if not already found
+      if (!url || !referer) {
+        // Match the log tail: "GET dstIP domain/ referer/ Mozilla..."
+        const _logTail = t.match(/(?:GET|POST|PUT|HEAD)\s+(\d{1,3}(?:\.\d{1,3}){3})\s+([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?)\s+([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/i);
+        if (_logTail) {
+          if (!url)     { const _u = "https://" + _logTail[2]; results.prefillData.url = _u; }
+          if (!referer) { const _r = "https://" + _logTail[3]; results.prefillData.referer = _r;
+                          results.findings.push(`ℹ️ HTTP Referrer: ${_r.slice(0,100)}`); }
+        }
+        // Also try: plain domain pattern after status code in log tail
+        if (!url) {
+          const _domainInLog = t.match(/(?:403|200|301|302|404)\s+(?:GET|POST)?\s*([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\/)/i);
+          if (_domainInLog) results.prefillData.url = "https://" + _domainInLog[1];
+        }
       }
       if (url) {
         results.prefillData.url = url;
@@ -2033,6 +2069,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (bytes && parseInt(bytes) > 10000000) {
         results.findings.push(`⚠️ Large data transfer: ${(parseInt(bytes)/1048576).toFixed(1)} MB — possible data exfiltration`);
       }
+      // NGSIEM threat score
+      const _threatScore = (t.match(/Vendor\.threat_score\s+(\d+)/i)||[])[1]||"";
+      if (_threatScore && parseInt(_threatScore) >= 50) {
+        results.findings.push(`⚠️ Threat score: ${_threatScore}/100 — elevated risk`);
+        if (parseInt(_threatScore) >= 70) results.severity = "high";
+      }
+      // NGSIEM tunnel type (ZscalerClientConnector = user is on VPN/agent)
+      const _tunType = (t.match(/Vendor\.tuntype\s+(\S+)/i)||[])[1]||"";
+      if (_tunType && _tunType !== "None") results.indicators.push(`Tunnel: ${_tunType}`);
+
       if (!results.findings.length) {
         results.findings.push(`ℹ️ Zscaler web activity — ${category||"access"} ${action?"→ "+action:""}`);
       }
@@ -3356,7 +3402,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (isWeb) {
       // ── WEB / PROXY / CASB ──────────────────────────────────
-      const _deptStr  = department ? ` (${department})` : "";
+      const _deptStr  = department && !/^\d+$/.test(department) ? ` (${department})` : "";
       const who = user && host ? `user **${user}**${_deptStr} on endpoint **${host}** (${srcIP||"internal"})`
                 : user ? `user **${user}**${_deptStr}${srcIP?" from "+srcIP:""}`
                 : host ? `endpoint **${host}**${srcIP?" ("+srcIP+")":""}`
@@ -4101,7 +4147,6 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
 
     // ── ALERT CONTEXT SUMMARY (Feature 8 + 11) ───────────────────
 
-  if (ltAnalyzeBtn)
   // ── SOC Case Note Generator — global listeners ───────────
   $("lt-soc-generate-btn")?.addEventListener("click", () => {
     if (!lastTriageResult) { alert("Run Auto-Triage first on a pasted log."); return; }
