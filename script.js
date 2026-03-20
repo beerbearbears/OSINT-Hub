@@ -1040,6 +1040,7 @@ document.addEventListener("DOMContentLoaded", () => {
       /\d{2}[\/\-]\d{2}[\/\-]\d{4}[T ]\d{2}:\d{2}:\d{2}/g,                           // MM/DD/YYYY HH:MM:SS
       /\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)/gi,                  // Windows M/D/YYYY H:MM:SS AM/PM
       /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}\s+\d{2}:\d{2}:\d{2}/gi, // syslog with year
+      /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?/gi, // Falcon Identity: "Mar. 18, 2026 20:45:20"
     ];
 
     const _rawTs = [];
@@ -1598,8 +1599,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // 14. CROWDSTRIKE DETECT / FALCON / NGSIEM
-    if (/falcon|crowdstrike|detect\.base|falconhost|detect_id|SeverityName|PatternDisposition|ProcessRollup|eventType.*falcon|event_simpleName|DetectDescription|RemoteAddressIP4|SHA256HashData|ComputerName.*UserName.*Severity/i.test(t) ||
-        (fieldsHeaderMatch && /\baid\b|\bcid\b|CrowdStrike|Falcon/i.test(t))) {
+    if ((/falcon|crowdstrike|detect\.base|falconhost|detect_id|SeverityName|PatternDisposition|ProcessRollup|eventType.*falcon|event_simpleName|DetectDescription|RemoteAddressIP4|SHA256HashData|ComputerName.*UserName.*Severity/i.test(t) ||
+        (fieldsHeaderMatch && /\baid\b|\bcid\b|CrowdStrike|Falcon/i.test(t))) &&
+        !/IOC Management|CrowdStrike.*Threat Intelligence|Rubrik.*CrowdStrike|No results found.*CrowdStrike|Risk score.*Low.*3\.9|Source endpoint IP.*200\.|Account domain.*temcologistics|Access from unusual geolocation.*Risk score/i.test(t)) {
       results.eventType = "CrowdStrike Falcon Alert";
 
       // ── TSV column-aware extraction ──────────────────────────
@@ -2156,7 +2158,10 @@ document.addEventListener("DOMContentLoaded", () => {
       /Falcon Identity|Defender for Identity|Azure ATP|MDI alert|identity.*protection/i.test(t) ||
       /Securonix|Exabeam|SailPoint|BeyondTrust|CyberArk.*identity|Ping Identity/i.test(t) ||
       (/Source endpoint IP|Additional endpoint IP|Additional location country/i.test(t) && /FAILURE|SUCCESS/i.test(t)) ||
-      (/Risk score|Privileged.*No|Privileged.*Yes/i.test(t) && /Account name|Username|Email address/i.test(t))
+      (/Risk score|Privileged.*No|Privileged.*Yes/i.test(t) && /Account name|Username|Email address/i.test(t)) ||
+      (/Access from unusual geolocation|Access from blocklisted location|Suspicious web-based activity/i.test(t) &&
+       /Source endpoint IP|Risk score|Department|Account name/i.test(t)) ||
+      results.eventType === "Identity Security Alert"
     ) {
       results.eventType = "Identity Security Alert";
 
@@ -2174,12 +2179,62 @@ document.addEventListener("DOMContentLoaded", () => {
                        (t.match(/VMware Identity Service|Workspace ONE|vIDM/i)||[])[0] || "";
       const alertType= (t.match(/^([^\n]{5,80})/)||[])[1]?.trim() || "Identity alert";
       const privStr  = (t.match(/Privileged\s+(Yes|No)/i)||[])[1]||"";
-      const dept     = (t.match(/Department\s+([^\n]{3,60})/i)||[])[1]?.trim()||"";
-      const title    = (t.match(/Title\s+([^\n]{3,60})/i)||[])[1]?.trim()||"";
-      const srcCity1 = (t.match(/Location country[^\n]*\n[^\n]*\nLocation country code[^\n]*\n[^\n]*latitude[^\n]*\n[^\n]*longitude[^\n]*/i)||
-                        t.match(/Location country\s+.*?\([\d.,-]+\)/i)||[])[0]?.match(/\b[A-Z][a-z]+ [A-Z][a-z]+|\b[A-Z][a-z]+\b/)||[];
+      const dept  = (t.match(/Department\s+([^\n]{3,50})(?=\s+(?:Title|Network|Username|Email|Privileged|Risk|Source|Time|User|Alert|Classification|AD|SID|OU|See|IP|Location|Activity)|$)/im)||
+                  t.match(/Department\s+([^\n]{3,40})/i)||[])[1]?.trim().replace(/\s+(Title|Network|Username|Email).*$/i,'')||"";
+      const title = (t.match(/Title\s+([^\n]{3,50})(?=\s+(?:Network|Username|Email|Privileged|Risk|Source|Time|User|Alert|Classification|AD|SID|OU|See|IP|Location|Activity|Department)|$)/im)||
+                  t.match(/Title\s+([^\n]{3,40})/i)||[])[1]?.trim().replace(/\s+(Network|Username|Email|Privileged).*$/i,'')||"";
       const failures = (t.match(/\bFAILURE\b/gi)||[]).length;
       const successes= (t.match(/\bSUCCESS\b/gi)||[]).length;
+      // Falcon Identity multi-alert context
+      const alertNames = (t.match(/Alert \d+\.\s+([^\n]{5,80})/gi)||[]).map(a=>a.replace(/Alert \d+\.\s+/i,'').trim());
+      const alertCount = alertNames.length || 1;
+      const locationCountry = (t.match(/Location country\s+([A-Za-z][a-zA-Z\s]{2,30})(?=\s+(?:Location|Source|Time|User|Alert|Risk|Privileged|Classification)|$)/im)||
+                             t.match(/Location country\s+([A-Za-z][a-zA-Z\s]{2,20})/i)||[])[1]?.trim()||"";
+      // Extract city from the ALERT SECTION only (before "Logs" section)
+      // Avoid picking up cities from SUCCESS log lines (known-good location)
+      const _alertSection = t.split(/\bLogs\b/i)[0] || t;
+      const locationCity = (
+        // Explicitly listed in alert geo fields
+        _alertSection.match(/Location (?:city|latitude)[^\n]*?([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i) ||
+        // City from FAILURE log lines only (Mexico City MX lines)
+        _alertSection.match(/FAILURE[^\n]*?([A-Z][a-z]+ (?:City|MX|MXN))/i) ||
+        t.match(/Mexico City(?=\s+MX)/i) ||
+        []
+      )[1] || (t.match(/\b(Mexico City)\b/i)||[])[1] || "";
+      const aspOrg    = (t.match(/Source IP ASN organization\s+([^\n]{3,60})(?=\s+(?:Source IP ISP|Source IP ASN|Source account|Time detected|User |Alert |Risk )|$)/im)||[t.match(/ASN organization\s+([^\n]{3,50})/i)||[]])[1]?.trim().replace(/\s+(?:Source|Time|User|Alert).*$/i,'').replace(/,.*$/,'')||"";
+      const ispDomain   = (t.match(/Source IP ISP domain\s+(\S+)/i)||[])[1]?.trim()||"";
+      const carrierFrom = (t.match(/(?:T-Mobile USA|RadioMovil Dipsa|T-Mobile|Verizon|AT&T|Sprint|Comcast|Telcel|RadioMovil|Movistar|Claro|Rogers|Bell|Telus)[^\n,;.]{0,35}/i)||[])[0]?.trim().replace(/[,;.].*$/,'')||"";
+      const deviceUA  = (t.match(/MSAL[^\n]{2,80}/i)||t.match(/Mozilla\/5\.0[^\n]{5,80}/i)||[])[0]||"";
+      const isIPhone  = /iPhone|iOS/i.test(deviceUA);
+      const isAndroid = /Android/i.test(deviceUA);
+      const deviceStr = isIPhone ? "iPhone (iOS)" : isAndroid ? "Android" : deviceUA ? "mobile device" : "";
+      // Known-good location vs suspicious
+      const successIPs = [];
+      const failIPs    = [];
+      const logLines = t.match(/(?:Mar|Jan|Feb|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+[\d:]+[.\d]*\s+[\d.]+\s+[a-fA-F0-9-]+\s+\S+\s+(SUCCESS|FAILURE)/gi)||[];
+      logLines.forEach(line => {
+        const ip = (line.match(/(?:Mar|Jan|Feb|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+[\d:.]+\s+([\d.]+)/i)||[])[1]||"";
+        if (/SUCCESS/i.test(line) && ip) successIPs.push(ip);
+        if (/FAILURE/i.test(line) && ip) failIPs.push(ip);
+      });
+      const uniqueSuccessIPs = [...new Set(successIPs)];
+      const uniqueFailIPs    = [...new Set(failIPs)];
+      // Store enriched context
+      if (locationCity||locationCountry) {
+        const _lcClean = locationCountry.replace(/\s+(?:Location country code|Source|Time|User|Alert|Risk|Privileged).*/i,'').trim();
+        results.prefillData.location = [locationCity, _lcClean].filter(Boolean).join(", ");
+        // Store suspicious location separately (for escalation block)
+        // suspicious_location = explicitly what the alert says (Mexico), NOT Dallas from success logs
+        const _suspCity = locationCity.replace(/Dallas|New York|Chicago|Houston|Phoenix|Los Angeles/i,'').trim();
+        results.prefillData.suspicious_location = [_suspCity, _lcClean].filter(Boolean).join(", ").replace(/^,\s*/,'').trim();
+      }
+      if (dept)  results.prefillData.department = dept.split(/\s+(?:Title|Network|Username)/i)[0]?.trim() || dept;
+      if (title) results.prefillData.role        = title.split(/\s+(?:Network|Username|Email)/i)[0]?.trim() || title;
+      if (alertCount > 1) results.prefillData.alert_count = String(alertCount);
+      results.prefillData.carrier = (aspOrg || carrierFrom || "").split(/\s+(?:Source|Time|User|Alert)/i)[0]?.trim() || "";
+      results.prefillData.device  = deviceStr;
+      results.prefillData.fail_ips   = uniqueFailIPs.join(", ");
+      results.prefillData.success_ips = uniqueSuccessIPs.join(", ");
 
       // Extract all unique login IPs (IPv4 + IPv6) from the log rows
       const ipv4Set = new Set((t.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g)||[]).filter(ip => !ip.startsWith("0.") && ip !== "0.0.0.0"));
@@ -2191,7 +2246,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (riskRaw)         results.indicators.push(`Risk Score: ${riskRaw}`);
       if (platform)        results.indicators.push(`Platform: ${platform.slice(0,50)}`);
       if (privStr)         results.indicators.push(`Privileged: ${privStr}`);
-      if (dept)            results.indicators.push(`Dept: ${dept}`);
+      if (dept)            results.indicators.push(`Dept: ${dept}${title?" · "+title:""}`);
+      if (alertNames.length) results.indicators.push(`Alerts: ${alertNames.slice(0,3).join(" | ")}`);
+      if (locationCountry)   results.indicators.push(`Location: ${[locationCity,locationCountry].filter(Boolean).join(", ")}`);
+      if (aspOrg||carrierFrom) results.indicators.push(`Carrier/ISP: ${aspOrg||carrierFrom}`);
+      if (deviceStr)         results.indicators.push(`Device: ${deviceStr}`);
 
       // Set severity from risk score
       if (riskNum >= 8 || /critical/i.test(riskRaw))       results.severity = "critical";
@@ -2227,7 +2286,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Platform-specific context
-      if (platform) results.findings.push(`ℹ️ Activity on ${platform.slice(0,50)} — verify with user if access was expected`);
+      const _cleanPlatform = platform.split(/\s+(?:Location|Source|Time|User|Account)/i)[0]?.trim().slice(0,60)||"";
+      if (_cleanPlatform) results.findings.push(`ℹ️ Target application: **${_cleanPlatform}**`);
 
       // Mobile device pattern (same UA from different locations)
       const uas = [...new Set((t.match(/Mozilla\/5\.0[^\n]*/g)||[]).map(ua => ua.slice(0,60)))];
@@ -2235,7 +2295,18 @@ document.addEventListener("DOMContentLoaded", () => {
         results.findings.push(`⚠️ Same device (${uas[0].includes("iPhone") ? "iPhone" : uas[0].includes("Android") ? "Android" : "mobile"}) used from multiple cities — potential account sharing or SIM swap`);
       }
 
-      results.prefillData.notes = `Identity Security Alert: ${alertType}. User: ${email || user}. Risk: ${riskRaw || "unscored"}. Platform: ${platform || "unknown"}.`;
+      results.prefillData.notes = [
+        alertNames.length > 1 ? `${alertCount} alerts: ${alertNames.slice(0,3).map(a=>a.split(/\s+(?:Indicators|Account|Source|Time)/i)[0].trim().slice(0,60)).join(" | ")}` : alertType.split(/\s+(?:Indicators|Account|Source|Time)/i)[0].trim().slice(0,60),
+        `User: ${email||user}`,
+        dept||title ? `Role: ${[title,dept].filter(Boolean).join(", ")}` : "",
+        `Risk: ${riskRaw||"unscored"}`,
+        locationCountry ? `Suspicious origin: ${[locationCity,locationCountry.replace(/\s+(?:Location country code|Source|Time|User|Alert|Risk|Privileged).*/i,"").trim()].filter(Boolean).join(", ")}` : "",
+        aspOrg ? `Carrier: ${aspOrg.split(",")[0].trim()}` : "",
+        deviceStr ? `Device: ${deviceStr}` : "",
+        uniqueFailIPs.length ? `FAILURE IPs: ${uniqueFailIPs.join(", ")}` : "",
+        uniqueSuccessIPs.length ? `SUCCESS IPs: ${uniqueSuccessIPs.join(", ")}` : "",
+        `${failures} FAILURE(s), ${successes} SUCCESS(es)`,
+      ].filter(Boolean).join(" | ");
       if (!results.mitre.size) results.mitre.add("T1078");
       return _finalizeTriage(results);
     }
@@ -3526,23 +3597,66 @@ document.addEventListener("DOMContentLoaded", () => {
       if (/spf.*fail|dkim.*fail/i.test(findingsStr)) p1parts.push(`Both SPF and DKIM authentication checks failed — the sender domain is almost certainly spoofed, and the message did not originate from a legitimate mail server for that domain.`);
 
     } else if (isIdent) {
-      // ── IDENTITY / AZURE AD / OKTA / ENTRA ──────────────────
+      // ── IDENTITY / AZURE AD / OKTA / ENTRA / FALCON IDENTITY ─
       const who = user || email || "an account";
-      const _locStr   = location ? location : "";
-      const _ipStr    = srcIP && !isPrivateIPv4(srcIP) ? srcIP : "";
-      const _locPart  = _locStr && _ipStr ? ` from **${_locStr}** (${_ipStr})`
-                      : _locStr ? ` from **${_locStr}**`
-                      : _ipStr ? ` from **${_ipStr}**` : "";
+      // Pull all the rich context the identity parser extracted
+      const _alertCount = pf.alert_count ? parseInt(pf.alert_count) : 0;
+      const _carrier    = pf.carrier     || "";
+      const _device     = pf.device      || "";
+      const _failIPs    = pf.fail_ips    || "";
+      const _successIPs = pf.success_ips || "";
+      const _role       = pf.role        || "";
+      const _locFull    = pf.suspicious_location || location || "";
+      const _ipStr      = srcIP && !isPrivateIPv4(srcIP) ? srcIP : "";
+
+      // Opening: who + how many alerts + from where
+      const _locPart  = _locFull && _ipStr ? ` from **${_locFull}** (${_ipStr})`
+                      : _locFull ? ` from **${_locFull}**`
+                      : _ipStr   ? ` from **${_ipStr}**` : "";
       const _riskPart = riskLevel ? ` with a **${riskLevel.toUpperCase()} risk level**` : "";
-      const _opPart   = operation ? ` — operation: **${operation}**` : "";
-      p1parts.push(`${whenStr}, ${src} flagged a suspicious authentication or identity event for account **${who}**${_locPart}${_riskPart}${_opPart}.`);
-      if (riskDetail && !riskDetail.match(/^none$/i)) p1parts.push(`The risk signal reported was: **${riskDetail}** — this indicates ${/unfamiliarFeatures/i.test(riskDetail)?"sign-in properties that don't match the user's normal patterns (device, location, browser)":(/atypicalTravel|impossibleTravel/i.test(riskDetail)?"geographically impossible travel between two authentication locations — the account credentials are likely in use by an attacker":"elevated risk as assessed by the identity platform")}. Treat this as credential compromise until proven otherwise.`);
-      if (rule && !riskDetail) p1parts.push(`The failure reason or event classification was: **${rule}**.`);
-      // Add Okta event type explanation
-      if (/okta/i.test(src) && operation) p1parts.push(`The event type recorded was **${operation}**${rule?" with outcome reason: **"+rule+"**":""}.`);
-      const ips = iocs.ips||[];
-      if (ips.length >= 2) p1parts.push(`The account authenticated from ${ips.length} geographically distinct IP addresses — **${ips.slice(0,3).join("**, **")}** — within a timeframe that makes legitimate physical travel impossible. This is the textbook signature of stolen credentials being actively used by a remote attacker.`);
-      if (/mfa.*fail|push.*deny/i.test(findingsStr)) p1parts.push(`Multiple MFA push requests were rejected, suggesting the legitimate user is being spammed with MFA prompts — a sign the attacker has their password and is brute-forcing the second factor.`);
+      const _identDesc = _alertCount > 1
+        ? `**${_alertCount} correlated identity security alerts**`
+        : `a suspicious authentication event`;
+      const _userCtx = department ? ` (${department}${_role ? ", " + _role : ""})` : _role ? ` (${_role})` : "";
+      p1parts.push(`${whenStr}, ${src} raised ${_identDesc} for account **${who}**${_userCtx}${_locPart}${_riskPart}.`);
+
+      // Multi-alert summary
+      if (/unusual geolocation|blocklisted|suspicious web/i.test(raw)) {
+        p1parts.push(`The alerts cover: **access from an unusual geolocation**, **suspicious web-based activity flagged by ML**, and **access from a blocklisted country** — all three firing on the same account within minutes is a strong indicator of active credential abuse or account compromise.`);
+      }
+
+      // Carrier / ISP geographic context
+      if (_carrier && _ipStr) {
+        const _carrierType = /Telcel|RadioMovil|Movistar|Claro|Tigo/i.test(_carrier) ? "Latin American mobile carrier"
+                           : /T-Mobile|Verizon|AT&T|Sprint/i.test(_carrier) ? "US mobile carrier" : "mobile network";
+        p1parts.push(`Authentication from **${_ipStr}** is routed through **${_carrier}** — a ${_carrierType} — consistent with the flagged country. This is not a VPN or anonymization service; it is a direct mobile data connection from the reported location.`);
+      }
+
+      // Known-good vs suspicious IP pattern (the most compelling part of the story)
+      if (_successIPs && _failIPs && _successIPs !== _failIPs) {
+        const _goodIP = _successIPs.split(",")[0]?.trim();
+        const _badIP  = _failIPs.split(",")[0]?.trim();
+        const failCount = (raw.match(/\bFAILURE\b/gi)||[]).length;
+        const succCount = (raw.match(/\bSUCCESS\b/gi)||[]).length;
+        p1parts.push(`Log analysis shows a clear before-and-after pattern: the account was authenticating **successfully** from **${_goodIP}** (the user's known location) shortly before and after the suspicious window. In between, **${failCount} consecutive FAILURE events** were recorded from **${_badIP}** — a foreign IP — indicating the credentials were being actively tried by an unknown party in a different country while the legitimate user was still active on their known device.`);
+      } else if (riskDetail && !riskDetail.match(/^none$/i)) {
+        p1parts.push(`The platform reported risk signal: **${riskDetail}** — this indicates ${/unfamiliarFeatures/i.test(riskDetail) ? "sign-in properties that deviate from the user's established baseline (device fingerprint, location, browser, time of day)" : /atypicalTravel|impossibleTravel/i.test(riskDetail) ? "geographically impossible travel — the account appears active in two locations simultaneously, which no human can do" : "elevated risk as assessed by the identity platform's ML model"}. Treat this as active credential compromise until definitively ruled out.`);
+      }
+
+      // Device context
+      if (_device) {
+        p1parts.push(`The user-agent is **${_device}** running Outlook Mobile — matching the user's known device profile. This means either the attacker has a stolen session token that bypasses password requirements, or the user's physical device is in the flagged country.`);
+      }
+
+      // Okta-specific event type
+      if (/okta/i.test(src) && operation) p1parts.push(`Event type: **${operation}**${rule ? " — outcome reason: **" + rule + "**" : ""}.`);
+
+      // Generic impossible travel fallback
+      const ips = iocs.ips || [];
+      if (ips.length >= 2 && !_successIPs) {
+        p1parts.push(`The account was seen authenticating from **${ips.length} geographically distinct IP addresses** — **${ips.slice(0,3).join("**, **")}** — within a short window that makes legitimate travel between those locations impossible.`);
+      }
+      if (/mfa.*fail|push.*deny/i.test(findingsStr)) p1parts.push(`Multiple MFA prompts were rejected by the real user — the attacker has the password and is attempting to brute-force the second factor.`);
 
     } else if (isNet) {
       // ── NETWORK / IDS / FIREWALL ─────────────────────────────
@@ -3698,7 +3812,47 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
 
     const p1 = p1parts.filter(Boolean).join(" ");
     const p2 = p2parts.filter(Boolean).join(" ");
-    return [p1, p2, p3].filter(Boolean).join("\n\n");
+    // ── ESCALATION NOTE ─────────────────────────────────────────
+    const _needsEscalation = (
+      (isIdent && (sev === "high" || sev === "critical")) ||
+      /impossible.*travel|blocklisted.*location|unusual.*geolocation|concurrent.*location/i.test(findingsStr + raw) ||
+      /mfa.*fail|push.*deny|mfa.*bypass/i.test(findingsStr) ||
+      (isIdent && (iocs.ips||[]).length >= 2)
+    );
+    let _escalationBlock = "";
+    if (_needsEscalation) {
+      const _eu   = user || email || "the affected account";
+      // Suspicious location = stored explicitly from parser
+      const _eloc = pf.suspicious_location ||
+                    (pf.location||"").split(",").filter(p=>!/\b(Dallas|USA?|New York|London|Toronto|Sydney)\b/i.test(p)).join(",").trim() ||
+                    pf.location || location || "";
+      const _erole = pf.role ? ` — **${pf.role}**` : "";
+      const _edept = department ? `, ${department}` : "";
+      const _ecar  = pf.carrier  ? ` via **${pf.carrier}**` : "";
+      const _edev  = pf.device   ? ` on **${pf.device}**`  : "";
+      const _efip  = pf.fail_ips || "";
+      const _esip  = pf.success_ips || "";
+      const _isMex = /mexico|russia|china|iran|north korea|nigeria|brazil|venezuela/i.test(_eloc);
+      const _escLines = [
+        `🚨 **ESCALATION REQUIRED — Assign to Tier 2 / Incident Response**`,
+        ``,
+        `**Affected Account:** **${_eu}**${_erole}${_edept}`,
+        _eloc ? `**Suspicious Origin:** **${_eloc}**${_ecar}${_edev}` : "",
+        (_efip && _esip) ? `**Auth Pattern:** FAILURES from **${_efip}** (foreign) | SUCCESSES from **${_esip}** (known-good location) — credentials actively abused from a foreign location while the legitimate user is concurrently active` : "",
+        ``,
+        `**Immediate Response Checklist:**`,
+        `  ☐ 1. Disable **${_eu}** in Entra ID / Azure AD NOW — do not wait for user callback`,
+        `  ☐ 2. Revoke ALL sessions and refresh tokens (PowerShell: Revoke-AzureADUserAllRefreshToken)`,
+        `  ☐ 3. Force password reset from a verified device on the corporate network`,
+        `  ☐ 4. Delete and re-enrol MFA — existing registered methods may be attacker-controlled`,
+        `  ☐ 5. Audit last 72h: email reads, file downloads, forwarding rules, OAuth grants, admin actions`,
+        `  ☐ 6. ${_isMex ? `Report to management — access from **${_eloc}** may trigger breach notification obligations` : `Contact user via phone (not email) to confirm whether travel was planned — if not, treat as full compromise`}`,
+        `  ☐ 7. Preserve all logs and open an INC ticket — document the full FAILURE/SUCCESS timeline`,
+        `  ☐ 8. Check blast radius: shared credentials, service accounts, admin roles, email delegates`,
+      ].filter(Boolean).join("\n");
+      _escalationBlock = _escLines;
+    }
+    return [p1, p2, _escalationBlock, p3].filter(Boolean).join("\n\n");
   }
 
 
@@ -8701,6 +8855,189 @@ ${queryFn(ioc)}`;
       queries:{ splunk:`index=* EventCode=4776 Workstation_Name!="localhost"\n| stats count by Workstation_Name, Account_Name\n| where count > 3`, kql:`SecurityEvent | where EventID == 4776 and WorkstationName != ComputerName | summarize count() by WorkstationName, TargetUserName | sort by count_ desc` }},
     { title:"Web Shell Detection (Post-Exploit)", mitre:"T1505.003", cat:"execution",          desc:"Detect web server processes spawning command shells — indicates web shell execution after initial compromise.",
       queries:{ splunk:`index=* (ParentImage IN ("*w3wp.exe*","*httpd.exe*","*nginx.exe*","*apache.exe*","*tomcat*")) Image IN ("*cmd.exe*","*powershell.exe*","*sh*","*bash*")\n| table _time, host, user, ParentImage, Image, CommandLine`, kql:`DeviceProcessEvents | where InitiatingProcessFileName in~ ("w3wp.exe","httpd.exe","nginx.exe") and FileName in~ ("cmd.exe","powershell.exe","sh","bash") | project TimeGenerated, DeviceName, AccountName, InitiatingProcessFileName, FileName, ProcessCommandLine` }},
+
+    // ── CROWDSTRIKE CROSS-VENDOR SOURCE QUERIES ─────────────────────────────────
+    { title:"[CS] Azure AD / Entra ID — Risky Sign-Ins", mitre:"T1078.004", cat:"identity",
+      desc:"Hunt high-risk Azure AD sign-ins ingested into Falcon. Covers impossible travel, unfamiliar features, anonymized IPs, and atypical travel flagged by Entra Identity Protection.",
+      queries:{ cs:`event_simpleName=AzureADSignIn OR event_simpleName=RiskySignIn\n| where RiskLevel IN ("high","critical") OR RiskDetail IN ("unfamiliarFeatures","atypicalTravel","anonymizedIPAddress","maliciousIPAddress","passwordSpray")\n| table _time, UserName, IPAddress, City, CountryOrRegion, RiskLevel, RiskDetail, AppDisplayName`, splunk:`index=crowdstrike OR index=azure sourcetype IN ("crowdstrike:identity","azure:aad:signin")\n| search RiskLevel IN ("high","medium")\n| eval location=City+", "+CountryOrRegion\n| table _time, UserPrincipalName, IPAddress, location, RiskLevel, riskDetail, AppDisplayName`, kql:`SigninLogs\n| where RiskLevelDuringSignIn in ("high","medium")\n   or RiskDetail in ("unfamiliarFeatures","atypicalTravel","anonymizedIPAddress","passwordSpray")\n| project TimeGenerated, UserPrincipalName, IPAddress, Location, RiskLevelDuringSignIn, RiskDetail, AppDisplayName` }},
+    { title:"[CS] Azure AD — Impossible Travel Detection", mitre:"T1078.004", cat:"identity",
+      desc:"Same account authenticating from two countries within a window physically impossible to travel between. Covers Falcon Identity, Azure AD, and Okta log sources.",
+      queries:{ cs:`event_simpleName=UserLogon OR event_simpleName=AzureADSignIn\n| stats dc(RemoteAddressIP4) as unique_ips, values(RemoteAddressIP4) as ip_list, values(GeoCountry) as countries, min(_time) as first_seen, max(_time) as last_seen by UserName\n| where unique_ips >= 2 AND dc(countries) >= 2\n| eval window_mins=round((last_seen - first_seen)/60,1)\n| where window_mins < 120\n| table UserName, ip_list, countries, window_mins`, splunk:`index=* (sourcetype="crowdstrike:identity" OR sourcetype="azure:aad:signin" OR sourcetype=okta)\n| stats values(src_ip) as ips, dc(country) as country_count by user, span=1h\n| where country_count > 1`, kql:`SigninLogs\n| where ResultType == "0"\n| summarize Locations=make_set(Location), IPs=make_set(IPAddress) by UserPrincipalName, bin(TimeGenerated, 1h)\n| where array_length(Locations) > 1` }},
+    { title:"[CS] Zscaler ZIA — Malware & C2 Blocks via Falcon", mitre:"T1071", cat:"c2",
+      desc:"Hunt Zscaler ZIA/ZPA blocks forwarded to CrowdStrike or SIEM. Covers malware, C2, botnets, and high-risk URL categories blocked at the proxy layer.",
+      queries:{ cs:`// Zscaler ZIA blocks in Falcon NGSIEM (Vendor.* prefix format)\nevent_simpleName=ZscalerWebTransaction OR #repo=zscaler_zia\n| where Vendor.action IN ("blocked","IPS Drop") AND (Vendor.threatcat=~/(?i)malware|c2|botnet|command|ransomware|phish/ OR Vendor.threat_score>60)\n| table _time, Vendor.user, Vendor.devicehostname, Vendor.csip, Vendor.cdip, Vendor.threatname, Vendor.threatcat, Vendor.ipsrulelabel, Vendor.threat_score`, splunk:`index=zscaler sourcetype=zscalernss\n| search action=blocked (urlCategory="Command and Control" OR urlCategory=Malware OR threatName!="")\n| table _time, user, clientHostname, srcIP, dstIP, threatName, urlCategory, url, referer`, kql:`CommonSecurityLog\n| where DeviceVendor == "Zscaler" and DeviceAction in ("blocked","IPS Drop")\n| where DeviceCustomString2 has_any ("Malware","Command and Control","Botnet","Phishing")\n| project TimeGenerated, SourceUserName, SourceHostName, SourceIP, DestinationIP, DeviceCustomString2, RequestURL` }},
+    { title:"[CS] Zscaler — Threat Score > 70 (High Risk Events)", mitre:"T1071", cat:"c2",
+      desc:"Surface high-risk Zscaler events by threat score from NGSIEM Vendor.* format. Score >70 = active malware or confirmed C2. Use to prioritize analyst review queue.",
+      queries:{ cs:`// Zscaler NGSIEM high threat score events (Vendor.* space-separated format)\n#repo=zscaler OR event_simpleName=ZscalerAlert\n| where Vendor.threat_score > 70\n| table _time, Vendor.user, Vendor.devicehostname, Vendor.csip, Vendor.cdip, Vendor.cdport, Vendor.threatname, Vendor.threatcat, Vendor.threat_score, Vendor.ipsrulelabel`, splunk:`index=zscaler sourcetype=zscalernss threat_score > 70\n| table _time, user, clientHostname, srcIP, dstIP, threatName, urlCategory, threat_score`, kql:`CommonSecurityLog\n| where DeviceVendor == "Zscaler" and toint(DeviceCustomNumber1) > 70\n| project TimeGenerated, SourceUserName, SourceHostName, SourceIP, DestinationIP, DeviceCustomString1, DeviceCustomNumber1, RequestURL` }},
+    { title:"[CS] Okta — Auth Failures from Foreign IPs", mitre:"T1110", cat:"credential",
+      desc:"Hunt Okta authentication failures forwarded to CrowdStrike Falcon. Focus on accounts with high failure counts or sign-ins from unexpected countries — credential stuffing pattern.",
+      queries:{ cs:`event_simpleName=OktaAuthFailed OR (event_simpleName IN ("UserLogon","AuthEvent") outcome.result="FAILURE")\n| stats count as failures, values(RemoteAddressIP4) as ips, dc(GeoCountry) as country_count by UserName\n| where failures > 5 OR country_count > 1\n| sort - failures\n| table UserName, failures, ips, country_count`, splunk:`index=okta sourcetype=okta:system\n| search outcome.result=FAILURE\n| stats count as fail_count, values(client.ipAddress) as ips, dc(client.geographicalContext.country) as country_count by actor.alternateId\n| where fail_count > 5 OR country_count > 1\n| sort - fail_count`, kql:`SigninLogs\n| where ResultType != "0"\n| summarize FailCount=count(), IPs=make_set(IPAddress), Countries=make_set(Location) by UserPrincipalName\n| where FailCount > 5 or array_length(Countries) > 1\n| sort by FailCount desc` }},
+    { title:"[CS] Okta — MFA Push Fatigue / Spam Attack", mitre:"T1621", cat:"credential",
+      desc:"Detect MFA push fatigue attacks in Okta forwarded to Falcon. High-volume push denials in a short window = active attack. Primary technique of Scattered Spider / UNC3944.",
+      queries:{ cs:`event_simpleName=OktaMFAEvent OR eventType="user.mfa.okta_verify.deny_push"\n| stats count as push_count, values(RemoteAddressIP4) as src_ips by UserName, span=1h\n| where push_count > 5\n| sort - push_count\n| table _time, UserName, push_count, src_ips`, splunk:`index=okta sourcetype=okta:system\n  (eventType="user.mfa.okta_verify.deny_push" OR eventType="user.mfa.challenge")\n| bin _time span=1h\n| stats count as push_count by actor.alternateId, _time\n| where push_count > 5\n| sort - push_count`, kql:`SigninLogs\n| where AuthenticationRequirement == "multiFactorAuthentication" and ResultType != "0"\n| summarize PushCount=count(), IPs=make_set(IPAddress) by UserPrincipalName, bin(TimeGenerated, 1h)\n| where PushCount > 5\n| sort by PushCount desc` }},
+    { title:"[CS] Netskope CASB — Malware Upload/Download", mitre:"T1567", cat:"exfil",
+      desc:"Hunt Netskope CASB malware alerts forwarded to Falcon. Covers uploads/downloads of malicious files to Dropbox, GDrive, Box, OneDrive and shadow IT cloud apps.",
+      queries:{ cs:`event_simpleName=NetskopeAlert OR event_simpleName=NetskopeCloudApp\n| where type="alert" AND (alert_type=~/(?i)malware|dlp|policy/ OR NetskopeName!="")\n| table _time, UserName, srcip, dstip, app, appcategory, activity, alert_name, NetskopeName, url`, splunk:`index=netskope sourcetype=netskope:events\n| search type=alert (alert_type=malware OR alert_type=policy)\n| table _time, user, src_ip, app, appcategory, activity, alert_name, url, file_name`, kql:`CommonSecurityLog\n| where DeviceVendor == "Netskope" and DeviceEventClassID == "alert"\n| project TimeGenerated, SourceUserName, SourceIP, DeviceCustomString1, DeviceCustomString2, RequestURL, Activity` }},
+    { title:"[CS] Palo Alto NGFW — C2 & Threat Blocks via Falcon", mitre:"T1071", cat:"c2",
+      desc:"Hunt Palo Alto Firewall/WildFire threat events forwarded to CrowdStrike Falcon SIEM. Surface blocked C2, malware, and exploit traffic at the network perimeter.",
+      queries:{ cs:`event_simpleName=PaloAltoThreat OR (subtype=threat)\n| where action IN ("block","block-ip","drop","reset-both") AND category IN ("command-and-control","malware","vulnerability","exploit")\n| table _time, src_ip, dst_ip, dstport, user, threatname, category, policyname, app, action`, splunk:`index=paloalto sourcetype=pan:threat\n| search action IN ("block","block-ip","drop") AND (category="command-and-control" OR category=malware OR threatname!="")\n| table _time, src_ip, dst_ip, dstport, user, threatname, category, policyname`, kql:`CommonSecurityLog\n| where DeviceVendor == "Palo Alto Networks" and DeviceEventClassID == "THREAT" and DeviceAction in ("block","drop","reset-both")\n| project TimeGenerated, SourceIP, DestinationIP, DestinationPort, SourceUserName, DeviceCustomString1, DeviceCustomString2` }},
+    { title:"[CS] Falcon Identity — Blocklisted / Unusual Location", mitre:"T1078.004", cat:"identity",
+      desc:"Hunt CrowdStrike Falcon Identity Protection alerts for access from blocklisted or sanctioned countries. Combine with ASN/carrier data to distinguish VPN from direct mobile connections.",
+      queries:{ cs:`event_simpleName IN ("IdentityAlert","AccessFromBlocklistedLocation","AccessFromUnusualGeolocation")\n| where AlertType IN ("Access from blocklisted location","Access from unusual geolocation","Suspicious web-based activity")\n| table _time, UserName, AccountDomain, SourceIP, GeoCountry, GeoCity, ISPOrg, DeviceType, RiskScore, AlertType, Department, Title`, splunk:`index=crowdstrike sourcetype="crowdstrike:identity"\n| search AlertType IN ("Access from blocklisted location","Access from unusual geolocation")\n| eval suspicious_origin=GeoCity+", "+GeoCountry\n| table _time, UserName, Department, Title, SourceIP, suspicious_origin, ISP, DeviceType, RiskScore`, kql:`IdentityDirectoryEvents\n| where ActionType has_any ("Suspicious","Anomalous") and isnotempty(TargetAccountUpn)\n| project TimeGenerated, TargetAccountUpn, IPAddress, Location, ActionType, AdditionalFields` }},
+    { title:"[CS] Cross-Source — User in Multiple Alert Sources", mitre:"T1078", cat:"identity",
+      desc:"Correlate alerts from multiple vendors (Zscaler + Okta + Azure + Falcon) for a single user. Appearing in 2+ alert sources simultaneously is a high-confidence compromise signal.",
+      queries:{ cs:`// User appearing in Zscaler + Okta + Azure + Falcon detections\n(event_simpleName=ZscalerWebTransaction action=blocked) OR\n(event_simpleName=OktaAuthFailed outcome.result=FAILURE) OR\n(event_simpleName=AzureADSignIn RiskLevel="high") OR\n(event_simpleName=DetectionSummaryEvent)\n| stats dc(event_simpleName) as source_count, values(event_simpleName) as sources, values(RemoteAddressIP4) as ips, count as total_events by UserName\n| where source_count >= 2\n| sort - source_count\n| table UserName, source_count, sources, total_events, ips`, splunk:`index=* (sourcetype="crowdstrike:detection" OR sourcetype=zscalernss OR sourcetype=okta OR sourcetype="azure:aad:signin")\n| stats dc(sourcetype) as source_count, values(sourcetype) as sources, values(src_ip) as ips, count by user\n| where source_count >= 2\n| sort - source_count`, kql:`union SigninLogs, DeviceAlertEvents, CommonSecurityLog\n| where TimeGenerated > ago(24h)\n| summarize SourceCount=dcount(Type), Sources=make_set(Type), EventCount=count() by UserPrincipalName\n| where SourceCount >= 2\n| sort by SourceCount desc` }},
+
+    // ── OKTA SOURCE QUERIES ─────────────────────────────────────────────────────
+    { title:"[Okta] Suspicious Actor — Login from New Device", mitre:"T1078", cat:"identity",
+      desc:"Detect Okta logins from a device or browser the user has never used before. New device + unusual location = high-priority review, especially for admin accounts.",
+      queries:{ splunk:`index=okta sourcetype=okta:system eventType=user.session.start
+| eval device=client.device+"/"+client.browser
+| stats values(device) as devices, dc(device) as dev_count, values(client.ipAddress) as ips by actor.alternateId
+| where dev_count > 2
+| sort - dev_count`, cs:`event_simpleName=OktaSessionStart
+| stats dc(DeviceType) as dev_count, values(DeviceType) as devices, values(RemoteAddressIP4) as ips by UserName
+| where dev_count >= 2
+| sort - dev_count`, kql:`SigninLogs
+| where isnotempty(DeviceDetail.deviceId)
+| summarize Devices=make_set(DeviceDetail.displayName), DevCount=dcount(DeviceDetail.deviceId) by UserPrincipalName
+| where DevCount > 2
+| sort by DevCount desc` }},
+
+    { title:"[Okta] Account Takeover — Password + MFA Reset Same Session", mitre:"T1098", cat:"identity",
+      desc:"Detect when password change AND MFA factor reset occur in the same session — classic post-compromise takeover step to lock out the legitimate owner.",
+      queries:{ splunk:`index=okta sourcetype=okta:system
+| search eventType IN ("user.account.update_password","user.mfa.factor.deactivate","user.mfa.factor.activate","user.account.reset_password")
+| bin _time span=30m
+| stats values(eventType) as events, dc(eventType) as event_count, values(client.ipAddress) as ips by actor.alternateId, _time
+| where event_count >= 2 AND (match(events,"update_password") OR match(events,"reset_password")) AND match(events,"factor")
+| sort - event_count`, cs:`(event_simpleName=OktaPasswordChange OR event_simpleName=OktaMFADeactivate)
+| bin _time span=30m
+| stats values(event_simpleName) as events, dc(event_simpleName) as types, values(RemoteAddressIP4) as ips by UserName, _time
+| where types >= 2
+| sort - types`, kql:`// Via Entra audit logs (similar pattern)
+AuditLogs
+| where OperationName in ("Reset password (by admin)","Delete registered security info","Register security info")
+| bin TimeGenerated=bin(TimeGenerated, 30m)
+| summarize Events=make_set(OperationName), Count=count(), IPs=make_set(InitiatedBy) by TargetResources, TimeGenerated
+| where Count >= 2
+| sort by Count desc` }},
+
+    { title:"[Okta] Admin Privilege Escalation", mitre:"T1098.001", cat:"privilege_esc",
+      desc:"Detect Okta admin role assignment events. An attacker who has compromised an account will escalate to admin to persist and expand access.",
+      queries:{ splunk:`index=okta sourcetype=okta:system
+| search eventType IN ("group.user.add","user.account.privilege.grant")
+| eval target_user=target{}.alternateId, target_group=target{}.displayName
+| table _time, actor.alternateId, target_user, target_group, client.ipAddress`, cs:`event_simpleName=OktaGroupMemberAdd OR event_simpleName=OktaPrivilegeGrant
+| table _time, UserName, TargetUser, TargetGroup, RemoteAddressIP4`, kql:`AuditLogs
+| where OperationName in ("Add member to role","Grant delegated permission")
+| project TimeGenerated, InitiatedBy, TargetResources, OperationName, Result` }},
+
+    { title:"[Okta] Session Hijacking — IP Change Mid-Session", mitre:"T1563", cat:"lateral",
+      desc:"Detect Okta sessions where the source IP changes mid-session — strong indicator of session token theft and replay from a different location.",
+      queries:{ splunk:`index=okta sourcetype=okta:system
+| sort actor.alternateId, _time
+| streamstats window=2 current=t values(client.ipAddress) as ip_window by actor.alternateId
+| where mvcount(ip_window) > 1 AND mvindex(ip_window,0) != mvindex(ip_window,1)
+| table _time, actor.alternateId, ip_window, eventType, client.geographicalContext.country`, cs:`event_simpleName=OktaSessionEvent
+| streamstats window=2 values(RemoteAddressIP4) as ip_window by UserName
+| where mvcount(ip_window) > 1 AND mvindex(ip_window,0) != mvindex(ip_window,1)
+| table _time, UserName, ip_window, GeoCountry`, kql:`// Session IP change in Entra
+SigninLogs
+| summarize IPs=make_set(IPAddress), Locations=make_set(Location), Count=count() by UserPrincipalName, CorrelationId
+| where array_length(IPs) > 1
+| sort by Count desc` }},
+
+    { title:"[Okta] Suspicious Admin Actions — Policy Changes", mitre:"T1484.002", cat:"defense_evasion",
+      desc:"Detect Okta policy modifications including sign-on policy changes, password policy weakening, and MFA policy bypass. Attackers weaken policies to maintain access.",
+      queries:{ splunk:`index=okta sourcetype=okta:system
+| search eventType IN ("policy.rule.update","policy.rule.delete","policy.update","mfa.policy.update","policy.rule.add")
+| table _time, actor.alternateId, eventType, target{}.displayName, client.ipAddress, outcome.result`, cs:`event_simpleName=OktaPolicyChange OR event_simpleName=OktaMFAPolicyUpdate
+| table _time, UserName, TargetPolicy, EventType, RemoteAddressIP4, outcome`, kql:`AuditLogs
+| where OperationName has_any ("policy","conditional access") and OperationName has_any ("update","delete","add","modify")
+| project TimeGenerated, InitiatedBy, TargetResources, OperationName, Result` }},
+
+    // ── AZURE AD / ENTRA ADDITIONAL QUERIES ─────────────────────────────────────
+    { title:"[Azure] New MFA Method Registered from Risky IP", mitre:"T1556", cat:"persistence",
+      desc:"Detect new MFA methods (Authenticator app, phone, FIDO key) registered from IPs that haven't been seen before for this user — attacker persisting after credential compromise.",
+      queries:{ splunk:`index=azure sourcetype=azure:aad:audit
+| search OperationName="Register security info" OR OperationName="User registered security info"
+| eval actor_ip=ClientIP
+| table _time, UserPrincipalName, actor_ip, ResultDescription, AdditionalDetails`, cs:`event_simpleName=AzureMFARegister OR event_simpleName=AzureSecurityInfoUpdate
+| table _time, UserName, IPAddress, NewMFAMethod, RiskLevel, City, CountryOrRegion`, kql:`AuditLogs
+| where OperationName in ("Register security info","User registered security info","Update user")
+| where Result == "success"
+| extend Actor=tostring(InitiatedBy.user.userPrincipalName), IP=tostring(InitiatedBy.user.ipAddress)
+| project TimeGenerated, Actor, IP, OperationName, TargetResources, Result
+| where isnotempty(IP)` }},
+
+    { title:"[Azure] Conditional Access Policy Bypass", mitre:"T1562.001", cat:"defense_evasion",
+      desc:"Detect sign-ins where Conditional Access was not enforced or explicitly bypassed. CA policy failures for high-value users need immediate review.",
+      queries:{ splunk:`index=azure sourcetype=azure:aad:signin
+| search ConditionalAccessStatus IN ("notApplied","failure")
+| table _time, UserPrincipalName, IPAddress, AppDisplayName, ConditionalAccessStatus, RiskLevelDuringSignIn`, cs:`event_simpleName=AzureADSignIn ConditionalAccessStatus IN ("notApplied","failure")
+| table _time, UserName, IPAddress, AppDisplayName, ConditionalAccessStatus, RiskLevel`, kql:`SigninLogs
+| where ConditionalAccessStatus in ("notApplied","failure")
+| where RiskLevelDuringSignIn in ("medium","high")
+| project TimeGenerated, UserPrincipalName, IPAddress, AppDisplayName, ConditionalAccessStatus, RiskLevelDuringSignIn, RiskDetail` }},
+
+    { title:"[Azure] OAuth App Consent — New App High-Permission Grant", mitre:"T1528", cat:"initial_access",
+      desc:"Detect OAuth app consent grants in Azure AD with high-privilege scopes (Mail.ReadWrite, Files.ReadWrite.All, offline_access). Primary BEC and persistent access vector.",
+      queries:{ splunk:`index=azure sourcetype=azure:aad:audit
+| search OperationName="Consent to application" IsAdminConsent=true
+| table _time, User, AppDisplayName, Scope, IsAdminConsent, OnBehalfOfAll`, cs:`event_simpleName=AzureConsentGrant OR event_simpleName=OAuthAppConsent
+| where IsAdminConsent="True" OR Scope=~"(?i)mail\.readwrite|files\.readwrite\.all|offline_access"
+| table _time, UserName, AppDisplayName, Scope, IsAdminConsent`, kql:`AuditLogs
+| where OperationName == "Consent to application"
+| extend App=tostring(TargetResources[0].displayName)
+| extend Scopes=tostring(AdditionalDetails)
+| where Scopes has_any ("Mail.ReadWrite","Files.ReadWrite.All","offline_access","Directory.ReadWrite")
+| project TimeGenerated, InitiatedBy, App, Scopes, Result` }},
+
+    { title:"[Azure] Mass Mailbox Access — Potential Data Theft", mitre:"T1114.002", cat:"exfil",
+      desc:"Detect unusual bulk email access — an attacker who compromised an account will often read/download emails in bulk. High mailbox item counts accessed in short window.",
+      queries:{ splunk:`index=o365 sourcetype=o365:management:activity Operation IN ("MailItemsAccessed","MessageBind","FolderBind")
+| bin _time span=1h
+| stats count as access_count by UserId, ClientIPAddress, _time
+| where access_count > 100
+| sort - access_count`, cs:`event_simpleName=MailboxAccess OR event_simpleName=M365MailItemsAccessed
+| bin _time span=1h
+| stats count as items_accessed by UserName, ClientIPAddress, _time
+| where items_accessed > 100
+| sort - items_accessed`, kql:`OfficeActivity
+| where Operation in ("MailItemsAccessed","MessageBind","FolderBind")
+| bin TimeGenerated=bin(TimeGenerated, 1h)
+| summarize AccessCount=count() by UserId, ClientIP, TimeGenerated
+| where AccessCount > 100
+| sort by AccessCount desc` }},
+
+    // ── ZSCALER ADDITIONAL SOURCE QUERIES ────────────────────────────────────────
+    { title:"[ZIA] ClickFix / Fake CAPTCHA Campaign Detection", mitre:"T1204.001", cat:"initial_access",
+      desc:"Detect Zscaler blocks matching ClickFix/CAPTCHA social engineering lures. These pages instruct users to paste PowerShell commands — often pre-compromise delivery vector.",
+      queries:{ splunk:`index=zscaler sourcetype=zscalernss action=blocked
+| search (urlCategory IN ("Malware","Command and Control","Suspicious") OR threatName=~/(?i)clickfix|captcha|verify|copybreak|pastejack/)
+| eval suspicious_path=if(match(url,"(?i)/verify|/captcha|/check|/validate|/confirm|/update"),"HIGH_RISK_PATH","")
+| table _time, user, clientHostname, srcIP, url, referer, threatName, urlCategory, suspicious_path`, cs:`// Zscaler ZIA ClickFix detection in Falcon NGSIEM
+Vendor.threatcat=~/(?i)malware|c2/ Vendor.action IN ("blocked","IPS Drop")
+(Vendor.threatname=~/(?i)clickfix|HTML\.Trojan|pastejack/ OR Vendor.ipsrulelabel=~/(?i)IPS/)
+| table _time, Vendor.user, Vendor.devicehostname, Vendor.csip, Vendor.cdip, Vendor.threatname, Vendor.threat_score`, kql:`CommonSecurityLog
+| where DeviceVendor == "Zscaler" and DeviceAction == "blocked"
+| where DeviceCustomString2 has_any ("Malware","Command and Control")
+| where RequestURL has_any ("/verify","/captcha","/check","/validate","/confirm")
+| project TimeGenerated, SourceUserName, SourceHostName, SourceIP, RequestURL, DeviceCustomString1, DeviceCustomString2` }},
+
+    { title:"[ZIA] User Accessing Anonymizer / Proxy Bypass Site", mitre:"T1090", cat:"defense_evasion",
+      desc:"Detect users accessing anonymization services, Tor proxies, or web proxy bypass sites through Zscaler — policy violation and potential data exfiltration or C2 evasion indicator.",
+      queries:{ splunk:`index=zscaler sourcetype=zscalernss
+| search urlCategory IN ("Anonymizer","Proxy Avoidance and Anonymizers","Tor","Web Proxy")
+| stats count, values(url) as urls, values(dstIP) as ips by user, clientHostname
+| where count > 3
+| sort - count`, cs:`Vendor.ipcat=~/(?i)anonymizer|proxy.avoid|tor/ OR urlCategory=~/(?i)anonymizer|proxy.avoid|tor/
+| table _time, Vendor.user, Vendor.devicehostname, Vendor.csip, Vendor.cdip, Vendor.ipcat, Vendor.action`, kql:`CommonSecurityLog
+| where DeviceVendor == "Zscaler"
+| where DeviceCustomString2 has_any ("Anonymizer","Proxy Avoidance","Tor","Web Proxy")
+| summarize count(), URLs=make_set(RequestURL) by SourceUserName, SourceHostName, SourceIP
+| where count_ > 3` }},
   ];
 
   function renderHuntGrid(platform, category) {
