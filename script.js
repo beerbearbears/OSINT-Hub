@@ -1034,15 +1034,22 @@ document.addEventListener("DOMContentLoaded", () => {
     results.iocs.filepaths= [...new Set((t.match(/[A-Za-z]:\\[^\s"'`<>|,;*?]{4,}/g)||[]))];
 
     // ── Timestamp extraction ──
+    const _nowYear = new Date().getFullYear();
     const _tsPatterns = [
       /\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?/g,  // ISO 8601
       /\d{2}[\/\-]\d{2}[\/\-]\d{4}[T ]\d{2}:\d{2}:\d{2}/g,                           // MM/DD/YYYY HH:MM:SS
       /\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)/gi,                  // Windows M/D/YYYY H:MM:SS AM/PM
-      /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}/gi, // syslog
-      /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}\s+\d{2}:\d{2}:\d{2}/gi, // CEF syslog with year
+      /(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+\d{4}\s+\d{2}:\d{2}:\d{2}/gi, // syslog with year
     ];
+
     const _rawTs = [];
     _tsPatterns.forEach(p => { const m=t.match(p); if(m) _rawTs.push(...m); });
+    // Syslog timestamps without year: "Mar 18 15:02:42" — inject current year
+    const _syslogNoYr = (t.match(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{2}:\d{2}:\d{2})\b/gi)||[]);
+    _syslogNoYr.forEach(m => {
+      const withYear = m.replace(/(\w+ \d{1,2}) (\d{2}:)/, `$1 ${new Date().getFullYear()} $2`);
+      _rawTs.push(withYear);
+    });
     results.iocs.timestamps = [...new Set(_rawTs)];
     if (results.iocs.timestamps.length) results.prefillData.timestamp = results.iocs.timestamps[0];
     // Store raw text reference for _finalizeTriage post-processing
@@ -1291,15 +1298,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // 8. NETSKOPE CASB
     if (/netskope|NetskopeClientVersion|NetskopeName|appcategory|bypass_traffic|npa_tunnel_id|skopecloud/i.test(t)) {
       results.eventType = /dlp/i.test(t) ? "Netskope DLP Alert" : "Netskope CASB Alert";
-      const user     = (t.match(/(?:user|email)\s*[=:"]+\s*([^\s"\\n,]{3,80}@[^\s"\\n,]{3,40})/i)||[])[1]||"";
+      const user     = (t.match(/(?:user|email)\s*[=:"]+\s*([^\s"\n,]{3,80}@[^\s"\n,]{3,40})/i)||[])[1]||"";
       const srcIp    = (t.match(/(?:srcip|src_ip|clientip)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
       const dstIp    = (t.match(/(?:dstip|dst_ip|serverip)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
-      const url      = (t.match(/(?:url|dsturl)\s*[=:"]+\s*(https?:\/\/[^\s"\\n,]+)/i)||[])[1]||"";
-      const app      = (t.match(/(?:^|\s)app\s*[=:"]+\s*([^\s"\\n,]{2,50})/i)||[])[1]||"";
-      const category = (t.match(/(?:appcategory|category)\s*[=:"]+\s*([^\s"\\n,]{2,60})/i)||[])[1]||"";
-      const threat   = (t.match(/(?:NetskopeName|malware_name|dlp_rule)\s*[=:"]+\s*([^\s"\\n,]{2,80})/i)||[])[1]||"";
-      const action   = (t.match(/(?:action|activity|alert_type)\s*[=:"]+\s*([^\s"\\n,]{2,40})/i)||[])[1]||"";
-      const access   = (t.match(/access_method\s*[=:"]+\s*([^\s"\\n,]{2,40})/i)||[])[1]||"";
+      const url      = (t.match(/(?:url|dsturl)\s*[=:"]+\s*(https?:\/\/[^\s"\n,]+)/i)||[])[1]||"";
+      const app      = (t.match(/(?:^|\s)app\s*[=:"]+\s*([^\s"\n,]{2,50})/i)||[])[1]||"";
+      const category = (t.match(/(?:appcategory|category)\s*[=:"]+\s*([^\s"\n,]{2,60})/i)||[])[1]||"";
+      const threat   = (t.match(/(?:NetskopeName|malware_name|dlp_rule)\s*[=:"]+\s*([^\s"\n,]{2,80})/i)||[])[1]||"";
+      const action   = (t.match(/(?:action|activity|alert_type)\s*[=:"]+\s*([^\s"\n,]{2,40})/i)||[])[1]||"";
+      const access   = (t.match(/access_method\s*[=:"]+\s*([^\s"\n,]{2,40})/i)||[])[1]||"";
       if (user)     { results.indicators.push(`User: ${user}`);        results.prefillData.username = user; }
       if (srcIp)    { results.indicators.push(`SrcIP: ${srcIp}`);      results.prefillData.src_ip   = srcIp; }
       if (dstIp)      results.indicators.push(`DstIP: ${dstIp}`);
@@ -1438,12 +1445,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // 14. FIREWALL / NETWORK LOGS
-    if (/SRC=|DST=|PROTO=|DPT=|SPT=|inbound|outbound|\bACCEPT\b|\bDROP\b|\bDENY\b|firewall|src_ip|dst_ip|action=allow|action=deny/i.test(t)) {
+    if (/SRC=|DST=|PROTO=|DPT=|SPT=|inbound|outbound|\bACCEPT\b|\bDROP\b|\bDENY\b|firewall|src_ip|dst_ip|action=allow|action=deny/i.test(t) &&
+        !/requesturl|refererurl|malwarecat|urlCategory|threatName|zscaler.*(?:logtype|zia|zpa)|(?:logtype|type)=zscaler/i.test(t)) {
       results.eventType = "Firewall / Network Log";
       // iptables/netfilter style
       const src  = (t.match(/(?:SRC|src_ip|srcip|source)[=:\s]+(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
       const dst  = (t.match(/(?:DST|dst_ip|dstip|dest(?:ination)?)[=:\s]+(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
-      const proto= (t.match(/PROTO[=:\s]+(\w+)/i)||[])[1]||"";
+      const proto= (t.match(/PROTO[=:\s]+(\w+)/i)||[])[1]||(t.match(/\b(TCP|UDP|ICMP)\b/i)||[])[1]||"";
+      const dport2= (t.match(/(?:DPT|dport|dst_port|destination_port)[=:\s]+(\d{1,5})/i)||[])[1]||"";
+      const sport2= (t.match(/(?:SPT|sport|src_port|source_port)[=:\s]+(\d{1,5})/i)||[])[1]||"";
+      const fwact = (t.match(/(?:\bACCEPT\b|\bDROP\b|\bDENY\b|\bREJECT\b|action[=:\s]+\w+)/i)||[])[0]||"";
+      const fwhost= (t.match(/(?:hostname|host|device)[=:\s]+([a-zA-Z0-9_.-]{2,40})/i)||[])[1]||"";
+      if (proto)  results.prefillData.proto      = proto;
+      if (dport2) results.prefillData.dest_port  = dport2;
+      if (sport2) results.prefillData.src_port   = sport2;
+      if (fwhost) results.prefillData.hostname   = fwhost;
       const dpt  = (t.match(/(?:DPT|dport|dst_port|dest(?:ination)?[_\s]?port)[=:\s]+(\d{1,5})/i)||[])[1]||"";
       const spt  = (t.match(/(?:SPT|sport|src_port|source[_\s]?port)[=:\s]+(\d{1,5})/i)||[])[1]||"";
       const action=(t.match(/(?:action|result)[=:\s]+(allow|deny|drop|block|accept|reject)/i)||[])[1]||"";
@@ -1581,7 +1597,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // 14. CROWDSTRIKE DETECT / FALCON / NGSIEM
-    if (/falcon|crowdstrike|detect\.base|falconhost|detect_id|SeverityName|PatternDisposition|ProcessRollup|eventType.*falcon/i.test(t) ||
+    if (/falcon|crowdstrike|detect\.base|falconhost|detect_id|SeverityName|PatternDisposition|ProcessRollup|eventType.*falcon|event_simpleName|DetectDescription|RemoteAddressIP4|SHA256HashData|ComputerName.*UserName.*Severity/i.test(t) ||
         (fieldsHeaderMatch && /\baid\b|\bcid\b|CrowdStrike|Falcon/i.test(t))) {
       results.eventType = "CrowdStrike Falcon Alert";
 
@@ -1604,13 +1620,14 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       const host    = getField(["computername","hostname","computer_name"], /(?:ComputerName|Hostname|computer_name)\s*[=:\t"]+\s*([a-zA-Z0-9_.-]+)/i);
-      const user    = getField(["username","user_name","user"], /(?:UserName|user_name|username)\s*[=:\t"]+\s*([a-zA-Z0-9_.\\-]+)/i);
+      const user    = getField(["username","user_name","user"], /(?:UserName|user_name|username)\s*[=:\t"]+\s*([a-zA-Z0-9_.%+\-@]+(?:@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})?)/i);
       const rawSev  = getField(["severityname","severity"], /(?:Severity|SeverityName)\s*[=:\t"]+\s*(\w+)/i);
       // Only accept real severity values — reject field names and junk
       const sev     = /^(?:critical|high|medium|low|informational|info)$/i.test(rawSev) ? rawSev : "";
       const tactic  = getField(["tactic"], /(?:^|\t)Tactic\t([^\t\n\r]+)/i);
       const tech    = getField(["technique"], /(?:^|\t)Technique\t([^\t\n\r]+)/i);
-      const cmd     = getField(["commandline","command_line","cmdline"], /(?:CommandLine|cmdline|command_line)\s*[=:\t"]+\s*([^\t\n\r"]{5,})/i);
+      const _cmdFull = getField(["commandline","command_line","cmdline"], /(?:CommandLine|cmdline|command_line)\s*[=:\t"]+\s*([^\t\n\r"]{5,200})/i);
+      const cmd      = _cmdFull ? _cmdFull.replace(/\s+[A-Z][A-Za-z0-9]+=.*$/, "").slice(0,200) : "";
       const parentP = getField(["parentbasefilename","parent_process_name","parentprocessname"], /(?:ParentBaseFileName|parent_process_name)\s*[=:\t"]+\s*([^\t\n\r"]+)/i);
       const destIp  = getField(["remoteaddressip4","dest_ip","dst_ip","remoteip"], /(?:RemoteAddressIP4|dest_ip|dst_ip|RemoteIP)\s*[=:\t"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i);
       const srcIp   = getField(["localaddressip4","src_ip","srcip","localip"], /(?:LocalAddressIP4|src_ip|srcip|LocalIP)\s*[=:\t"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i);
@@ -1619,8 +1636,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const techClean = tech.replace(/^T\d{4}(?:\.\d{3})?\s+/,"").trim(); // strip leading T-ID
       const obj       = getField(["objective"], /(?:Objective)\s*[=:\t"]+\s*([^\t\n\r,"]+)/i);
 
+      const proc2   = getField(["imagefilename","filename","processname"],/(?:ImageFileName|FileName|ProcessName)\s*[=:\t"]+\s*([^\t\n\r"]{2,100})/i);
+      const sha256  = getField(["sha256hashdata","sha256"],/(?:SHA256HashData|SHA256)\s*[=:\t"]+\s*([a-fA-F0-9]{64})/i);
+      const remPort = getField(["remoteport"],/(?:RemotePort|remote_port)\s*[=:\t"]+\s*(\d{2,5})/i);
       if (host)   { results.indicators.push(`Host: ${host}`);    results.prefillData.hostname = host; }
       if (user)   { results.indicators.push(`User: ${user}`);    results.prefillData.username = user; }
+      if (proc2 && !proc2.match(/^(?:ImageFileName|ProcessName|FileName)$/i)) { results.indicators.push(`Process: ${proc2}`); results.prefillData.process = proc2; }
+      if (sha256) { results.prefillData.hash = sha256; }
+      if (remPort){ results.prefillData.dest_port = remPort; }
       // RemoteAddressIP4 = external endpoint (treat as dest for network flow, src for threat hunting)
       if (destIp) { results.indicators.push(`Remote IP: ${destIp}`); results.prefillData.src_ip = destIp; results.prefillData.dest_ip = destIp; }
       // LocalAddressIP4 = the endpoint itself — use as hostname fallback
@@ -1647,6 +1670,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // ── FINDINGS from description ────────────────────────────
       if (descr && descr.length > 5 && !/^(?:DetectDescription|description)$/i.test(descr)) {
         results.findings.push(`ℹ️ Falcon detection: ${descr.slice(0, 150)}`);
+        results.prefillData.rule  = descr.split(/\s+event_simpleName/i)[0].slice(0, 100);
         results.prefillData.notes = `Falcon description: ${descr.slice(0, 150)}`;
       }
 
@@ -1691,7 +1715,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // Azure AD / Entra ID audit events — cloud SIEM format
       /AuditLogs|Core\s+Directory|Microsoft\.aadiam|ServicePrincipal|Consent\s+to\s+application|ConsentContext|operationType.*Assign|azure_global/i.test(t) ||
       // Cloud SIEM summary format with labeled fields
-      (/Service\s+provider\s+azure|Event\s+category.*Audit|Event\s+source.*Directory/i.test(t) && /azure|entra|aad/i.test(t))
+      (/Service\s+provider\s+azure|Event\s+category.*Audit|Event\s+source.*Directory/i.test(t) && /azure|entra|aad/i.test(t)) ||
+      // Entra ID / Azure AD Sign-In logs (raw export or SIEM forward)
+      /UserPrincipalName|SignInLogs|RiskDetail|RiskLevelDuringSignIn|RiskLevelAggregated|ConditionalAccessStatus|AuthenticationRequirement|createdDateTime.*Category/i.test(t) ||
+      (/RiskLevel|RiskDetail|RiskState/i.test(t) && /IPAddress|CountryOrRegion|AppDisplayName/i.test(t))
     ) {
       results.eventType = "Azure AD / Entra ID Audit Log";
 
@@ -1706,9 +1733,11 @@ document.addEventListener("DOMContentLoaded", () => {
                              /(?:Event\s+type\s+Assign[^\n]*\n\s*)([^\n\r]{3,60})/i]);
       const evtName  = getF([/Event\s*[-–]\s*([^\n\r]{3,80})/i, /operationalName["\s:]+([^\n\r",]{3,80})/i]);
       const user     = getF([/(?:"?UserId"?\s*[,:\s]\s*"?)([^",\n\r@]{2,60}@[^",\n\r]{2,60})/i,
+                             /UserPrincipalName\s*[=:,]\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
                              /User\s+name\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
                              /User\s+principal\s+name\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i]);
       const ip       = getF([/(?:"?ClientIP"?\s*[,:\s]\s*"?)(\d{1,3}(?:\.\d{1,3}){3})/i,
+                             /IPAddress\s*[=:,]\s*(\d{1,3}(?:\.\d{1,3}){3})/i,
                              /Source\s+IP\s+address\s+(\d{1,3}(?:\.\d{1,3}){3})/i]);
       const workload = getF([/(?:"?Workload"?\s*[,:\s]\s*"?)([^",\n\r]{2,40})/i,
                              /Event\s+source\s+([^\n\r]{2,40})/i]);
@@ -1720,6 +1749,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const evtCat   = getF([/Event\s+category\s+([^\n\r]{2,50})/i]);
       const region   = getF([/(?:Cloud\s+region|Region)\s+([^\n\r\s]{2,30})/i]);
       const mfaAuth  = getF([/MFA\s+authenticated\s+([^\n\r\s]{2,10})/i]);
+      const riskLevel   = getF([/RiskLevel(?:DuringSignIn|Aggregated)?\s*[=:,]\s*([\w]+)/i, /RiskLevel\s*[=:,]\s*([\w]+)/i]);
+      const riskDetail  = getF([/RiskDetail\s*[=:,]\s*([a-zA-Z]+(?:[A-Z][a-z]+)*)(?:\s+\w+=|$)/im, /RiskDetail\s*[=:,]\s*([^\n\r,\t\s]{2,60})/i]);
+      const location    = getF([/City\s*[=:,]\s*([a-zA-Z\s]{2,40})(?:\s+\w+=|$)/im, /City\s*[=:,]\s*([^\n\r,\t]{2,40})/i]);
+      const country     = getF([/CountryOrRegion\s*[=:,]\s*([a-zA-Z]{2,30})(?:\s+\w+=|$)/im, /CountryOrRegion\s*[=:,]\s*([^\n\r,\t]{2,30})/i]);
+      const resultType  = getF([/ResultType\s*[=:,]\s*(\d+)/i]);
+      const resultDesc  = getF([/ResultDescription\s*[=:,]\s*([^\n\r]{2,100})/i]);
+      const caStatus    = getF([/ConditionalAccessStatus\s*[=:,]\s*([^\n\r,]{2,40})/i]);
+      const authReq     = getF([/AuthenticationRequirement\s*[=:,]\s*([^\n\r,]{2,60})/i]);
+      const deviceName  = getF([/DeviceName\s*[=:,]\s*([^\n\r,\s]{2,60})/i, /Device\s*[=:,]\s*([^\n\r,\s]{2,60})/i]);
 
       if (evtName)  { results.indicators.push(`Event: ${evtName}`);    results.prefillData.operation = evtName; }
       else if (op)  { results.indicators.push(`Operation: ${op}`);     results.prefillData.operation = op; }
@@ -1731,6 +1769,15 @@ document.addEventListener("DOMContentLoaded", () => {
       if (result)   results.indicators.push(`Result: ${result}`);
       if (appName && appName !== user) results.indicators.push(`App: ${appName}`);
       if (mfaAuth && mfaAuth !== "--") results.indicators.push(`MFA: ${mfaAuth}`);
+      if (riskLevel)  { results.indicators.push(`Risk Level: ${riskLevel}`); results.prefillData.risk_level = riskLevel; }
+      if (riskDetail) { results.indicators.push(`Risk Detail: ${riskDetail}`); results.prefillData.risk_detail = riskDetail; }
+      if (location || country) results.indicators.push(`Location: ${[location, country].filter(Boolean).join(", ")}`);
+      if (resultDesc) results.indicators.push(`Result: ${resultDesc}`);
+      if (caStatus)   results.indicators.push(`CA Policy: ${caStatus}`);
+      if (deviceName) { results.indicators.push(`Device: ${deviceName}`); results.prefillData.hostname = deviceName; }
+      if (country)    results.prefillData.location = [location, country].filter(Boolean).join(", ");
+      if (riskLevel && /high|critical/i.test(riskLevel)) { results.severity = "high"; }
+      if (/unfamiliarFeatures|atypicalTravel|anonymizedIPAddress|maliciousIPAddress|passwordSpray/i.test(riskDetail||"")) { results.severity = "critical"; }
 
       // ── FINDINGS ────────────────────────────────────────────────
       const fullText = t.toLowerCase();
@@ -1835,17 +1882,32 @@ document.addEventListener("DOMContentLoaded", () => {
     // 17. OKTA / SSO IDENTITY LOG
     if (/eventType|actor\.alternateId|outcome\.result|displayMessage|debugContext|authenticationContext|okta/i.test(t)) {
       results.eventType = "Okta / SSO Identity Log";
-      const evType  = (t.match(/(?:"?eventType"?\s*[:,]\s*"?)([a-zA-Z_.]{4,80})/i)||[])[1]||"";
-      const outcome = (t.match(/(?:"?result"?\s*[:,]\s*"?)(SUCCESS|FAILURE|SKIPPED|ALLOW|DENY|UNKNOWN)/i)||[])[1]||"";
-      const user    = (t.match(/(?:"?alternateId"?\s*[:,]\s*"?)([^",\n\r@]{2,}@[^",\n\r]{2,})/i)||[])[1]||"";
-      const ip      = (t.match(/(?:"?ipAddress"?\s*[:,]\s*"?)(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
-      const msg     = (t.match(/(?:"?displayMessage"?\s*[:,]\s*"?)([^",\n\r]{4,120})/i)||[])[1]||"";
-      const ua      = (t.match(/(?:"?userAgent"?\s*?,\s*?"?rawUserAgent"?\s*[:,]\s*"?)([^",\n\r]{4,200})/i)||[])[1]||"";
-      if (evType)    results.indicators.push(`Event: ${evType}`);
+      const evType   = (t.match(/(?:"?eventType"?\s*[:,]\s*"?)([a-zA-Z_.]{4,80})/i)||[])[1]||"";
+      const outcome  = (t.match(/(?:"?result"?\s*[:,]\s*"?)(SUCCESS|FAILURE|SKIPPED|ALLOW|DENY|UNKNOWN)/i)||[])[1]||
+                       (t.match(/(?:outcome\.result)\s*[=:,]\s*([A-Z_]+)/i)||[])[1]||"";
+      const outcomeReason = (t.match(/(?:outcome\.reason|reason)\s*[=:,]\s*"?([A-Z_]+)(?:\s+\w+[=.]|$)/im)||[])[1]?.trim()||
+                            (t.match(/(?:outcome\.reason)\s*[=:,]\s*"?([^"\n\r,\t\s]{3,60})/i)||[])[1]||"";
+      const user     = (t.match(/(?:alternateId)\s*[=:,]\s*"?([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1]||
+                       (t.match(/actor\.alternateId\s*[=:,]\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1]||"";
+      const displayName = (t.match(/(?:actor\.)?displayName\s*[=:,]\s*"?([^"\n\r,]{2,60})/i)||[])[1]||"";
+      const ip       = (t.match(/(?:"?ipAddress"?|client\.ipAddress)\s*[=:,]\s*"?(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const country  = (t.match(/(?:geographicalContext\.country|country)\s*[=:,]\s*"?([a-zA-Z\s]{2,40})(?:\s+\w+[=.:]|$)/im)||[])[1]?.trim()||
+                       (t.match(/(?:geographicalContext\.country)\s*[=:,]\s*"?([^"\n\r,\t]{2,40})/i)||[])[1]||"";
+      const city     = (t.match(/(?:geographicalContext\.city|city)\s*[=:,]\s*"?([a-zA-Z\s]{2,40})(?:\s+\w+[=.:]|$)/im)||[])[1]?.trim()||
+                       (t.match(/(?:geographicalContext\.city)\s*[=:,]\s*"?([^"\n\r,\t]{2,40})/i)||[])[1]||"";
+      const msg      = (t.match(/(?:"?displayMessage"?\s*[:,]\s*"?)([^",\n\r]{4,120})/i)||[])[1]||"";
+      const target   = (t.match(/(?:target\.displayName|target.*displayName)\s*[=:,]\s*"?([^"\n\r,]{2,80})/i)||[])[1]||"";
+      const ua       = (t.match(/(?:rawUserAgent|userAgent)\s*[=:,]\s*"?([^"\n\r]{4,200})/i)||[])[1]||"";
+      const sessionId= (t.match(/(?:sessionId|session\.id)\s*[=:,]\s*"?([^"\n\r,\s]{4,80})/i)||[])[1]||"";
+      if (evType)    results.indicators.push(`Event Type: ${evType}`);
       if (user)    { results.indicators.push(`User: ${user}`); results.prefillData.username = user; }
-      if (outcome)   results.indicators.push(`Outcome: ${outcome}`);
-      if (ip)      { results.indicators.push(`IP: ${ip}`); results.prefillData.src_ip = ip; }
+      if (displayName && displayName !== user) results.indicators.push(`Display Name: ${displayName}`);
+      if (outcome)   results.indicators.push(`Outcome: ${outcome}${outcomeReason?" ("+outcomeReason+")":""}`);
+      if (ip)      { results.indicators.push(`Source IP: ${ip}`); results.prefillData.src_ip = ip; }
+      if (city || country) { const loc = [city, country].filter(Boolean).join(", "); results.indicators.push(`Location: ${loc}`); results.prefillData.location = loc; }
+      if (target)    results.indicators.push(`Target App: ${target}`);
       if (msg)       results.findings.push(`ℹ️ ${msg}`);
+      if (outcomeReason && outcomeReason.length < 80) results.prefillData.rule = outcomeReason;
       if (ua && /curl|python|go-http|okhttp/i.test(ua)) results.findings.push(`⚠️ Suspicious client: ${ua.slice(0,80)}`);
       if (outcome === "FAILURE") { results.findings.push("⚠️ Authentication failure"); results.mitre.add("T1110"); if(!["critical","high"].includes(results.severity)) results.severity="medium"; }
       if (/user\.mfa\.factor\.deactivate|MFA.*bypass|mfa.*reset/i.test(evType||t)) { results.findings.push("🚨 MFA deactivation or bypass detected"); results.mitre.add("T1621"); results.severity="critical"; }
@@ -1857,38 +1919,123 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // 18. ZSCALER (ZIA / ZPA)
-    if (/zscaler|ZscalerApp|dlpDictionaries|urlCategory.*zscaler|policyAction.*zscaler|transactionID.*zscaler|csfbEnabled|zia.*log|zpa.*log/i.test(t) || (/zscaler/i.test(t) && /urlCategory|policyAction|threatName/i.test(t))) {
+    if (/zscaler|ZscalerApp|dlpDictionaries|urlCategory.*zscaler|policyAction.*zscaler|transactionID.*zscaler|csfbEnabled|zia.*log|zpa.*log/i.test(t) ||
+        (/zscaler/i.test(t) && /urlCategory|policyAction|threatName|requesturl|malwarecat|refererurl|respcode/i.test(t)) ||
+        (/(?:requesturl|refererurl|malwarecat|respcode).*zscaler|zscaler.*(?:requesturl|refererurl|malwarecat)/i.test(t))) {
       results.eventType = /zpa|private.access/i.test(t) ? "Zscaler ZPA Log" : "Zscaler ZIA Log";
-      const action    = (t.match(/(?:action|policyAction|result)\s*[=:"]+\s*([^\s",\n]{2,30})/i)||[])[1]||"";
-      const url       = (t.match(/(?:url|requestedURL|uri)\s*[=:"]+\s*(https?:\/\/[^\s",]+)/i)||[])[1]||"";
-      const category  = (t.match(/(?:urlCategory|cloudApp|category)\s*[=:"]+\s*([^\s",\n]{2,50})/i)||[])[1]||"";
-      const threat    = (t.match(/(?:threatName|malwareCategory|threatCategory)\s*[=:"]+\s*([^\s",\n]{2,60})/i)||[])[1]||"";
-      const srcIp     = (t.match(/(?:srcIP|clientIP|srcip|src)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
-      const dstIp     = (t.match(/(?:dstIP|serverIP|dst)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
-      const user      = (t.match(/(?:user|userName|login)\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1]||"";
-      const bytes     = (t.match(/(?:bytesTotal|txBytes|totalBytes)\s*[=:"]+\s*(\d+)/i)||[])[1]||"";
-      const referer   = (t.match(/(?:referer|referrer|cs\(referer\))\s*[=:"]+\s*"?([^"\n\s]{5,200})/i)||[])[1]||"";
-      const useragent = (t.match(/(?:user[_-]?agent|cs\(user-agent\))\s*[=:"]+\s*"?([^"\n]{5,200})/i)||[])[1]||"";
-      const httpstatus= (t.match(/(?:responseCode|statusCode|sc-status|status)\s*[=:"]+\s*(\d{3})/i)||[])[1]||"";
-      const hostname  = (t.match(/(?:clientHostname|hostname|deviceName|machine)\s*[=:"]+\s*([a-zA-Z0-9_.-]{2,60})/i)||[])[1]||"";
-      if (user)     { results.indicators.push(`User: ${user}`);      results.prefillData.username = user; }
-      if (srcIp)    { results.indicators.push(`SrcIP: ${srcIp}`);    results.prefillData.src_ip = srcIp; }
-      if (dstIp)      results.indicators.push(`DstIP: ${dstIp}`);
-      if (hostname) { results.indicators.push(`Host: ${hostname}`);  results.prefillData.hostname = hostname; }
-      if (category)   results.indicators.push(`Category: ${category}`);
-      if (action)     results.indicators.push(`Action: ${action}`);
-      if (referer)  { results.prefillData.referer = referer; }
-      if (useragent){ results.prefillData.useragent = useragent; }
-      if (httpstatus){ results.prefillData.http_status = httpstatus; }
-      if (threat)   { results.prefillData.threat_name = threat; }
-      if (category) { results.prefillData.category = category; }
-      if (bytes)    { results.prefillData.bytes = bytes; }
-      if (threat)   { results.findings.push(`🚨 Zscaler detected threat: ${threat}`); results.mitre.add("T1071"); results.severity="high"; }
-      if (/block|blocked/i.test(action)) results.findings.push(`✅ Traffic was blocked by Zscaler policy — confirm no endpoint compromise`);
-      if (/allow/i.test(action) && threat) { results.findings.push("⚠️ Malicious traffic was ALLOWED — check policy and investigate endpoint"); results.severity="critical"; }
-      if (url)      { results.findings.push(`ℹ️ URL accessed: ${url.slice(0,80)}`); results.prefillData.url = url; }
-      if (bytes && parseInt(bytes) > 10000000) results.findings.push(`⚠️ Large data transfer: ${(parseInt(bytes)/1048576).toFixed(1)} MB — possible data exfiltration`);
-      if (!results.findings.length) results.findings.push(`ℹ️ Zscaler web activity — ${category || "access"} ${action ? `→ ${action}` : ""}`);
+
+      // ── Comprehensive field extraction — covers NSS, ECS, NGSIEM, Splunk, and raw formats ──
+      // Each field tries multiple known naming conventions in priority order
+      const _first = (...patterns) => { for (const p of patterns) { const m = t.match(p); if (m?.[1]?.trim()) return m[1].trim(); } return ""; };
+
+      const url = _first(
+        /(?:url\.original|requestedURL|requesturl|full_url|destinationurl|desturl|dsturl|target_url|request_url|requested_url)\s*[=:"]+\s*(https?:\/\/[^\s"\n,]+)/i,
+        /(?:^|\s)url\s*[=:"]+\s*(https?:\/\/[^\s"\n,]+)/im,
+        /(?:uri|request\.uri|http\.request\.uri)\s*[=:"]+\s*(https?:\/\/[^\s"\n,]+)/i
+      );
+      const referer = _first(
+        /(?:http\.request\.referrer|http\.request\.referer|refererurl|referer_url|http_referer|cs\(referer\)|refer_url|httpreferer)\s*[=:"]+\s*"?(https?:\/\/[^\s"\n,]+)/i,
+        /(?:referer|referrer)\s*[=:"]+\s*"?(https?:\/\/[^\s"\n,]+)/i
+      );
+      const threat = _first(
+        /(?:threat\.indicator\.name|threat\.name|malwarecat|malwarename|threatName|malwareCategory|threatCategory|rule\.name|threatsignature|threat_name)\s*[=:"]+\s*"?([^\s"\n,]{2,80})/i
+      );
+      const categoryRaw = _first(
+        /(?:rule\.category|urlCategory|cloudApp|url\.category|threat\.category|category)\s*[=:"]+\s*"([^"\n]{2,80})"/i,
+        /(?:rule\.category|urlCategory|cloudApp|url\.category|threat\.category|category)\s*[=:"]+\s*([^"\n,;\t]{2,60})(?:\s+\w+=|$)/im
+      );
+      const category = categoryRaw ? categoryRaw.trim().replace(/\s+\w+=.*$/,'').replace(/[,\s]+$/,'') : "";
+      const action = _first(
+        /(?:event\.action|policyAction|result|verdict)\s*[=:"]+\s*"?([^\s"\n,]{2,30})/i,
+        /(?:^|\s)action\s*[=:"]+\s*"?([^\s"\n,]{2,30})/im
+      );
+      const srcIp = _first(
+        /(?:source\.ip|src\.ip|srcIP|clientIP|srcip|client_ip)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i,
+        /(?:^|\s)src\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/im
+      );
+      const dstIp = _first(
+        /(?:destination\.ip|dst\.ip|dstIP|serverIP|server_ip|dstip)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i,
+        /(?:^|\s)dst\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/im
+      );
+      const dstPort = _first(
+        /(?:destination\.port|dst\.port|dstport|serverport|destinationport)\s*[=:"]+\s*(\d{1,5})/i,
+        /(?:^|\s)dport\s*[=:"]+\s*(\d{1,5})/im
+      );
+      const user = _first(
+        /(?:user\.name|user\.email|userName|login|email)\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i,
+        /(?:^|\s)user\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/im
+      );
+      const hostname = _first(
+        /(?:host\.name|host\.hostname|clientHostname|deviceName|machine|endpoint)\s*[=:"]+\s*([a-zA-Z0-9_.-]{2,60})/i
+      );
+      const useragent = _first(
+        /(?:user_agent\.original|http\.request\.user_agent|user[_-]?agent|cs\(user-agent\)|useragent)\s*[=:"]+\s*"?([^\n"]{5,250})/i
+      );
+      const httpStatus = _first(
+        /(?:http\.response\.status_code|responseCode|statusCode|sc-status|respcode|responsecode|sc_status|http_status|cs-status)\s*[=:"]+\s*(\d{3})/i
+      );
+      const bytes = _first(
+        /(?:network\.bytes|http\.response\.bytes|bytesTotal|txBytes|totalBytes|rxbytes|rxbytes|sendbytes|transferbytes|totalbytes|bytes_received)\s*[=:"]+\s*(\d+)/i
+      );
+      const proto = _first(
+        /(?:network\.transport|network\.protocol|proto|protocol)\s*[=:"]+\s*([a-zA-Z]{2,10})/i
+      );
+      const location = _first(
+        /(?:location|geo\.country|src\.geo\.country_name)\s*[=:"]+\s*"?([^\n"]{2,40})/i
+      );
+      const rule = _first(
+        /(?:ruleName|rule\.name|policyName|policy\.name|filterName|profileName|rule)\s*[=:"]+\s*"?([^"\n,]{2,80})/i
+      );
+      const department = _first(
+        /(?:department|dept|ou)\s*[=:"]+\s*"?([^\n"]{2,60})/i
+      );
+
+      // Store everything in prefillData for the SOC note generator
+      if (user)       { results.indicators.push(`User: ${user}`);        results.prefillData.username   = user; }
+      if (srcIp)      { results.indicators.push(`SrcIP: ${srcIp}`);      results.prefillData.src_ip     = srcIp; }
+      if (dstIp)      { results.indicators.push(`DstIP: ${dstIp}`);      results.prefillData.dest_ip    = dstIp; }
+      if (dstPort)    { results.indicators.push(`DstPort: ${dstPort}`);  results.prefillData.dest_port  = dstPort; }
+      if (hostname)   { results.indicators.push(`Host: ${hostname}`);     results.prefillData.hostname   = hostname; }
+      if (category)     results.indicators.push(`Category: ${category}`);
+      if (action)       results.indicators.push(`Action: ${action.toUpperCase()}`);
+      if (referer)    { results.prefillData.referer    = referer; }
+      if (useragent)  { results.prefillData.useragent  = useragent; }
+      if (httpStatus) { results.prefillData.http_status = httpStatus; }
+      if (bytes)      { results.prefillData.bytes       = bytes; }
+      if (category)   { results.prefillData.category    = category;
+                        if (!threat && /command.*control|c2|malware|phish|botnet|ransomware|exploit/i.test(category))
+                          results.prefillData.threat_name = category; }
+      if (proto)      { results.prefillData.proto        = proto; }
+      if (location)   { results.prefillData.location     = location; }
+      if (department) { results.prefillData.department = department.split(/\s+/)[0]; }
+      if (rule)       { results.prefillData.rule         = rule;
+                        results.indicators.push(`Rule: ${rule}`); }
+      if (threat) {
+        results.prefillData.threat_name = threat;
+        results.findings.push(`🚨 Zscaler detected threat: ${threat}`);
+        results.mitre.add("T1071");
+        results.severity = "high";
+      }
+      if (url) {
+        results.prefillData.url = url;
+        results.findings.push(`ℹ️ Requested URL: ${url.slice(0,100)}`);
+      }
+      if (referer) {
+        results.findings.push(`ℹ️ Referrer: ${referer.slice(0,100)}`);
+      }
+      if (/block|blocked|deny|denied/i.test(action)) {
+        results.findings.push(`✅ Traffic blocked by Zscaler policy — confirm no endpoint compromise`);
+      }
+      if (/allow/i.test(action) && threat) {
+        results.findings.push(`⚠️ Malicious traffic was ALLOWED — investigate endpoint immediately`);
+        results.severity = "critical";
+      }
+      if (bytes && parseInt(bytes) > 10000000) {
+        results.findings.push(`⚠️ Large data transfer: ${(parseInt(bytes)/1048576).toFixed(1)} MB — possible data exfiltration`);
+      }
+      if (!results.findings.length) {
+        results.findings.push(`ℹ️ Zscaler web activity — ${category||"access"} ${action?"→ "+action:""}`);
+      }
       return _finalizeTriage(results);
     }
 
@@ -2037,7 +2184,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // 22. PALO ALTO / FORTINET FIREWALL
-    if (/subtype=|action=allow|action=deny|action=block|app=|dstip=|srcip=|policyname=|logid=|devname=/i.test(t)) {
+    if (/subtype=|action=allow|action=deny|action=block|app=|dstip=|srcip=|policyname=|logid=|devname=/i.test(t) &&
+        !/event_simpleName|DetectDescription|RemoteAddressIP4|SHA256HashData|crowdstrike|falcon|event_platform/i.test(t)) {
       results.eventType = /fortinet|fortigate|logid=/i.test(t) ? "Fortinet FortiGate Log" : "Palo Alto NGFW Log";
       // CEF cs1Label=Severity cs1=<value> pattern for Palo Alto CEF exports
       const _cefSevLabel = (t.match(/cs(\d)Label\s*=\s*Severity/i)||[])[1];
@@ -2071,7 +2219,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (/allow/i.test(action) && dport === "50050") { results.findings.push("🚨 Allowed traffic on port 50050 (Cobalt Strike)"); results.mitre.add("T1071"); results.severity="critical"; }
       if (/allow/i.test(action) && dport === "3389") { results.findings.push("⚠️ RDP allowed outbound — verify necessity"); results.mitre.add("T1021.001"); if(results.severity!=="critical") results.severity="high"; }
       if (src && !isPrivateIPv4(src) && /allow/i.test(action) && dport && !["80","443","53"].includes(dport)) { results.findings.push(`⚠️ Inbound allow on non-standard port ${dport} from external IP`); }
-      results.mitre.add("T1041");
+      results.mitre.add("T1071");  // Application Layer Protocol (more appropriate for outbound traffic)
       return _finalizeTriage(results);
     }
 
@@ -2091,6 +2239,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function _finalizeTriage(results) {
     results.mitre = [...results.mitre];
+    // ── Universal rule/policy extraction (runs for ALL parsers) ──
+    const _rawAll = results._rawText || "";
+    if (!results.prefillData.rule && _rawAll) {
+      const _rm =
+        _rawAll.match(/(?:ruleName|rule_name|PolicyName|policy_name|FilterName|DetectName|alert_name|signature_name|DetectDescription|description)[ \t]*[=:"]+[ \t]*"?([^"\n\r,]{3,100})/i) ||
+        _rawAll.match(/(?:Rule|Policy|Filter)[ \t]*[=:,\t]+[ \t]*([^\n\r,]{3,80})/i);
+      if (_rm?.[1]?.trim() && !_rm[1].match(/^(?:rule|category|policy|filter|name|type|none|null|-)$/i))
+        results.prefillData.rule = _rm[1].trim().slice(0, 100);
+    }
     // ── Post-process: apply CEF csN severity if not already set by parser ──
     const _raw = results._rawText || "";
     if (results.severity === "info" && _raw) {
@@ -3074,22 +3231,31 @@ document.addEventListener("DOMContentLoaded", () => {
     const proc      = iocs.processes?.[0] || pf.process || "";
     const cmdline   = pf.cmdline || iocs.cmdlines?.[0] || "";
     const email     = pf.sender  || iocs.emails?.[0]   || "";
-    const sig       = pf.threat_name || "";
-    const category  = pf.category   || "";
-    const referer   = pf.referer    || "";
-    const ua        = pf.useragent  || "";
-    const httpCode  = pf.http_status || "";
-    const bytes     = pf.bytes      || "";
-    const verdict   = pf.verdict    || (iocs.verdicts||[])[0] || "";
-    const ts        = pf.timestamp  || iocs.timestamps?.[0] || "";
-    const mitre     = (res.mitre||[]).slice(0,4);
+    const sig        = pf.threat_name || "";
+    const category   = pf.category    || "";
+    const referer    = pf.referer     || "";
+    const ua         = pf.useragent   || "";
+    const httpCode   = pf.http_status || "";
+    const bytes      = pf.bytes       || "";
+    const verdict    = pf.verdict     || (iocs.verdicts||[])[0] || "";
+    const ts         = pf.timestamp   || iocs.timestamps?.[0]   || "";
+    const rule       = pf.rule        || pf.policy               || pf.notes || "";
+    const location   = pf.location    || "";
+    const department = pf.department  || "";
+    const riskLevel  = pf.risk_level  || "";
+    const riskDetail = pf.risk_detail || "";
+    const operation  = pf.operation   || "";
+    const hashVal    = pf.hash        || iocs.hashes?.[0]        || "";
+    const mitre      = (res.mitre||[]).slice(0,4);
 
     // ── Parse timestamp ───────────────────────────────────────
     let dateStr = "", timeStr = "", timeEnd = "";
     if (ts) {
       try {
         const d = new Date(ts);
-        if (!isNaN(d.getTime())) {
+        const yr = d.getFullYear();
+        const _nowYr = new Date().getFullYear();
+        if (!isNaN(d.getTime()) && yr >= _nowYr - 2 && yr <= _nowYr + 1) {
           dateStr = d.toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
           const hh = d.getUTCHours().toString().padStart(2,"0");
           const mm = d.getUTCMinutes().toString().padStart(2,"0");
@@ -3153,7 +3319,8 @@ document.addEventListener("DOMContentLoaded", () => {
               : /okta/i.test(et)                   ? "Okta"
               : /qradar/i.test(et)                 ? "IBM QRadar"
               : /splunk/i.test(et)                 ? "Splunk"
-              : et.replace(/ Log$| Alert$/i,"");
+                      : /windows event|authentication event|event log/i.test(et) ? "Windows Security Event Log"
+                      : et.replace(/ Log$| Alert$/i,"") || "Security Platform";
 
     // ── Verdict / disposition labels ──────────────────────────
     const vLabel = {
@@ -3189,37 +3356,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (isWeb) {
       // ── WEB / PROXY / CASB ──────────────────────────────────
-      const who = user && host ? `user **${user}**${srcIP?" ("+srcIP+")":""} on endpoint **${host}**`
-                : user ? `user **${user}**${srcIP?" ("+srcIP+")":""}`
+      const _deptStr  = department ? ` (${department})` : "";
+      const who = user && host ? `user **${user}**${_deptStr} on endpoint **${host}** (${srcIP||"internal"})`
+                : user ? `user **${user}**${_deptStr}${srcIP?" from "+srcIP:""}`
                 : host ? `endpoint **${host}**${srcIP?" ("+srcIP+")":""}`
-                : srcIP ? `source IP ${srcIP}` : "an internal user";
+                : srcIP ? `internal host **${srcIP}**` : "an internal user";
 
       const what = /block/i.test(verdict) ? "attempted to reach" : "accessed";
       const target = domain
         ? `**${domain}**${dstIP?" ("+dstIP+(dstPort?":"+dstPort:"")+")":`${dstPort?" on port "+dstPort:""}`}`
         : dstIP ? `${dstIP}${dstPort?":"+dstPort:""}` : "an external resource";
 
-      const sigDesc = sig ? (sig.includes(".")?`under the threat signature **${sig}**`:`as **${sig}**`) : "";
-      const catDesc = category ? `categorized as **${category}**` : "";
-      const both = sigDesc && catDesc ? `${catDesc} and matched ${sigDesc}` : sigDesc||catDesc;
+      const sigDesc = sig && sig !== category ? (sig.includes(".")?`under the threat signature **${sig}**`:`flagged as **${sig}**`) : "";
+      const catDesc = category ? `classified under **${category}**` : "";
+      const both = sigDesc && catDesc ? `${catDesc}, ${sigDesc}` : sigDesc||catDesc;
 
-      // Opening sentence
-      p1parts.push(`${whenStr}, ${who} ${what} ${target}${both?", which was identified "+both:""}. ${src} intercepted this request and returned HTTP ${httpCode||"block"}, preventing the connection from completing.`);
+      // Opening — full URL, rule name, and all context
+      const urlDisplay = fullURL ? `**${fullURL.slice(0,120)}${fullURL.length>120?"…":""}**` : target;
+      const ruleClause = rule ? ` — this was flagged by the rule **${rule}**` : "";
+      p1parts.push(`${whenStr}, ${who} ${what} ${urlDisplay}${both?", which was "+both:""}${ruleClause}. ${src} intercepted the request and returned HTTP **${httpCode||"block"}**, preventing the connection from completing.`);
 
-      // How they got there — the referrer tells the story
+      // Referrer — tell the full story of how the user ended up there
       if (referer && referer !== fullURL) {
         const refHost = (() => { try { return new URL(referer).hostname; } catch { return referer.slice(0,80); }})();
         const refPath = (() => { try { const u=new URL(referer); return u.pathname!=="/"?u.pathname:""; } catch { return ""; }})();
-        p1parts.push(`The HTTP referrer header shows the request originated from **${refHost}${refPath}** — meaning the user was already on that page when the browser was redirected or instructed to load content from the malicious domain. This is a classic indicator of a compromised or malicious website embedding hidden redirects or script tags that silently fetch secondary payloads without the user's knowledge.`);
+        p1parts.push(`The HTTP referrer was **${referer.slice(0,150)}${referer.length>150?"…":""}** — the user was already browsing **${refHost}${refPath}** when that page silently directed the browser toward the malicious destination. This referrer chain is a key indicator: the user did not intentionally navigate to the blocked URL; instead, they were passively redirected by content embedded in the previous page, which may itself be compromised or malicious.`);
       }
 
-      // What was requested — file path tells us a lot
+      // What was requested — file path tells us intent
       if (urlPath && urlPath !== "/" && urlPath !== "") {
         const ext = (urlPath.match(/\.([a-z0-9]{2,6})$/i)||[])[1]||"";
         const pathNote = /\.(exe|dll|ps1|bat|msi|js|vbs|hta|jar|iso|lnk|scr)/i.test(urlPath)
-          ? `The requested path **${urlPath}** is a ${ext.toUpperCase()} file — a known malware delivery format. The intent appears to be file-based payload delivery.`
-          : /\/login|\/auth|\/verify|\/confirm|\/update|\/secure/i.test(urlPath)
-          ? `The requested path **${urlPath}** follows patterns commonly used in phishing pages — credential harvesting or account verification lures.`
+          ? `The specific resource requested was **${urlPath}** — a **${ext.toUpperCase()}** file, which is a common format for delivering malware payloads. The combination of a malicious domain and a directly-linked executable strongly indicates an attempted drive-by download.`
+          : /\/login|\/auth|\/verify|\/confirm|\/update|\/secure|\/account/i.test(urlPath)
+          ? `The requested path **${urlPath}** follows patterns typical of phishing landing pages designed to harvest credentials or account details.`
           : null;
         if (pathNote) p1parts.push(pathNote);
       }
@@ -3244,9 +3414,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } else if (isEDR) {
       // ── ENDPOINT / EDR ───────────────────────────────────────
-      const who = user && host ? `user **${user}** on endpoint **${host}**`
-                : host ? `endpoint **${host}**` : `an endpoint`;
-      p1parts.push(`${whenStr}, a ${sev.toUpperCase()} severity detection was triggered by ${src} on ${who}.`);
+      const _userPart = user ? `user **${user}**` : "";
+      const _hostPart = host ? `endpoint **${host}**` : "";
+      const who = _userPart && _hostPart ? `${_userPart} on ${_hostPart}`
+                : _userPart || _hostPart || (srcIP ? `host **${srcIP}**` : "an endpoint");
+      const _ruleNote = rule ? ` — detection rule: **${rule}**` : "";
+      p1parts.push(`${whenStr}, ${src} raised a **${sev.toUpperCase()}** severity alert on ${who}${_ruleNote}.`);
 
       if (proc) {
         let procLine = `The flagged process was **${proc}**`;
@@ -3268,20 +3441,54 @@ document.addEventListener("DOMContentLoaded", () => {
       if (/spf.*fail|dkim.*fail/i.test(findingsStr)) p1parts.push(`Both SPF and DKIM authentication checks failed — the sender domain is almost certainly spoofed, and the message did not originate from a legitimate mail server for that domain.`);
 
     } else if (isIdent) {
-      // ── IDENTITY / IMPOSSIBLE TRAVEL ────────────────────────
+      // ── IDENTITY / AZURE AD / OKTA / ENTRA ──────────────────
       const who = user || email || "an account";
-      p1parts.push(`${whenStr}, ${src} flagged a high-risk authentication event for **${who}**.`);
+      const _locStr   = location ? location : "";
+      const _ipStr    = srcIP && !isPrivateIPv4(srcIP) ? srcIP : "";
+      const _locPart  = _locStr && _ipStr ? ` from **${_locStr}** (${_ipStr})`
+                      : _locStr ? ` from **${_locStr}**`
+                      : _ipStr ? ` from **${_ipStr}**` : "";
+      const _riskPart = riskLevel ? ` with a **${riskLevel.toUpperCase()} risk level**` : "";
+      const _opPart   = operation ? ` — operation: **${operation}**` : "";
+      p1parts.push(`${whenStr}, ${src} flagged a suspicious authentication or identity event for account **${who}**${_locPart}${_riskPart}${_opPart}.`);
+      if (riskDetail && !riskDetail.match(/^none$/i)) p1parts.push(`The risk signal reported was: **${riskDetail}** — this indicates ${/unfamiliarFeatures/i.test(riskDetail)?"sign-in properties that don't match the user's normal patterns (device, location, browser)":(/atypicalTravel|impossibleTravel/i.test(riskDetail)?"geographically impossible travel between two authentication locations — the account credentials are likely in use by an attacker":"elevated risk as assessed by the identity platform")}. Treat this as credential compromise until proven otherwise.`);
+      if (rule && !riskDetail) p1parts.push(`The failure reason or event classification was: **${rule}**.`);
+      // Add Okta event type explanation
+      if (/okta/i.test(src) && operation) p1parts.push(`The event type recorded was **${operation}**${rule?" with outcome reason: **"+rule+"**":""}.`);
       const ips = iocs.ips||[];
-      if (ips.length >= 2) p1parts.push(`The account authenticated from ${ips.length} geographically distinct IP addresses — **${ips.slice(0,3).join("**, **")}** — within a window so short that legitimate physical travel between those locations is impossible. This pattern is the textbook signature of stolen credentials being actively used by a remote attacker while the legitimate user is elsewhere.`);
-      if (/mfa.*fail|push.*deny/i.test(findingsStr)) p1parts.push(`Multiple MFA push requests were rejected, suggesting the legitimate user is receiving unsolicited authentication prompts — a sign the attacker already has their password and is attempting to brute-force the MFA step.`);
+      if (ips.length >= 2) p1parts.push(`The account authenticated from ${ips.length} geographically distinct IP addresses — **${ips.slice(0,3).join("**, **")}** — within a timeframe that makes legitimate physical travel impossible. This is the textbook signature of stolen credentials being actively used by a remote attacker.`);
+      if (/mfa.*fail|push.*deny/i.test(findingsStr)) p1parts.push(`Multiple MFA push requests were rejected, suggesting the legitimate user is being spammed with MFA prompts — a sign the attacker has their password and is brute-forcing the second factor.`);
 
     } else if (isNet) {
       // ── NETWORK / IDS / FIREWALL ─────────────────────────────
-      const srcDesc = srcIP ? (isPrivateIPv4(srcIP) ? `internal host ${srcIP}` : `external IP ${srcIP}`) : "an internal host";
-      const dstDesc = dstIP ? (isPrivateIPv4(dstIP) ? `internal host ${dstIP}` : `external IP ${dstIP}`) : "an external destination";
-      p1parts.push(`${whenStr}, ${src} generated a ${sev.toUpperCase()} alert for traffic from **${srcDesc}** to **${dstDesc}**${dstPort?" on port **"+dstPort+"**":""}.`);
-      if (sig) p1parts.push(`The traffic matched the detection rule: **${sig}**.`);
-      if (/c2|beacon|cobalt/i.test(sig||findingsStr)) p1parts.push(`Beaconing traffic to an external IP on a non-standard port is the primary indicator of an active C2 implant. The pattern suggests the endpoint has already been compromised and is maintaining a persistent outbound channel to the attacker's infrastructure.`);
+      // Try to extract more context from the raw log directly
+      const rawT = res._rawText || "";
+      const _proto  = pf.proto   || (rawT.match(/(TCP|UDP|ICMP|GRE|ESP|AH)/i)||[])[1]||"";
+      const _action = (rawT.match(/(ACCEPT|DROP|DENY|REJECT|BLOCK|ALLOW|PERMIT|blocked|allowed)/i)||[])[1]||verdict||"";
+      const _iface  = (rawT.match(/(?:in|out|interface)[=:\s]+([a-zA-Z0-9./]+)/i)||[])[1]||"";
+      const _rule   = pf.policy || (rawT.match(/(?:rule|policy|chain)\s*[=:\s]+([^\s,;]{2,40})/i)||[])[1]||sig||"";
+      
+      const srcPriv = srcIP && isPrivateIPv4(srcIP);
+      const dstPriv = dstIP && isPrivateIPv4(dstIP);
+      const srcLabel = srcIP ? (srcPriv ? `internal host **${host||srcIP}**` : `external IP **${srcIP}**`) : (host ? `**${host}**` : "an internal host");
+      const dstLabel = dstIP ? (dstPriv ? `internal host **${dstIP}**` : `external IP **${dstIP}**`) : "an external destination";
+      const connDesc = [_proto, dstPort ? "port **"+dstPort+"**" : ""].filter(Boolean).join(" on ");
+      
+      const actionVerb = /drop|deny|block|reject/i.test(_action) ? "attempted to connect" : "connected";
+      const _wasBlocked = /drop|deny|block|reject/i.test(_action||verdict||findingsStr);
+      const _ruleStr    = _rule || rule || "";
+      p1parts.push(`${whenStr}, ${srcLabel} ${actionVerb} to ${dstLabel}${connDesc?" via "+connDesc:""}. ${src} ${_wasBlocked?"intercepted and **blocked** this connection":"detected and logged this connection"}${_ruleStr?" — triggered by rule **"+_ruleStr+"**":""}.`);
+      
+      // Explain significance based on direction and port
+      if (srcPriv && !dstPriv) {
+        if (/443|4443|8443/i.test(dstPort||"")) p1parts.push(`Outbound HTTPS traffic from an internal host to an external IP is common, but warrants review when the destination has no known legitimate association — it may indicate a user visiting a suspicious site or an implant communicating over port 443 to blend with normal traffic.`);
+        else if (/4444|50050|1337|8080/i.test(dstPort||"")) p1parts.push(`Port **${dstPort}** is commonly associated with attacker tooling (Metasploit, Cobalt Strike, or custom C2 frameworks). Outbound connections to unfamiliar external IPs on this port should be treated as a potential C2 beacon until proven otherwise.`);
+        else if (dstPort) p1parts.push(`The outbound connection was made on port **${dstPort}**. Cross-reference this destination against threat intelligence to determine whether it is a known malicious IP or hosting provider before closing.`);
+      } else if (!srcPriv && dstPriv) {
+        p1parts.push(`This is inbound traffic from an external IP — a potential scan, exploitation attempt, or unauthorised access probe targeting your internal infrastructure.`);
+      }
+      if (sig) p1parts.push(`The traffic matched the detection signature: **${sig}**.`);
+      if (/c2|beacon|cobalt/i.test(sig||findingsStr)) p1parts.push(`Beaconing to an external host is the primary indicator of an active implant. Even if this single connection was blocked, the endpoint should be examined for the presence of malware that may retry the connection.`);
 
     } else if (isCloud) {
       // ── AWS / CLOUD ───────────────────────────────────────────
@@ -3292,17 +3499,32 @@ document.addEventListener("DOMContentLoaded", () => {
       if (/CreateAccessKey/i.test(raw)) p1parts.push(`A new access key was created — attackers do this to establish a persistent backdoor into the AWS environment that survives password changes.`);
 
     } else {
-      // ── GENERIC FALLBACK ─────────────────────────────────────
-      const who = user&&host?`user ${user} on ${host}`:user||host||srcIP||"an internal asset";
-      p1parts.push(`${whenStr}, ${src} raised a ${sev.toUpperCase()} alert involving ${who}.`);
+      // ── GENERIC FALLBACK — context-aware ─────────────────────
+      const _whoFull = user && host ? `user **${user}** on **${host}**`
+                     : user ? `user **${user}**${srcIP?" ("+srcIP+")":""}`
+                     : host ? `**${host}**${srcIP?" ("+srcIP+")":""}`
+                     : srcIP ? `host **${srcIP}**` : "an internal asset";
+      const _ruleNote = rule ? ` triggered by rule **${rule}**` : "";
+      p1parts.push(`${whenStr}, ${src} recorded a **${sev.toUpperCase()}** severity event involving ${_whoFull}${_ruleNote}.`);
+      // Auth/logon-specific context
+      if (/4625|4771|4776|failed.*logon|logon.*fail|invalid.*cred|auth.*fail/i.test(et+findingsStr+raw)) {
+        const _srcHost = (raw.match(/workstationname[=:\s]+([^\s,\n]{2,40})/i)||[])[1] || "";
+        const _logonType = (raw.match(/logontype[=:\s]+(\d)/i)||[])[1] || "";
+        const _typeDesc = {"2":"interactive","3":"network (SMB/RDP)","4":"batch","5":"service","7":"unlock","8":"NetworkCleartext","10":"RemoteInteractive (RDP)"}[_logonType] || "";
+        p1parts.push(`This is a **failed logon event**${_srcHost?" originating from workstation **"+_srcHost+"**":""}${_typeDesc?" via logon type "+_logonType+" ("+_typeDesc+")":""}. The account **${user||"unknown"}** attempted to authenticate to **${host||"the target host"}** and was rejected — this pattern is consistent with brute-force or credential stuffing activity.`);
+        if (srcIP && !isPrivateIPv4(srcIP)) p1parts.push(`The source IP **${srcIP}** is external and should be checked immediately in AbuseIPDB and threat intelligence feeds.`);
+      }
       if (sig) p1parts.push(`The detection matched: **${sig}**.`);
       const critFindings = findings.filter(f=>f.startsWith("🚨")).map(f=>f.replace(/^🚨\s*/,""));
-      if (critFindings.length) p1parts.push(`Key finding: ${critFindings[0]}`);
+      if (critFindings.length) p1parts.push(`Key finding: ${critFindings[0]}.`);
     }
 
     // MITRE context — weave it in naturally
     if (mitre.length) {
-      const mitreDesc = mitre.map(t=>`${t} (${getMitreName(t)})`).join(", ");
+      const mitreDesc = mitre.map(tid => {
+        const name = getMitreName(tid);
+        return (name && name !== tid && !name.startsWith("T1")) ? `**${tid}** (${name})` : `**${tid}**`;
+      }).join(", ");
       p1parts.push(`This activity aligns with MITRE ATT&CK: ${mitreDesc}.`);
     }
 
@@ -3332,6 +3554,12 @@ document.addEventListener("DOMContentLoaded", () => {
       p2parts.push(`⚠️ **This traffic was NOT blocked** — ${src} allowed the connection through. Endpoint investigation is required immediately to determine whether a payload was delivered and executed.`);
     } else if (isDetected) {
       p2parts.push(`**${src} generated an alert** but did not automatically block. Manual response is required to contain the threat.`);
+    }
+    // Identity-specific P2
+    if (isIdent) {
+      const _identAction = isBlocked ? "blocked this sign-in attempt" : "flagged this event for review";
+      p2parts.push(`**${src} ${_identAction}.** ${isBlocked ? "The authentication did not complete — the account was not compromised during this specific session. However, the attacker clearly has valid credentials and is actively attempting access." : "The sign-in may have succeeded. Verify immediately in the audit log whether the session was established and what actions were taken post-authentication."}`);
+      p2parts.push(`Immediate containment is warranted — credential compromise at this risk level requires full incident response: revoke all active sessions, rotate credentials, re-enrol MFA from a trusted device, and audit every action taken during the suspicious session window.`);
     }
 
     // No-follow-on scope statement
@@ -3885,13 +4113,30 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
     const panel = $("lt-soc-note-panel");
     const body  = $("lt-soc-note-body");
     if (panel) panel.style.display = "block";
-    if (body)  body.textContent = note;
+    if (body) {
+      // Convert markdown-style **bold** and `code` to HTML for display
+      const toHTML = txt => esc(txt)
+        .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`\n]+)`/g, '<code style="font-family:monospace;background:rgba(56,189,248,0.1);padding:1px 5px;border-radius:3px;color:#38bdf8;">$1</code>');
+      // Split into paragraphs and render each
+      const paras = note.split('\n\n').map(para => {
+        const lines = para.split('\n');
+        if (lines.length === 1) return `<p style="margin:0 0 14px;line-height:1.8">${toHTML(lines[0])}</p>`;
+        // Multi-line block (like Recommended Actions list)
+        return '<p style="margin:0 0 14px;line-height:1.8">' + 
+               lines.map((l,i) => {
+                 if (l.startsWith('  ') && /^\s+\d+\./.test(l)) return `<br><span style="padding-left:12px;">${toHTML(l.trim())}</span>`;
+                 return i===0 ? toHTML(l) : '<br>' + toHTML(l);
+               }).join('') + '</p>';
+      }).join('');
+      body.innerHTML = paras;
+    }
     panel?.scrollIntoView({ behavior:"smooth", block:"start" });
     // Store for copy
     panel._socNote = note;
   });
   $("lt-soc-copy-btn")?.addEventListener("click", async () => {
-    const note = $("lt-soc-note-panel")?._socNote || $("lt-soc-note-body")?.textContent || "";
+    const note = $("lt-soc-note-panel")?._socNote || $("lt-soc-note-body")?.innerText || "";
     try { await navigator.clipboard.writeText(note); setLTStatus("SOC case note copied to clipboard"); } catch {}
   });
   $("lt-soc-addcase-btn")?.addEventListener("click", () => {
@@ -5714,7 +5959,32 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
       "T1546.004":"Unix Shell Config Mod",
       "T1572":    "Protocol Tunneling",
       "T1136":    "Create Account",
+      "T1136.001":"Create Local Account",
       "T1078":    "Valid Accounts",
+      "T1078.001":"Default Accounts",
+      "T1078.002":"Domain Accounts",
+      "T1078.003":"Local Accounts",
+      "T1078.004":"Cloud Accounts",
+      "T1110":    "Brute Force",
+      "T1110.001":"Password Guessing",
+      "T1110.003":"Password Spraying",
+      "T1110.004":"Credential Stuffing",
+      "T1566":    "Phishing",
+      "T1566.001":"Spearphishing Attachment",
+      "T1566.002":"Spearphishing Link",
+      "T1566.003":"Spearphishing via Service",
+      "T1071.001":"Web Protocols",
+      "T1071.002":"File Transfer Protocols",
+      "T1071.004":"DNS",
+      "T1528":    "Steal Application Access Token",
+      "T1550.001":"Application Access Token",
+      "T1621":    "MFA Request Generation",
+      "T1098":    "Account Manipulation",
+      "T1098.002":"Exchange Email Delegate Perms",
+      "T1114":    "Email Collection",
+      "T1114.003":"Email Forwarding Rule",
+      "T1046":    "Network Service Discovery",
+      "T1498":    "Network Denial of Service",
       "T1068":    "Exploit for Priv Escalation",
       "T1548":    "Abuse Elevation Control",
       "T1543.003":"Windows Service",
@@ -6644,10 +6914,13 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
   document.querySelectorAll(".cti-sub-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".cti-sub-btn").forEach(b => b.classList.remove("active"));
-      document.querySelectorAll(".cti-panel").forEach(p => p.style.display = "none");
+      document.querySelectorAll(".cti-panel").forEach(p => {
+        p.classList.remove("active");
+        p.style.display = "";  // clear any legacy inline style
+      });
       btn.classList.add("active");
       const panel = $(`cti-panel-${btn.dataset.ctitab}`);
-      if (panel) panel.style.display = "block";
+      if (panel) { panel.classList.add("active"); panel.style.display = ""; }
     });
   });
 
