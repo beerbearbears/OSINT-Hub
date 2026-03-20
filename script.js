@@ -1620,8 +1620,14 @@ document.addEventListener("DOMContentLoaded", () => {
         return (t.match(regex)||[])[1]?.trim()||"";
       };
 
-      const host    = getField(["computername","hostname","computer_name"], /(?:ComputerName|Hostname|computer_name)\s*[=:\t"]+\s*([a-zA-Z0-9_.-]+)/i);
-      const user    = getField(["username","user_name","user"], /(?:UserName|user_name|username)\s*[=:\t"]+\s*([a-zA-Z0-9_.%+\-@]+(?:@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})?)/i);
+      const host    = getField(["computername","hostname","computer_name"],
+                        /(?:ComputerName|Hostname|computer_name)\s*[=:\t"]+\s*([a-zA-Z0-9_.-]+)/i) ||
+                       (t.match(/Vendor\.devicehostname\s+(\S+)/i)||[])[1] || "";
+      // Also pick up lowercase variants forwarded via SIEM connectors
+      const hostFallback = host || (t.match(/(?:devicehostname|device_hostname)\s*[=:\s]+([a-zA-Z0-9_.-]{2,60})(?:\s+\w|$)/im)||[])[1] || "";
+      const user    = getField(["username","user_name","user"],
+                        /(?:UserName|user_name|username)\s*[=:\t"]+\s*([a-zA-Z0-9_.%+\-@]+(?:@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})?)/i) ||
+                       (t.match(/(?:^|\s)user\s*=\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/im)||[])[1] || "";
       const rawSev  = getField(["severityname","severity"], /(?:Severity|SeverityName)\s*[=:\t"]+\s*(\w+)/i);
       // Only accept real severity values — reject field names and junk
       const sev     = /^(?:critical|high|medium|low|informational|info)$/i.test(rawSev) ? rawSev : "";
@@ -1640,8 +1646,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const proc2   = getField(["imagefilename","filename","processname"],/(?:ImageFileName|FileName|ProcessName)\s*[=:\t"]+\s*([^\t\n\r"]{2,100})/i);
       const sha256  = getField(["sha256hashdata","sha256"],/(?:SHA256HashData|SHA256)\s*[=:\t"]+\s*([a-fA-F0-9]{64})/i);
       const remPort = getField(["remoteport"],/(?:RemotePort|remote_port)\s*[=:\t"]+\s*(\d{2,5})/i);
-      if (host)   { results.indicators.push(`Host: ${host}`);    results.prefillData.hostname = host; }
-      if (user)   { results.indicators.push(`User: ${user}`);    results.prefillData.username = user; }
+      const _csHost = hostFallback || host;
+      if (_csHost)  { results.indicators.push(`Host: ${_csHost}`);    results.prefillData.hostname = _csHost; }
+      const _csUser = user || (t.match(/Vendor\.user\s+([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1] || "";
+      if (_csUser)  { results.indicators.push(`User: ${_csUser}`);    results.prefillData.username = _csUser; }
       if (proc2 && !proc2.match(/^(?:ImageFileName|ProcessName|FileName)$/i)) { results.indicators.push(`Process: ${proc2}`); results.prefillData.process = proc2; }
       if (sha256) { results.prefillData.hash = sha256; }
       if (remPort){ results.prefillData.dest_port = remPort; }
@@ -1695,6 +1703,37 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
+      // If the log also has web/proxy fields (CS+Zscaler combo), extract them
+      if (!results.prefillData.url) {
+        const _url = (t.match(/(?:url|requestedURL|requesturl)\s*[=:\s]+(https?:\/\/[^\s"\n,]+)/i)||[])[1] ||
+                     (t.match(/Vendor\.url\s+(https?:\/\/[^\s"\n,]+)/i)||[])[1] || "";
+        if (_url) results.prefillData.url = _url;
+      }
+      if (!results.prefillData.referer) {
+        const _ref = (t.match(/(?:referer|refererurl)\s*[=:\s]+(https?:\/\/[^\s"\n,]+)/i)||[])[1] || "";
+        if (_ref) results.prefillData.referer = _ref;
+      }
+      if (!results.prefillData.threat_name) {
+        const _tn = (t.match(/(?:urlCategory|threatName|threatname|ThreatName)\s*[=:\s]+([^\s"\n,]{3,80})/i)||[])[1] ||
+                    (t.match(/Vendor\.threatname\s+((?:(?!\s+Vendor\.).){2,80})/im)||[])[1] || "";
+        if (_tn) results.prefillData.threat_name = _tn;
+      }
+      if (!results.prefillData.category) {
+        const _cat = (t.match(/(?:urlCategory|category|threatcat)\s*[=:\s]+([^\s"\n,]{3,60})/i)||[])[1] ||
+                     (t.match(/Vendor\.threatcat\s+((?:(?!\s+Vendor\.).){2,60})/im)||[])[1] || "";
+        if (_cat) results.prefillData.category = _cat;
+      }
+      // Vendor.* src/dst for NGSIEM CS format
+      if (!results.prefillData.src_ip) {
+        const _csip = (t.match(/Vendor\.csip\s+(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1] ||
+                      (t.match(/(?:srcip|srcIP|SrcIP|source\.ip)\s*[=:\s]+(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1] || "";
+        if (_csip) results.prefillData.src_ip = _csip;
+      }
+      if (!results.prefillData.dest_ip) {
+        const _cdip = (t.match(/Vendor\.cdip\s+(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1] ||
+                      (t.match(/(?:dstip|dstIP|DstIP|destination\.ip)\s*[=:\s]+(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1] || "";
+        if (_cdip) results.prefillData.dest_ip = _cdip;
+      }
       // If no specific findings but high severity, add generic
       if (!results.findings.length && sev) {
         results.findings.push(`⚠️ CrowdStrike Falcon raised a ${sev.toUpperCase()} severity alert — review detection details in the Falcon console`);
