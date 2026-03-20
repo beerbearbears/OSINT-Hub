@@ -1368,16 +1368,16 @@
           <p class="sub">Live threat feeds, actor profiles, campaign tracking, and intelligence sharing. Pull current intel from open sources without leaving the toolkit.</p>
         </div>
 
-        <!-- CTI sub-tabs -->
-        <div class="cti-subtab-bar">
-          <button class="cti-sub-btn active" data-ctitab="feeds" type="button">📡 Live Feeds</button>
-          <button class="cti-sub-btn" data-ctitab="news" type="button">🗞️ Threat News</button>
-          <button class="cti-sub-btn" data-ctitab="actors" type="button">🕵 Actor Intel</button>
-          <button class="cti-sub-btn" data-ctitab="ioc-check" type="button">🎯 IOC Intel Check</button>
-          <button class="cti-sub-btn" data-ctitab="campaigns" type="button">📊 Campaign Tracker</button>
-          <button class="cti-sub-btn" data-ctitab="hunt" type="button">🏹 Hunt Queries</button>
-          <button class="cti-sub-btn" data-ctitab="resources" type="button">📚 Intel Resources</button>
-        </div>
+      </div>
+      <!-- CTI sub-tabs -->
+      <div class="cti-subtab-bar">
+        <button class="cti-sub-btn active" data-ctitab="feeds" type="button">📡 Live Feeds</button>
+        <button class="cti-sub-btn" data-ctitab="news" type="button">🗞️ Threat News</button>
+        <button class="cti-sub-btn" data-ctitab="actors" type="button">🕵 Actor Intel</button>
+        <button class="cti-sub-btn" data-ctitab="ioc-check" type="button">🎯 IOC Intel Check</button>
+        <button class="cti-sub-btn" data-ctitab="campaigns" type="button">📊 Campaign Tracker</button>
+        <button class="cti-sub-btn" data-ctitab="hunt" type="button">🏹 Hunt Queries</button>
+        <button class="cti-sub-btn" data-ctitab="resources" type="button">📚 Intel Resources</button>
       </div>
 
       <!-- FEEDS PANEL -->
@@ -1392,7 +1392,7 @@
       </div>
 
       <!-- THREAT NEWS PANEL -->
-      <div id="cti-panel-news" class="cti-panel" style="display:none">
+      <div id="cti-panel-news" class="cti-panel">
         <div class="cti-news-header">
           <div class="cti-news-header-left">
             <span class="cti-news-title">🗞️ Threat Intelligence News</span>
@@ -1434,7 +1434,7 @@
       </div>
 
       <!-- ACTOR INTEL PANEL -->
-      <div id="cti-panel-actors" class="cti-panel" style="display:none">
+      <div id="cti-panel-actors" class="cti-panel">
         <div class="cti-search-row">
           <input id="cti-actor-input" class="aw-input" type="text" placeholder="Actor name, alias, or group (e.g. APT29, Lazarus, FIN7, Scattered Spider)" />
           <button id="cti-actor-search-btn" type="button">🔍 Search</button>
@@ -1444,7 +1444,7 @@
       </div>
 
       <!-- IOC INTEL CHECK PANEL -->
-      <div id="cti-panel-ioc-check" class="cti-panel" style="display:none">
+      <div id="cti-panel-ioc-check" class="cti-panel">
         <div class="cti-ioc-check-layout">
           <div class="cti-ioc-check-left">
             <p class="utils-card-desc">Check any IOC against open-source CTI databases. Enter one IOC then click Check — results show known threat context, associated campaigns, and related indicators.</p>
@@ -1461,7 +1461,7 @@
       </div>
 
       <!-- CAMPAIGNS PANEL -->
-      <div id="cti-panel-campaigns" class="cti-panel" style="display:none">
+      <div id="cti-panel-campaigns" class="cti-panel">
         <div class="cti-campaigns-header">
           <h4>📊 Active Campaign Tracker</h4>
           <p class="utils-card-desc">Track ongoing campaigns and associate IOCs from your investigations. Add entries manually or import from triage results.</p>
@@ -1485,7 +1485,7 @@
 
       <!-- RESOURCES PANEL -->
       <!-- HUNT QUERIES PANEL (Feature 4) -->
-      <div id="cti-panel-hunt" class="cti-panel" style="display:none">
+      <div id="cti-panel-hunt" class="cti-panel">
         <div class="hunt-header">
           <div class="hunt-filters">
             <select id="hunt-platform" class="cti-news-select">
@@ -1514,7 +1514,7 @@
         <div id="hunt-grid" class="hunt-grid"></div>
       </div>
 
-      <div id="cti-panel-resources" class="cti-panel" style="display:none">
+      <div id="cti-panel-resources" class="cti-panel">
         <div class="cti-resources-grid">
 
           <div class="cti-res-section">
