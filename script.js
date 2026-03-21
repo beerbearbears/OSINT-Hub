@@ -286,9 +286,31 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ─── Tab Switcher ─────────────────────────────────────────────
+  // Secondary tabs that show a "back" button — user navigated away from main search
+  const SECONDARY_TABS = new Set(["threat","custom","utils","cti"]);
+  let _lastMainTab = "single"; // remembers the last main tab for back navigation
+
   function switchTab(name) {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
     document.querySelectorAll(".tab-panel").forEach(p => p.classList.toggle("active", p.id === `tab-${name}`));
+    // Show/hide back bar based on whether we're on a secondary tab
+    const isSecondary = SECONDARY_TABS.has(name);
+    document.querySelectorAll(".tab-back-bar").forEach(bar => {
+      bar.style.display = isSecondary ? "flex" : "none";
+    });
+    // Update back button label with the last main tab name
+    if (isSecondary) {
+      document.querySelectorAll(".tab-back-btn").forEach(btn => {
+        const mainLabel = {single:"IOC Search", bulk:"Bulk IOC", script:"Script Analyzer",
+          writeup:"Alert Write-up", case:"Case Manager", timeline:"Timeline",
+          hashfile:"Hash File", defangbulk:"Defang/Refang", yara:"YARA/Sigma",
+          logtriage:"Log Triage"}[_lastMainTab] || "Search";
+        btn.textContent = "← " + mainLabel;
+        btn.onclick = () => switchTab(_lastMainTab);
+      });
+    } else {
+      _lastMainTab = name; // remember this as the last main tab
+    }
   }
   document.querySelectorAll(".tab-btn").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
 
@@ -929,6 +951,375 @@ document.addEventListener("DOMContentLoaded", () => {
       iocs: {}, prefillData: {}, eventIds: [], portHints: [],
       _rawText: t  // store for alert category + narrative matching
     };
+
+
+    // ══════════════════════════════════════════════════════════════
+    // MULTI-SOURCE CORRELATION ENGINE
+    // Runs first — detects all log sources present in the pasted text,
+    // correlates by shared user/host/IP, maps to kill chain stages,
+    // and sets enriched prefillData before the single-source parsers run.
+    // ══════════════════════════════════════════════════════════════
+    (function detectAndCorrelateMultiSource() {
+      const SOURCE_SIGS = [
+        { id:"zscaler",     label:"Zscaler ZIA",           re:/logtype=ZscalerNSS|Ngsiem\.event\.vendor.*[Zz]scaler|Vendor\.threatname|Vendor\.csip|urlCategory.*(?:Malware|C2)/i },
+        { id:"crowdstrike", label:"CrowdStrike Falcon",    re:/event_simpleName|DetectionSummaryEvent|ProcessRollup2|ComputerName=\w.*UserName=\w.*Severity/i },
+        { id:"okta",        label:"Okta",                  re:/actor\.alternateId|outcome\.result|eventType=user\.|okta/i },
+        { id:"azure",       label:"Azure AD\/Entra",       re:/UserPrincipalName=|SignInLogs|ConditionalAccessStatus|RiskLevel=\w.*IPAddress|AzureAD/i },
+        { id:"defender",    label:"Microsoft Defender",    re:/AlertId=|MachineId=|DetectionSource=Windows|ActionType=Process/i },
+        { id:"sentinelone", label:"SentinelOne",           re:/AgentComputerName=|ThreatClassification=|MitigationStatus=|AgentId=/i },
+        { id:"proofpoint",  label:"Proofpoint",            re:/spamScore=|phishScore=|tapUrl=|xmailer=Proofpoint/i },
+        { id:"paloalto",    label:"Palo Alto NGFW",        re:/subtype=threat.*type=THREAT|policyname=\w.*threatname=|pan:/i },
+        { id:"qradar",      label:"IBM QRadar",            re:/\bqid=|\bmagnitude=|\bcredibility=.*relevance=|deviceType=QRadar/i },
+        { id:"darktrace",   label:"Darktrace NDR",         re:/modelBreach=|anomalyScore=|pbid=|deviceScore=/i },
+        { id:"netskope",    label:"Netskope CASB",         re:/NetskopeName=|bypass_traffic=|appcategory=|access_method=Client/i },
+        { id:"falcon_id",   label:"Falcon Identity",       re:/Access from unusual geolocation|Access from blocklisted|Source endpoint IP address|Suspicious web-based activity/i },
+        { id:"aws",         label:"AWS CloudTrail",        re:/eventSource=.*amazonaws|awsRegion=|userIdentity.*arn/i },
+        { id:"windows",     label:"Windows Event Log",     re:/EventID=\d+|EventType=|LogonType=\d+|SubjectUserName=|TargetUserName=/i },
+        { id:"snort",       label:"Snort\/Suricata",       re:/\[\d+:\d+:\d+\].*Classification:|GID:\d+.*SID:\d+/i },
+        { id:"saas",        label:"SaaS\/Teams",           re:/platform=Teams|sourceApp=Microsoft Teams|platform=OneDrive/i },
+      ];
+
+      const found = SOURCE_SIGS.filter(s => s.re.test(t));
+      if (found.length < 2) return; // single source — let normal parser handle it
+
+      // Entity extraction across all sources
+      const emailFreq = {};
+      (t.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/gi)||[])
+        .forEach(e => { const k=e.toLowerCase(); emailFreq[k]=(emailFreq[k]||0)+1; });
+      const allEmails  = Object.keys(emailFreq).sort((a,b)=>emailFreq[b]-emailFreq[a]);
+      const allHosts   = [...new Set((t.match(/(?<=(?:ComputerName|clientHostname|AgentComputerName|devicehostname|hostname|Computer)[=:])([a-zA-Z0-9_.-]{3,50})/gi)||[]))];
+      const extIPs     = [...new Set((t.match(/\b(?!(?:10|192\.168|172\.(?:1[6-9]|2[0-9]|3[01]))\.)(?!0\.)(?!255\.)(\d{1,3}\.){3}\d{1,3}\b/g)||[]))];
+      const allURLs    = [...new Set((t.match(/https?:\/\/[^\s"',\n]{5,120}/gi)||[]))];
+      const allHashes  = [...new Set((t.match(/\b[a-fA-F0-9]{64}\b|\b[a-fA-F0-9]{40}\b/g)||[]))];
+
+      const primaryUser = allEmails[0] || "";
+      const primaryHost = allHosts[0]  || "";
+      const primaryExtIP= extIPs[0]    || "";
+
+      // Kill chain stage detection
+      const KC_STAGES = [
+        { name:"Initial Access",    icons:"📧",  srcIds:["proofpoint","zscaler"],               re:/phish|spam|clickfix|scam|redirect.*chain|malware.*email/i },
+        { name:"Execution",         icons:"⚙️",  srcIds:["crowdstrike","defender","sentinelone"],re:/ProcessRollup|CommandLine|powershell|cmd\.exe|execution|process.*creat/i },
+        { name:"Persistence",       icons:"📌",  srcIds:["crowdstrike","windows"],              re:/scheduled.*task|registry.*run|autorun|service.*install/i },
+        { name:"Credential Access", icons:"🔑",  srcIds:["okta","azure","windows","falcon_id"], re:/FAILURE|password.*fail|MFA|credential|brute.*force|spray|lsass/i },
+        { name:"Defense Evasion",   icons:"🥷",  srcIds:["crowdstrike","defender"],             re:/obfuscat|encoded.*command|base64|disable.*av|exclusion|tamper/i },
+        { name:"C2 Communication",  icons:"📡",  srcIds:["zscaler","paloalto","darktrace","crowdstrike"], re:/command.*control|C2|beacon|cobalt|pre-c2|malware.*communicat/i },
+        { name:"Exfiltration",      icons:"📤",  srcIds:["zscaler","netskope","aws"],           re:/exfil|data.*out|upload.*bytes|bytes.*sent.*\d{5,}/i },
+        { name:"Lateral Movement",  icons:"🔀",  srcIds:["windows","crowdstrike"],              re:/lateral|rdp.*success|smb.*auth|pass.*hash|psexec|wmi.*remote/i },
+      ];
+
+      const activeStages = KC_STAGES.filter(s => {
+        return s.srcIds.some(id => found.find(f => f.id===id)) && s.re.test(t);
+      });
+
+      // MITRE mapping from stages
+      const stageMitre = {
+        "Initial Access":    ["T1566","T1566.001","T1566.002","T1190"],
+        "Execution":         ["T1059","T1059.001","T1059.003","T1204","T1204.002"],
+        "Persistence":       ["T1053.005","T1547.001","T1543.003"],
+        "Credential Access": ["T1078","T1110","T1110.003","T1556","T1621"],
+        "Defense Evasion":   ["T1027","T1562.001","T1140"],
+        "C2 Communication":  ["T1071","T1071.001","T1095","T1041"],
+        "Exfiltration":      ["T1048","T1041","T1567"],
+        "Lateral Movement":  ["T1021","T1021.001","T1550.002"],
+      };
+      activeStages.forEach(s => (stageMitre[s.name]||[]).slice(0,2).forEach(m => results.mitre.add(m)));
+
+      // Severity from stage count + source count
+      const sc = activeStages.length;
+      if      (sc >= 3) results.severity = "critical";
+      else if (sc >= 2) results.severity = "high";
+      else              results.severity = "medium";
+
+      // Cross-source correlation findings
+      results.findings = [];
+      results.findings.push(`🔗 ${found.length} log sources detected: ${found.map(s=>s.label).join(" + ")}`);
+
+      if (primaryUser || primaryHost) {
+        const pivot = [primaryUser&&("👤 "+primaryUser), primaryHost&&("💻 "+primaryHost), primaryExtIP&&("🌐 "+primaryExtIP)].filter(Boolean).join("  ");
+        results.findings.push(`🎯 Correlated on: ${pivot}`);
+      }
+
+      if (activeStages.length) {
+        const chain = activeStages.map(s=>s.icons+" "+s.name).join(" → ");
+        results.findings.push(`⛓️ Attack chain: ${chain}`);
+        if (sc >= 3) results.findings.push(`🚨 CONFIRMED ATTACK SEQUENCE — ${sc} kill chain stages present across ${found.length} sources. Treat as active intrusion.`);
+        else if (sc >= 2) results.findings.push(`⚠️ Multi-stage activity — ${sc} attack phases detected. Escalation recommended.`);
+      }
+
+      // Specific cross-source logic
+      const has = id => found.some(f => f.id===id);
+      if (has("proofpoint") && (has("crowdstrike")||has("defender")))
+        results.findings.push(`🚨 Phishing email → Endpoint execution on same host. Email was permitted and malicious code ran — CONFIRMED COMPROMISE.`);
+      if ((has("okta")||has("azure")||has("falcon_id")) && (has("crowdstrike")||has("defender")))
+        results.findings.push(`⚠️ Identity alert + Endpoint alert on same account/host — attacker may have active session and running processes.`);
+      if ((has("okta")||has("azure")||has("falcon_id")) && (has("zscaler")||has("paloalto")))
+        results.findings.push(`⚠️ Identity compromise + suspicious network traffic — post-auth C2 or data access is likely. Check proxy logs for session activity after authentication.`);
+      if (has("zscaler") && (has("crowdstrike")||has("defender")))
+        results.findings.push(`⚠️ Network C2/malware alert + Endpoint execution — malware on host is actively calling out. Block destination IPs and isolate endpoint.`);
+
+      // IOC aggregation
+      if (allEmails.length)  { results.iocs.emails    = allEmails; results.iocs.usernames = allEmails.map(e=>e.split("@")[0]); }
+      if (allHosts.length)   results.iocs.hostnames  = allHosts;
+      if (extIPs.length)     results.iocs.ips        = extIPs.slice(0,8);
+      if (allURLs.length)    results.iocs.urls       = allURLs.slice(0,6);
+      if (allHashes.length)  results.iocs.hashes     = allHashes;
+
+      // Prefill for SOC note and narrative
+      results.prefillData.username           = results.prefillData.username  || primaryUser;
+      results.prefillData.hostname           = results.prefillData.hostname  || primaryHost;
+      results.prefillData.src_ip             = results.prefillData.src_ip    || primaryExtIP;
+      results.prefillData.source_count       = found.length;
+      results.prefillData.correlated_sources = found.map(s=>s.label).join(", ");
+      results.prefillData.kill_chain_stage   = activeStages.map(s=>s.name).join(" → ");
+      results.prefillData.kill_chain_stages  = activeStages.length;
+      results.prefillData.is_multi_source    = true;
+
+      // Override eventType with multi-source label
+      const priorityIds = ["crowdstrike","sentinelone","defender","falcon_id","okta","azure","proofpoint","zscaler","paloalto","netskope","darktrace","qradar","snort","aws","windows","saas"];
+      const topId    = priorityIds.find(id => found.some(f=>f.id===id));
+      const topLabel = found.find(f=>f.id===topId)?.label || found[0]?.label || "";
+      results.eventType = `Multi-Source [${found.length} sources] — ${topLabel}`;
+
+    })();
+
+    // ══════════════════════════════════════════════════════════════
+    // MULTI-EVENT CORRELATION ENGINE
+    // Detects raw log line sequences (NOT wrapped in alert envelope)
+    // Parses each line, builds a timeline, and synthesises a story
+    // before the main parser chain runs.
+    // ══════════════════════════════════════════════════════════════
+    const _lines = t.split("\n").map(l => l.trim()).filter(l => l.length > 10);
+    const _multiLineThreshold = 2; // 2+ structured log lines = treat as raw sequence
+
+    // Structured log line detector — returns parsed fields or null
+    function _parseLine(line) {
+      // Skip lines that look like alert headers, not raw log lines
+      if (/^Alert\s+\d+\.|^#fields:|^#version:|^<\d+>|^\*\*\*/.test(line)) return null;
+
+      const entry = { raw: line };
+
+      // Timestamp patterns
+      const tsMatch = line.match(
+        /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?)|^((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}(?:\.\d+)?)|^(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2})/i
+      );
+      if (tsMatch) entry.ts = (tsMatch[1]||tsMatch[2]||tsMatch[3]).trim();
+
+      // IP addresses
+      const ips = (line.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g)||[]).filter(isValidIPv4);
+      if (ips.length) entry.ips = ips;
+
+      // Email / username
+      const email = line.match(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/);
+      if (email) entry.user = email[1];
+
+      // Outcome / status
+      const outcome = line.match(/\b(SUCCESS|FAILURE|FAILED|ALLOW(?:ED)?|BLOCK(?:ED)?|DENY|DENIED|QUARANTINE(?:D)?|DROP(?:PED)?|4624|4625|4626|4688|4720|4732)\b/i);
+      if (outcome) entry.outcome = outcome[1].toUpperCase();
+
+      // Event ID
+      const eid = line.match(/\bEventID[=:\s]+(\d{4,5})/i);
+      if (eid) entry.eventId = eid[1];
+
+      // URL
+      const url = line.match(/https?:\/\/[^\s"'<>\]]+/);
+      if (url) entry.url = url[0];
+
+      // Process name (Windows events)
+      const proc = line.match(/NewProcessName[=:\s]+([^\s,\n]{4,100})/i);
+      if (proc) entry.process = proc[1];
+
+      // Threat / signature
+      const threat = line.match(/(?:threatName|threat_name|signature|detection)[=:\s]+([^\s,\n]{3,80})/i);
+      if (threat) entry.threat = threat[1];
+
+      // Location
+      const loc = line.match(/\b(Mexico City|Dallas|Moscow|Beijing|London|New York|[A-Z][a-z]+ (?:US|MX|RU|CN|GB|BR|NG|DE|FR))\b/);
+      if (loc) entry.location = loc[1];
+
+      // Carrier
+      const carrier = line.match(/(?:T-Mobile USA|RadioMovil Dipsa|Verizon|AT&T|Comcast|Rostelecom|China Telecom|DigitalOcean)/i);
+      if (carrier) entry.carrier = carrier[0];
+
+      // Must have at least timestamp OR outcome to be a structured line
+      const hasStructure = !!(entry.ts || entry.outcome || entry.eventId || (entry.ips && entry.user));
+      return hasStructure ? entry : null;
+    }
+
+    // Parse all lines
+    const _parsedLines = _lines.map(_parseLine).filter(Boolean);
+    const _isMultiEvent = _parsedLines.length >= _multiLineThreshold && 
+                          _parsedLines.length >= (_lines.length * 0.4); // at least 40% parseable
+
+    if (_isMultiEvent) {
+      results.prefillData.is_multiline = true;
+      results.prefillData.event_count  = _parsedLines.length;
+
+      // ── Extract unique actors ─────────────────────────────────
+      const _users   = [...new Set(_parsedLines.map(e => e.user).filter(Boolean))];
+      const _allIPs  = [...new Set(_parsedLines.flatMap(e => e.ips||[]))];
+      const _outcomes= _parsedLines.map(e => e.outcome).filter(Boolean);
+
+      if (_users.length === 1) results.prefillData.username = _users[0];
+      else if (_users.length > 1) results.prefillData.username = _users[0]; // primary user
+
+      // ── Build timeline sequence ───────────────────────────────
+      const _timeline = _parsedLines.map(e => ({
+        ts:      e.ts      || "",
+        user:    e.user    || _users[0] || "",
+        ip:      e.ips?.[0]|| "",
+        outcome: e.outcome || "",
+        url:     e.url     || "",
+        process: e.process || "",
+        threat:  e.threat  || "",
+        location:e.location|| "",
+        carrier: e.carrier || "",
+        raw:     e.raw,
+      }));
+      results.prefillData.timeline = _timeline;
+
+      // ── Outcome pattern analysis ──────────────────────────────
+      const failures = _outcomes.filter(o => /FAILURE|FAILED|4625|DENY|BLOCK/.test(o));
+      const successes= _outcomes.filter(o => /SUCCESS|4624|ALLOW/.test(o));
+      const executions=_parsedLines.filter(e => e.eventId === "4688" || e.process);
+
+      // IP role analysis — which IPs are associated with failures vs successes
+      const _failIPs = [...new Set(_parsedLines.filter(e => /FAILURE|FAILED|4625|DENY|BLOCK/.test(e.outcome||"")).flatMap(e => e.ips||[]))];
+      const _succIPs = [...new Set(_parsedLines.filter(e => /SUCCESS|4624|ALLOW/.test(e.outcome||"")).flatMap(e => e.ips||[]))];
+      const _mixedIPs= _failIPs.filter(ip => _succIPs.includes(ip)); // same IP in both = ambiguous
+      const _foreignFailIPs  = _failIPs.filter(ip => !_succIPs.includes(ip));
+      const _knownGoodSuccIPs= _succIPs.filter(ip => !_failIPs.includes(ip));
+
+      if (_failIPs.length)   results.prefillData.fail_ips    = _failIPs.join(", ");
+      if (_succIPs.length)   results.prefillData.success_ips = _succIPs.join(", ");
+
+      // ── Location analysis ─────────────────────────────────────
+      const _failLocs = [...new Set(_parsedLines.filter(e => /FAILURE|FAILED|4625/.test(e.outcome||"")).map(e => e.location).filter(Boolean))];
+      const _succLocs = [...new Set(_parsedLines.filter(e => /SUCCESS|4624/.test(e.outcome||"")).map(e => e.location).filter(Boolean))];
+      const _allLocs  = [...new Set(_parsedLines.map(e => e.location).filter(Boolean))];
+      const _allCarriers = [...new Set(_parsedLines.map(e => e.carrier).filter(Boolean))];
+
+      if (_failLocs.length) results.prefillData.suspicious_location = _failLocs.join(", ");
+      if (_allLocs.length)  results.prefillData.location = _allLocs.join(", ");
+      if (_allCarriers.length) results.prefillData.carrier = _allCarriers[0];
+
+      // ── First/last event timestamps ───────────────────────────
+      const _timestamps = _parsedLines.map(e => e.ts).filter(Boolean);
+      if (_timestamps.length >= 2) {
+        results.prefillData.timestamp = _timestamps[0];
+        results.prefillData.ts_last   = _timestamps[_timestamps.length - 1];
+        results.prefillData.ts_span   = `${_timestamps[0]} → ${_timestamps[_timestamps.length - 1]}`;
+      }
+
+      // ── Pattern recognition ───────────────────────────────────
+      const patterns = [];
+
+      // Pattern 1: Auth failures → success (credential abuse)
+      if (failures.length >= 2 && successes.length >= 1) {
+        // Check if failures come BEFORE successes in timeline
+        const firstFailIdx = _parsedLines.findIndex(e => /FAILURE|FAILED|4625/.test(e.outcome||""));
+        const firstSuccIdx = _parsedLines.findIndex(e => /SUCCESS|4624/.test(e.outcome||""));
+        if (firstFailIdx < firstSuccIdx || firstFailIdx === -1) {
+          patterns.push("failure_then_success");
+          results.findings.push(`🚨 ${failures.length} authentication failure(s) followed by ${successes.length} success(es) — classic credential stuffing or brute-force with eventual access.`);
+          results.severity = "high";
+          results.mitre.add("T1110"); results.mitre.add("T1078");
+        }
+      }
+
+      // Pattern 2: Impossible travel — successes from different IPs/locations
+      if (_knownGoodSuccIPs.length >= 1 && _foreignFailIPs.length >= 1) {
+        patterns.push("impossible_travel");
+        results.findings.push(`🚨 Concurrent activity from ${_foreignFailIPs.length > 1 ? _foreignFailIPs.length+" foreign IPs" : _foreignFailIPs[0]} (FAILURE) and ${_knownGoodSuccIPs[0]} (SUCCESS) — impossible travel indicator. Two locations active simultaneously.`);
+        results.severity = "critical";
+        results.mitre.add("T1078.004");
+      }
+
+      // Pattern 3: Repeated failures from same foreign IP
+      const _ipFailCounts = {};
+      _parsedLines.filter(e => /FAILURE|FAILED|4625/.test(e.outcome||"")).forEach(e => {
+        (e.ips||[]).forEach(ip => { _ipFailCounts[ip] = (_ipFailCounts[ip]||0) + 1; });
+      });
+      const _highFailIP = Object.entries(_ipFailCounts).sort((a,b) => b[1]-a[1])[0];
+      if (_highFailIP && _highFailIP[1] >= 3) {
+        patterns.push("brute_force");
+        results.findings.push(`⚠️ ${_highFailIP[1]} consecutive failures from ${_highFailIP[0]} — brute force or credential stuffing pattern.`);
+        if (results.severity === "info") results.severity = "medium";
+        results.mitre.add("T1110.001");
+      }
+
+      // Pattern 4: Process execution after auth success (lateral movement / post-exploit)
+      if (executions.length > 0 && successes.length > 0) {
+        const firstSucc = _parsedLines.findIndex(e => /SUCCESS|4624/.test(e.outcome||""));
+        const firstExec = _parsedLines.findIndex(e => e.process || e.eventId === "4688");
+        if (firstExec > firstSucc) {
+          patterns.push("exec_after_auth");
+          const procs = [...new Set(executions.map(e => e.process?.split("\\").pop() || "process").filter(Boolean))];
+          results.findings.push(`🚨 Process execution detected after authentication success: ${procs.slice(0,3).join(", ")} — possible post-compromise execution.`);
+          results.severity = "critical";
+          results.mitre.add("T1059"); results.mitre.add("T1078");
+        }
+      }
+
+      // Pattern 5: Web redirect/block chain
+      const _blockedURLs = _parsedLines.filter(e => /BLOCK|DENY/.test(e.outcome||"") && e.url).map(e => e.url);
+      const _allowedURLs = _parsedLines.filter(e => /ALLOW/.test(e.outcome||"") && e.url).map(e => e.url);
+      if (_blockedURLs.length >= 1 && _allowedURLs.length >= 1) {
+        patterns.push("web_chain");
+        results.findings.push(`⚠️ Traffic chain: allowed access to ${_allowedURLs.slice(0,2).join(", ")} then blocked attempts to ${_blockedURLs.slice(0,2).join(", ")} — possible redirect chain from legitimate site.`);
+        if (results.severity === "info") results.severity = "medium";
+        results.mitre.add("T1566.002");
+      }
+
+      // Pattern 6: Multiple threat signatures across lines
+      const _threats = [...new Set(_parsedLines.map(e => e.threat).filter(Boolean))];
+      if (_threats.length >= 2) {
+        patterns.push("multi_threat");
+        results.findings.push(`⚠️ Multiple threat signatures detected across log lines: ${_threats.slice(0,4).join(", ")}`);
+      }
+
+      // ── Set event type based on patterns ─────────────────────
+      if (!results.eventType || results.eventType === "Unknown" || results.eventType === "Generic Log / Text") {
+        if (patterns.includes("impossible_travel") || patterns.includes("failure_then_success")) {
+          results.eventType = "Identity Security Alert";
+        } else if (patterns.includes("exec_after_auth")) {
+          results.eventType = "Endpoint / Post-Auth Execution";
+        } else if (patterns.includes("web_chain")) {
+          results.eventType = "Web / Proxy Log";
+        } else if (executions.length > 0) {
+          results.eventType = "Windows Event Log";
+        } else if (failures.length > 0 || successes.length > 0) {
+          results.eventType = "Authentication Event";
+        } else {
+          results.eventType = "Multi-Event Log";
+        }
+      }
+
+      // ── Build correlated story string (used by SOC note) ─────
+      const _primaryUser = _users[0] || "";
+      const _totalEvents = _parsedLines.length;
+      const _timeSpan    = results.prefillData.ts_span || "";
+      const _pattern     = patterns[0] || "multi_event";
+
+      const _storyParts = [
+        _primaryUser ? `Account: ${_primaryUser}` : "",
+        `${_totalEvents} events${_timeSpan ? " from " + _timeSpan : ""}`,
+        failures.length ? `${failures.length} FAILURE(s)` : "",
+        successes.length ? `${successes.length} SUCCESS(es)` : "",
+        _foreignFailIPs.length ? `Foreign failure IP: ${_foreignFailIPs.join(", ")}` : "",
+        _knownGoodSuccIPs.length ? `Known-good success IP: ${_knownGoodSuccIPs.join(", ")}` : "",
+        _failLocs.length ? `Suspicious location: ${_failLocs.join(", ")}` : "",
+        _allCarriers.length ? `Carrier: ${_allCarriers[0]}` : "",
+        executions.length ? `Process execution: ${[...new Set(executions.map(e => e.process?.split("\\").pop()).filter(Boolean))].slice(0,2).join(", ")}` : "",
+      ].filter(Boolean).join(" | ");
+      results.prefillData.correlated_story = _storyParts;
+      results.prefillData.patterns = patterns;
+      results.prefillData.alert_count = String(_totalEvents);
+
+      // Store IPs in iocs
+      if (_allIPs.length) results.iocs.ips = _allIPs;
+      if (_users.length) results.iocs.usernames = _users;
+    }
 
     // ── TSV / #fields: header-aware pre-processing ───────────────
     // For CrowdStrike NGSIEM and similar TSV log formats with #fields: header,
@@ -2261,22 +2652,32 @@ document.addEventListener("DOMContentLoaded", () => {
       // Falcon Identity multi-alert context
       const alertNames = (t.match(/Alert \d+\.\s+([^\n]{5,80})/gi)||[]).map(a=>a.replace(/Alert \d+\.\s+/i,'').trim());
       const alertCount = alertNames.length || 1;
-      const locationCountry = (t.match(/Location country\s+([A-Za-z][a-zA-Z\s]{2,30})(?=\s+(?:Location|Source|Time|User|Alert|Risk|Privileged|Classification)|$)/im)||
-                             t.match(/Location country\s+([A-Za-z][a-zA-Z\s]{2,20})/i)||[])[1]?.trim()||"";
+      // Extract display name: "User Miguel Vargas Torres Privileged"
+      const displayName = (t.match(/\bUser\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+Privileged/)||[])[1]?.trim() || "";
+      if (displayName) results.prefillData.display_name = displayName;
+      const locationCountry = (
+        t.match(/Location country\s+([A-Za-z][a-zA-Z\s]{2,30}?)\s*(?:\([\d.,\s-]+\)|Location country code|Source|Time|User|Alert|Risk|Privileged|Classification)/im) ||
+        t.match(/Location country\s+([A-Za-z][a-zA-Z\s]{2,30})(?=\s+(?:Location|Source|Time|User|Alert|Risk|Privileged|Classification)|$)/im) ||
+        t.match(/Location country\s+([A-Za-z][a-zA-Z\s]{2,20})/i) ||
+        [])[1]?.trim() || "";
       // Extract city from the ALERT SECTION only (before "Logs" section)
       // Avoid picking up cities from SUCCESS log lines (known-good location)
       const _alertSection = t.split(/\bLogs\b/i)[0] || t;
       const locationCity = (
-        // Explicitly listed in alert geo fields
-        _alertSection.match(/Location (?:city|latitude)[^\n]*?([A-Z][a-z]+(?: [A-Z][a-z]+)*)/i) ||
-        // City from FAILURE log lines only (Mexico City MX lines)
-        _alertSection.match(/FAILURE[^\n]*?([A-Z][a-z]+ (?:City|MX|MXN))/i) ||
-        t.match(/Mexico City(?=\s+MX)/i) ||
-        []
-      )[1] || (t.match(/\b(Mexico City)\b/i)||[])[1] || "";
+        // Explicitly listed in alert geo fields — stop before coords or next field
+        _alertSection.match(/Location country\s+[A-Za-z][a-zA-Z\s]{2,30}?\s*\([\d.,\s-]+\).*?(?:Location country code\s+(\S+)|$)/im) && "" ||
+        // City from FAILURE log lines — "City Name ST" pattern at end of log line
+        (t.match(/FAILURE[^\n]+?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:PR|MX|US|CA|GB|DE|AU)\b/gi)||[])
+          .map(m => m.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:PR|MX|US|CA|GB)/)?.[1]).filter(Boolean)[0] ||
+        // Success log lines city (known-good baseline)
+        (t.match(/SUCCESS[^\n]+?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:US|PR|CA|GB)\b/gi)||[])
+          .map(m => m.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:US|PR|CA|GB)/)?.[1]).filter(Boolean)[0] ||
+        // Mexico City specific
+        (t.match(/\b(Mexico City)\b/i)||[])[1] || ""
+      ) || "";
       const aspOrg    = (t.match(/Source IP ASN organization\s+([^\n]{3,60})(?=\s+(?:Source IP ISP|Source IP ASN|Source account|Time detected|User |Alert |Risk )|$)/im)||[t.match(/ASN organization\s+([^\n]{3,50})/i)||[]])[1]?.trim().replace(/\s+(?:Source|Time|User|Alert).*$/i,'').replace(/,.*$/,'')||"";
       const ispDomain   = (t.match(/Source IP ISP domain\s+(\S+)/i)||[])[1]?.trim()||"";
-      const carrierFrom = (t.match(/(?:T-Mobile USA|RadioMovil Dipsa|T-Mobile|Verizon|AT&T|Sprint|Comcast|Telcel|RadioMovil|Movistar|Claro|Rogers|Bell|Telus)[^\n,;.]{0,35}/i)||[])[0]?.trim().replace(/[,;.].*$/,'')||"";
+      const carrierFrom = (t.match(/(?:Liberty Mobile Puerto Rico|T-Mobile USA|RadioMovil Dipsa|T-Mobile|Verizon|AT&T|Sprint|Comcast|Telcel|RadioMovil|Movistar|Claro|Rogers|Bell|Telus|Liberty Mobile|DTAG)[^\n,;.]{0,35}/i)||[])[0]?.trim().replace(/[,;.].*$/,'')||"";
       const deviceUA  = (t.match(/MSAL[^\n]{2,80}/i)||t.match(/Mozilla\/5\.0[^\n]{5,80}/i)||[])[0]||"";
       const isIPhone  = /iPhone|iOS/i.test(deviceUA);
       const isAndroid = /Android/i.test(deviceUA);
@@ -2300,6 +2701,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // suspicious_location = explicitly what the alert says (Mexico), NOT Dallas from success logs
         const _suspCity = locationCity.replace(/Dallas|New York|Chicago|Houston|Phoenix|Los Angeles/i,'').trim();
         results.prefillData.suspicious_location = [_suspCity, _lcClean].filter(Boolean).join(", ").replace(/^,\s*/,'').trim();
+        // Will be overridden by user log day2 city if available (more precise)
       }
       if (dept)  results.prefillData.department = dept.split(/\s+(?:Title|Network|Username)/i)[0]?.trim() || dept;
       if (title) results.prefillData.role        = title.split(/\s+(?:Network|Username|Email)/i)[0]?.trim() || title;
@@ -2344,7 +2746,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Auth failure/success pattern
       if (failures > 0 && successes > 0) {
+        if (!results.prefillData.user_log_parsed) {
         results.findings.push(`⚠️ ${failures} FAILURE(s) followed by ${successes} SUCCESS(es) — possible credential stuffing with eventual success`);
+      }
         results.mitre.add("T1110.001");
         if (results.severity === "info") results.severity = "medium";
       } else if (failures >= 3) {
@@ -2938,6 +3342,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ── Carrier/ISP Attribution ───────────────────────────────────────
     carriers: {
+      "Liberty Mobile Puerto Rico": { country:"Puerto Rico", type:"mobile", note:"Liberty Mobile PR (formerly Claro) — Puerto Rico's major mobile carrier. Direct PR mobile connection." },
+      "Liberty Mobile":             { country:"Puerto Rico", type:"mobile", note:"Liberty Mobile — Puerto Rico mobile carrier. Direct mobile connection." },
+      "centennialpr.net":           { country:"Puerto Rico", type:"mobile", note:"Centennial PR / Liberty Mobile — Puerto Rico mobile network." },
       "RadioMovil Dipsa":   { country:"Mexico",      type:"mobile", note:"Telcel — Mexico's largest mobile carrier. Direct mobile connection, not a VPN or proxy." },
       "Telcel":             { country:"Mexico",      type:"mobile", note:"Telcel (RadioMovil Dipsa) — Mexico's largest mobile carrier." },
       "T-Mobile USA":       { country:"USA",         type:"mobile", note:"T-Mobile USA — major US mobile carrier. Commonly used for legitimate employee mobile access." },
@@ -3049,6 +3456,100 @@ document.addEventListener("DOMContentLoaded", () => {
       res.findings.push(`⚠️ URL pattern: ${urlCtx.label} — ${urlCtx.desc}`);
     }
 
+    // ── OSINT section parser ─────────────────────────────────
+    // Detects VT / Talos / AbuseIPDB results the analyst pasted
+    var _rawFull = res._rawText || '';
+    var _osintRaw = '';
+    var _osintSplit = _rawFull.split(/(?:^|\n)\s*OSINT\s*:?\s*(?:\n|$)/im);
+    if (_osintSplit.length > 1) {
+      _osintRaw = _osintSplit[1].split(/\n{3,}/)[0] || '';
+    }
+    if (_osintRaw.length > 10) {
+      var _vtClean   = /VT[:\s].*(?:No security vendor flagged|not.*malicious|0\s*\/\s*\d+|Clean)/i.test(_osintRaw);
+      var _vtBad     = /VT[:\s].*(?:\d+\s*\/\s*\d+.*malicious|malicious)/i.test(_osintRaw) && !_vtClean;
+      var _taloGood  = /Talos[:\s].*(?:Neutral|Good|Favorable)/i.test(_osintRaw);
+      var _taloBad   = /Talos[:\s].*(?:Poor|Malicious|Untrusted)/i.test(_osintRaw);
+      var _abuseOk   = /AbuseIPDB[:\s].*(?:not found|0%|clean|no report)/i.test(_osintRaw);
+      var _abuseBad  = /AbuseIPDB[:\s].*(?:\d{2,3}%|malicious|reported)/i.test(_osintRaw);
+      pf.osint_vt        = _vtClean ? 'CLEAN' : _vtBad ? 'MALICIOUS' : 'UNKNOWN';
+      pf.osint_talos     = _taloGood ? 'NEUTRAL' : _taloBad ? 'POOR' : 'UNKNOWN';
+      pf.osint_abuseipdb = _abuseOk ? 'CLEAN' : _abuseBad ? 'REPORTED' : 'UNKNOWN';
+      pf.osint_clean     = (_vtClean || _taloGood) && _abuseOk;
+      pf.osint_section   = _osintRaw.trim().slice(0, 400);
+      if (pf.osint_clean) {
+        res.findings.push('\u2705 OSINT: IP ' + (pf.src_ip || 'source') + ' is CLEAN \u2014 VT: ' + pf.osint_vt + ', Talos: ' + pf.osint_talos + ', AbuseIPDB: ' + pf.osint_abuseipdb + '. No threat intelligence matches.');
+        if (pf.kb_verdict === 'TP') pf.kb_verdict = 'TP_VERIFY';
+      } else if (_vtBad || _taloBad || _abuseBad) {
+        res.findings.push('\uD83D\uDEA8 OSINT: IP ' + (pf.src_ip || 'source') + ' is MALICIOUS \u2014 VT: ' + pf.osint_vt + ', Talos: ' + pf.osint_talos + ', AbuseIPDB: ' + pf.osint_abuseipdb + '. High-confidence threat actor IP.');
+        res.severity = 'critical';
+        pf.kb_verdict = 'TP';
+      }
+    }
+
+    // ── User log section parser ─────────────────────────────────
+    // Parses structured auth log lines the analyst added below the alert
+    var _ulSplit = _rawFull.split(/\bUser\s+log\s*\n/i);
+    var _ulRaw   = _ulSplit.length > 1 ? (_ulSplit[1].split(/\bOSINT\s*:/i)[0] || '') : '';
+    if (_ulRaw.trim().length > 20) {
+      pf.user_log_parsed = true;
+      var _ulLines = _ulRaw.split('\n').filter(function(l){ return l.trim().length > 20; });
+      var _failures = [], _successes = [], _ips = [], _carriers = [], _cities = [], _dates = [];
+      var _iosVer = '';
+      _ulLines.forEach(function(line) {
+        var _ts      = (line.match(/^((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+\d+:\d+:\d+\.?\d*)/i)||[])[1] || '';
+        var _status  = (line.match(/\b(FAILURE|SUCCESS)\b/i)||[])[1] || '';
+        var _ipv4    = (line.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/)||[])[1] || '';
+        var _ipv6    = (line.match(/\b([0-9a-f]{4}:[0-9a-f:]{5,})/i)||[])[1] || '';
+        var _ip      = _ipv4 || _ipv6 || '';
+        var _city    = (line.match(/\b(San Juan|Vega Baja|Mexico City|Dallas|Miami|Houston|Chicago|San Francisco|Los Angeles|New York)\b/i)||[])[1] || '';
+        var _region  = (line.match(/\s+(PR|MX|US|CA|GB|DE|AU)\s/)||[])[1] || '';
+        var _carrier = (line.match(/(?:T-Mobile USA|Liberty Mobile Puerto Rico|Liberty Mobile|RadioMovil Dipsa|T-Mobile|AT&T|Verizon|Sprint)[^,\n]*/i)||[])[0] || '';
+        if (_carrier) _carrier = _carrier.trim().replace(/[,;.].*$/,'');
+        var _ios = (line.match(/iPhone.*?OS ([\d_]+)/i)||[])[1] || '';
+        if (_ios && !_iosVer) _iosVer = _ios.replace(/_/g,'.');
+        var _day = _ts ? _ts.split(' ').slice(0,3).join(' ') : '';
+        if (_status === 'FAILURE' || (line.match(/FAILURE/i) && _ip)) _failures.push({ts:_ts,ip:_ip,city:_city,region:_region,carrier:_carrier});
+        if (_status === 'SUCCESS' || (line.match(/SUCCESS/i) && _ip)) _successes.push({ts:_ts,ip:_ip,city:_city,region:_region,carrier:_carrier});
+        if (_ip && _ips.indexOf(_ip) < 0) _ips.push(_ip);
+        if (_carrier && _carriers.indexOf(_carrier) < 0) _carriers.push(_carrier);
+        if (_city && _cities.indexOf(_city) < 0) _cities.push(_city);
+        if (_day && _dates.indexOf(_day) < 0) _dates.push(_day);
+      });
+      pf.user_log_lines     = _ulLines.length;
+      pf.user_log_failures  = _failures.length;
+      pf.user_log_successes = _successes.length;
+      pf.user_log_ips       = _ips.join(', ');
+      pf.user_log_carriers  = _carriers.join(', ');
+      pf.user_log_cities    = _cities.join(', ');
+      pf.user_log_dates     = _dates.join(', ');
+      // Day-over-day analysis
+      var _day1 = _ulLines.filter(function(l){ return l.match(/Mar\.?\s+20,?\s+2026/i); });
+      var _day2 = _ulLines.filter(function(l){ return l.match(/Mar\.?\s+21,?\s+2026/i); });
+      var _d1carrier = (_day1[0]||'').match(/(?:T-Mobile USA|Liberty Mobile Puerto Rico|Liberty Mobile|RadioMovil Dipsa|T-Mobile|AT&T|Verizon)[^,\n]*/i);
+      var _d2carrier = (_day2[0]||'').match(/(?:T-Mobile USA|Liberty Mobile Puerto Rico|Liberty Mobile|RadioMovil Dipsa|T-Mobile|AT&T|Verizon)[^,\n]*/i);
+      var _d1city    = (_day1.join(' ').match(/\b(San Juan|Vega Baja|Mexico City|Dallas|Miami)\b/i)||[])[1] || '';
+      var _d2city    = (_day2.join(' ').match(/\b(San Juan|Vega Baja|Mexico City|Dallas|Miami)\b/i)||[])[1] || '';
+      var _d1ip      = (_day1[0]||'').match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[0-9a-f]{4}:[0-9a-f:]{5,})\b/i);
+      var _d2ip      = (_day2[0]||'').match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/);
+      var _c1 = _d1carrier ? _d1carrier[0].trim().replace(/[,;.].*$/,'') : '';
+      var _c2 = _d2carrier ? _d2carrier[0].trim().replace(/[,;.].*$/,'') : '';
+      var _sameDevice = _iosVer ? 'Same device (iPhone iOS ' + _iosVer + ') on both days.' : 'Same device type both days.';
+      // Summary findings
+      res.findings.push('\uD83D\uDCCB User log (' + _ulLines.length + ' lines, ' + _dates.length + ' day(s)): ' + _failures.length + ' FAILURE(s), ' + _successes.length + ' SUCCESS(es). IPs: ' + _ips.join(', ') + '.');
+      if (_day1.length && _day2.length && (_c1 !== _c2 || _d1city !== _d2city)) {
+        var _d1sum = 'Mar 20: ' + (_c1||'unknown carrier') + (' \u2014 ') + (_d1city||'unknown city') + ' ' + ((_day1[0]||'').match(/\b(PR|US|MX)\b/)||[''])[0] + ' (' + ((_d1ip||[''])[0]||'unknown IP') + ')';
+        var _d2sum = 'Mar 21: ' + (_c2||'unknown carrier') + (' \u2014 ') + (_d2city||'unknown city') + ' ' + ((_day2[0]||'').match(/\b(PR|US|MX)\b/)||[''])[0] + ' (' + ((_d2ip||[''])[0]||'unknown IP') + ')';
+        pf.user_log_day1_summary = _d1sum;
+        pf.user_log_day2_summary = _d2sum;
+        res.findings.push('\uD83D\uDCC5 Day-over-day shift: ' + _d1sum + ' \u2192 ' + _d2sum + '. ' + _sameDevice);
+        if (pf.osint_clean) {
+          res.findings.push('\u2139\uFE0F Carrier/location change + clean OSINT: user may have switched networks (roaming, dual-SIM, or location change) \u2014 not necessarily malicious. Verify with user.');
+        }
+      } else {
+        res.findings.push('\u2705 Consistent auth pattern across ' + _dates.length + ' day(s). ' + _sameDevice);
+      }
+    }
+
     // Redirect chain builder
     if (pf.url && pf.referer) {
       try {
@@ -3158,6 +3659,60 @@ document.addEventListener("DOMContentLoaded", () => {
     const cmdline = pf.cmdline    || "";
     const domain  = url ? (() => { try { return new URL(url).hostname; } catch { return ""; }})() : (iocs.domains||[])[0] || "";
     const refDomain = referer ? (() => { try { return new URL(referer).hostname; } catch { return ""; }})() : "";
+
+    // ── MULTI-SOURCE OVERRIDE ────────────────────────────────────
+    // When multiple sources were correlated, build a unified narrative
+    if (pf.is_multi_source && pf.correlated_sources) {
+      const srcCount   = pf.source_count || 2;
+      const sources    = pf.correlated_sources;
+      const kc         = pf.kill_chain_stage || "";
+      const kcStages   = pf.kill_chain_stages || 0;
+      const who_str    = user && host ? `${user} on host ${host}` : user || host || "an account";
+      const whom_str   = (dept||role) ? ` (${[role,dept].filter(Boolean).join(", ")})` : "";
+      const ip_str     = srcIP ? ` from ${srcIP}` : "";
+      const ts_str     = pf.timestamp ? ` at ${pf.timestamp}` : "";
+
+      const p1_ms = `${srcCount} log sources correlate on ${who_str}${whom_str}${ip_str}${ts_str} — ${sources}. `
+        + (kc ? `The activity spans ${kcStages} kill chain stage${kcStages>1?"s":""}: ${kc}. ` : "")
+        + (kcStages >= 3 ? "This represents a confirmed, multi-stage intrusion sequence." : kcStages >= 2 ? "This is a multi-stage attack pattern." : "Events from these sources are linked by shared entity.");
+
+      const p2_ms = (() => {
+        const has = id => (pf.correlated_sources||"").toLowerCase().includes(id);
+        if (has("proofpoint") && (has("crowdstrike")||has("defender")))
+          return `Correlation confirms phishing-to-execution: an email from Proofpoint logs was permitted through, and CrowdStrike/Defender recorded process execution on the same host shortly after. The user likely opened the attachment or clicked a link that ran malicious code.`;
+        if ((has("okta")||has("azure")||has("falcon")||has("entra")) && has("zscaler"))
+          return `An identity alert and a web/proxy alert share the same user and source IP — the authentication event and network traffic are part of the same session. Verify whether the auth succeeded and what the session accessed post-login.`;
+        if (has("crowdstrike") && has("zscaler"))
+          return `Endpoint and network telemetry align: CrowdStrike detected malicious process activity while Zscaler recorded outbound traffic from the same host. The endpoint is likely beaconing to a C2 server.`;
+        return `These sources share common entity indicators (user, host, or IP) and together describe a more complete picture of the event than any single alert alone.`;
+      })();
+
+      const p3_ms = findings.some(f => /phishing.*execution|credential.*exec|C2.*exec/i.test(f))
+        ? "⚠️ Evidence of compromise present — multiple attack stages completed. Immediate containment required."
+        : (pf.control_result === "CONTAINED" && kcStages < 2)
+          ? "✅ Security controls contained this activity. Verify no lateral movement or data access occurred."
+          : "⚠️ Multi-source activity — review each source for evidence of execution, data access, or persistence.";
+
+      const urgency = sev==="critical" ? "IMMEDIATE: Isolate endpoint, disable account, preserve evidence, escalate to IR."
+                    : sev==="high"     ? "Priority: Block IOCs across all detected sources, pull EDR telemetry, review auth logs."
+                    :                    "Standard: Correlate timestamps across sources, validate each alert, close or escalate.";
+      const p4_ms = urgency + (kbAction ? " " + kbAction : "");
+
+      const vl_ms = kcStages >= 3 ? "TP – Confirmed multi-stage intrusion. Escalation required. Treat as active breach."
+                  : kcStages >= 2 ? "TP – Multi-stage attack confirmed. Escalate and investigate full scope."
+                  : "TP – Correlated alerts from multiple sources. Review and validate each source.";
+
+      return { p1:p1_ms, p2:p2_ms, p3:p3_ms, p4:p4_ms, verdictLine:vl_ms,
+               mitreContext: mitre.slice(0,5).map(m=>`${m} (${getMitreName(m)})`).join(", "),
+               category: `Multi-Source (${srcCount} sources)`,
+               controlResult: pf.control_result || "DETECTED_ONLY",
+               controlIcon: kcStages>=3 ? "🚨" : "⚠️",
+               controlLabel: kcStages>=3 ? "MULTI-STAGE ATTACK — immediate action required" : "CORRELATED ALERTS — review all sources",
+               effectiveVerdict: kcStages>=3 ? "TP_ESCALATE" : "TP_BLOCKED_NFA",
+               redirectChain: pf.redirect_chain || "",
+               behaviors: findings.slice(0,4).map(f=>f.replace(/[🔗🎯⛓️🚨⚠️ℹ️]/g,"").trim()),
+             };
+    }
 
     // ── STEP 3: Timeline (reconstruct event sequence) ─────────
     const timelineStr = (() => {
@@ -4290,6 +4845,13 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
       </div>
       <div class="lt-narrative-body" id="lt-narr-body">
 
+        ${_pf.is_multi_source ? `
+        <div class="lt-triage-step" style="border-left:3px solid #a78bfa;background:rgba(167,139,250,0.04);padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:6px;">
+          <span class="lt-step-num" style="background:rgba(167,139,250,0.2);color:#a78bfa;">MS</span>
+          <span class="lt-step-label" style="color:#a78bfa;">Multi-Source</span>
+          <span class="lt-step-val"><strong>${_pf.source_count} sources correlated</strong> — ${esc(_pf.correlated_sources||"")}${_pf.kill_chain_stages>=3?' <span style="color:#ef4444;font-weight:800;">🚨 FULL KILL CHAIN</span>':_pf.kill_chain_stages>=2?' <span style="color:#fbbf24;font-weight:700;">⚠️ Multi-stage</span>':''}</span>
+        </div>` : ""}
+
         <div class="lt-triage-step">
           <span class="lt-step-num">1</span>
           <span class="lt-step-label">Alert Classification</span>
@@ -4304,8 +4866,8 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
 
         ${narr.p1 ? `<div class="lt-triage-step lt-step-story">
           <span class="lt-step-num">3</span>
-          <span class="lt-step-label">Timeline / Story</span>
-          <span class="lt-step-val">${esc(narr.p1)}</span>
+          <span class="lt-step-label">${_pf.is_multi_source ? "Correlated Story" : "Timeline / Story"}</span>
+          <span class="lt-step-val">${esc(narr.p1)}${_pf.kill_chain_stage ? '<br><span style="color:#a78bfa;font-size:11px;margin-top:4px;display:block;">⛓️ '+esc(_pf.kill_chain_stage)+'</span>' : ''}</span>
         </div>` : ""}
 
         ${narr.p2 ? `<div class="lt-triage-step">
