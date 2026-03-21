@@ -4258,6 +4258,12 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
 
     // ── NARRATIVE PARAGRAPH ───────────────────────────────────
     const narr = buildNarrativeParagraph(res);
+    // Extract key fields for use in the panel template
+    const _pf   = res.prefillData || {};
+    const user  = _pf.username  || res.iocs?.usernames?.[0]  || "";
+    const host  = _pf.hostname  || res.iocs?.hostnames?.[0]  || "";
+    const srcIP = _pf.src_ip    || "";
+    const et    = res.eventType || "Security Event";
 
     // ── CASE NOTES ────────────────────────────────────────────
     const caseNotes = generateCaseNotes(res);
@@ -4642,7 +4648,7 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
     body.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:12px 0;">
       <span style="display:inline-block;animation:spin 1s linear infinite;margin-right:8px;">⟳</span>
       Composing SOC case note…</div>`;
-    panel.scrollIntoView({ behavior:"smooth", block:"start" });
+    if (panel.scrollIntoView) panel.scrollIntoView({ behavior:"smooth", block:"start" });
 
     // Collect all structured parser fields
     const res  = lastTriageResult;
@@ -4818,7 +4824,7 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
 
     body.innerHTML = html || `<p style="color:var(--muted);font-size:12px;">No note content generated.</p>`;
     panel._socNote = text;
-    panel.scrollIntoView({ behavior:"smooth", block:"start" });
+    if (panel.scrollIntoView) panel.scrollIntoView({ behavior:"smooth", block:"start" });
   }
 
     $("lt-soc-copy-btn")?.addEventListener("click", async () => {
@@ -4873,7 +4879,7 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
       <span style="display:inline-block;animation:spin 1s linear infinite;margin-right:6px;">⟳</span>
       Running enhanced analysis…
     </div>`;
-    panel.scrollIntoView({ behavior:"smooth", block:"start" });
+    if (panel.scrollIntoView) panel.scrollIntoView({ behavior:"smooth", block:"start" });
 
     // Build a concise structured context block from the parser output
     // This grounds the analysis in what we already know — reduces hallucination
