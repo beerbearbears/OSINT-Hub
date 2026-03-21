@@ -1174,12 +1174,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // 2c. SAAS / CASB / FILE-BASED ALERTS (Teams, OneDrive, SharePoint, Box, Dropbox)
-    if (
+    if ((
       /(?:platform|app|application)\s*[=:]\s*(?:Teams|OneDrive|SharePoint|Box|Dropbox|Slack|Google\s*Drive|M365|Office365)/i.test(t) ||
       /(?:filename|file_name|fileName)\s*[=:"]+\s*\S+\.(html|exe|dll|bat|ps1|js|vbs|zip|rar|7z|docm|xlsm|pptm)/i.test(t) ||
-      /(?:fileSize|file_size|malwareType|filePath)\s*[=:"]+\s*\S+/i.test(t) && /Teams|OneDrive|SharePoint|Dropbox|Box|Slack|CASB|SaaS/i.test(t) ||
-      /action\s*[=:]\s*(?:Quarantine|quarantined|DLP Block|file_blocked)/i.test(t) && /Teams|OneDrive|SharePoint|Dropbox|Slack|SaaS/i.test(t)
-    ) {
+      (/(?:fileSize|file_size|malwareType|filePath)\s*[=:"]+\s*\S+/i.test(t) && /Teams|OneDrive|SharePoint|Dropbox|Box|Slack|CASB|SaaS/i.test(t)) ||
+      (/action\s*[=:]\s*(?:Quarantine|quarantined|DLP Block|file_blocked)/i.test(t) && /Teams|OneDrive|SharePoint|Dropbox|Slack|SaaS/i.test(t))
+    ) && !/AlertId|MachineId|DeviceId|ActionType=Process|event_simpleName|ComputerName.*UserName.*Severity|netskope|NetskopeClientVersion|bypass_traffic|appcategory|NetskopeName/i.test(t)) {
       results.eventType = "SaaS / File Security Alert";
       const user      = (t.match(/(?:user|username|upn|email)\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1]||"";
       const host      = (t.match(/(?:clientHostname|hostname|device|computer)\s*[=:"]+\s*([a-zA-Z0-9_.-]{2,60})/i)||[])[1]||"";
@@ -1518,7 +1518,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 14. FIREWALL / NETWORK LOGS
     if (/SRC=|DST=|PROTO=|DPT=|SPT=|inbound|outbound|\bACCEPT\b|\bDROP\b|\bDENY\b|firewall|src_ip|dst_ip|action=allow|action=deny/i.test(t) &&
-        !/requesturl|refererurl|malwarecat|urlCategory|threatName|Vendor\.threatname|Vendor\.threatcat|Vendor\.ipsrulelabel|Ngsiem\.event\.vendor.*[Zz]scaler|[Zz]scaler.*Ngsiem\.event\.vendor|zscaler.*(?:logtype|zia|zpa)|(?:logtype|type)=zscaler/i.test(t)) {
+        !/requesturl|refererurl|malwarecat|urlCategory|threatName|Vendor\.threatname|Vendor\.threatcat|Vendor\.ipsrulelabel|Ngsiem\.event\.vendor.*[Zz]scaler|[Zz]scaler.*Ngsiem\.event\.vendor|zscaler.*(?:logtype|zia|zpa)|(?:logtype|type)=zscaler/i.test(t) &&
+        !/\bqid=|\bmagnitude=|\bcredibility=|\brelevance=|deviceType.*QRadar|\bQRadar\b|\bqradar\b/i.test(t)) {
       results.eventType = "Firewall / Network Log";
       // iptables/netfilter style
       const src  = (t.match(/(?:SRC|src_ip|srcip|source)[=:\s]+(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
@@ -1994,7 +1995,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // 17. OKTA / SSO IDENTITY LOG
-    if (/eventType|actor\.alternateId|outcome\.result|displayMessage|debugContext|authenticationContext|okta/i.test(t)) {
+    if (/eventType|actor\.alternateId|outcome\.result|displayMessage|debugContext|authenticationContext|okta/i.test(t) &&
+        !/EventID=|EventType=Failure|LogonType=|WorkstationName=|FailureReason=|SubjectUserName=|TargetUserName=|TimeCreated=/i.test(t)) {
       results.eventType = "Okta / SSO Identity Log";
       const evType   = (t.match(/(?:"?eventType"?\s*[:,]\s*"?)([a-zA-Z_.]{4,80})/i)||[])[1]||"";
       const outcome  = (t.match(/(?:"?result"?\s*[:,]\s*"?)(SUCCESS|FAILURE|SKIPPED|ALLOW|DENY|UNKNOWN)/i)||[])[1]||
