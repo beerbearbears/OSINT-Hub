@@ -888,6 +888,7 @@
         <textarea id="lt-input" spellcheck="false" placeholder="Paste raw SIEM alert, Windows Event Log, firewall log, email header, or any security event here...&#10;&#10;Examples:&#10;  EventID: 4688 — A new process has been created...&#10;  SRC=192.168.1.5 DST=10.0.0.1 PROTO=TCP DPT=443...&#10;  Authentication-Results: spf=fail; dkim=pass..."></textarea>
         <div class="tools" style="margin-top:10px;">
           <button id="lt-analyze-btn" type="button">🔍 Auto-Triage</button>
+          <button id="lt-deep-triage-btn" type="button" title="Enhanced triage — deeper contextual analysis" style="background:linear-gradient(135deg,#7c3aed,#1D9E75);color:#fff;border:none;font-weight:800;">⚡ Deep Triage</button>
           <button id="lt-prefill-btn" type="button">📝 Pre-fill Write-up</button>
           <button id="lt-copy-btn" type="button">📋 Copy Results</button>
           <button id="lt-casenotes-btn" type="button" title="Copy structured case notes">📝 Copy Case Notes</button>
@@ -937,6 +938,19 @@
             <button id="lt-soc-addcase-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📁 Add to Case</button>
           </div>
           <div id="lt-soc-note-body" style="padding:16px;font-size:12px;line-height:1.9;color:var(--text);white-space:pre-wrap;font-family:inherit;"></div>
+        </div>
+      </div>
+      <!-- Deep Triage Output Panel -->
+      <div id="lt-deep-triage-panel" style="display:none;margin-top:14px;">
+        <div style="background:var(--bg2);border:1px solid rgba(124,58,237,0.35);border-radius:12px;overflow:hidden;">
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 16px 10px;border-bottom:1px solid var(--border);background:rgba(124,58,237,0.06);">
+            <span style="font-size:14px;">⚡</span>
+            <span style="font-size:12px;font-weight:800;color:var(--text);">Enhanced Triage Analysis</span>
+            <span style="font-size:10px;color:var(--muted);flex:1;">Deep contextual analysis — not for external sharing</span>
+            <button id="lt-deep-copy-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📋 Copy</button>
+            <button id="lt-deep-addcase-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📁 Add to Case</button>
+          </div>
+          <div id="lt-deep-triage-body" style="padding:16px;font-size:12px;line-height:1.9;color:var(--text);font-family:inherit;"></div>
         </div>
       </div>
     </div>
