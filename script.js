@@ -6518,15 +6518,19 @@ Produce the triage assessment. Be specific to the values above — do not genera
     const USER_KEYS = /\b(?:UserName|SubjectUserName|TargetUserName|actor\.alternateId|username|account\s+name|account name|Secondary\s+name|Username)\s*[=:"\s]+\s*/gi;
     let um;
     const _tmpText = t;
-    const _userRe  = /\b(?:UserName|SubjectUserName|TargetUserName|actor\.alternateId|username|account\s+name|Secondary\s+name)\s*[=:"\s]+([^\s"',\n]{2,60})/gi;
+    // Usernames — include all key=value matches including email-format usernames
+    const _userRe  = /\b(?:UserName|SubjectUserName|TargetUserName|actor\.alternateId|username|account\s+name|Secondary\s+name|Username)\s*[=:"\s]+([^\s"',\n]{2,60})/gi;
     while ((um = _userRe.exec(_tmpText)) !== null) {
       const val = um[1].trim().replace(/^["']|["']$/g, "");
       if (val && !val.match(/^(?:None|null|N\/A|--|true|false|\d+)$/i)) _rawUsernames.push(val);
     }
-    const usernames = uniq(_rawUsernames.filter(u => !emails.includes(u.toLowerCase())));
+    // User accounts — all values from username fields (may overlap with Email Addresses — intentional,
+    // because username context matters: jdoe@company.com as a USERNAME is different from a CC'd email)
+    const usernames = uniq(_rawUsernames);
 
     // Display names: "User FirstName LastName", displayName=, actor.displayName, target.displayName
-    const _nameRe = /\b(?:User\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+Privileged|(?:displayName|actor\.displayName|target\.displayName|UserDisplayName)\s*[=:"]+\s*([^,"\n]{3,60})|(?:Account\s+name|Subject)\s+([A-Z][a-zA-Z\s\-']{2,40})(?=\s+(?:Source|Time|Activity|Location|Risk|Department|Privileged|Email|Username|AD|SID|OU|See|IP|Network|User\b)))/gi;
+    // Display name patterns — tight stop conditions
+    const _nameRe = /\b(?:User\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+Privileged|(?:actor\.displayName|target\.displayName|UserDisplayName)\s*[=:"]+\s*([^,"\n\s][^,"\n]{2,50}?)(?=\s+\w+[=.]|\s*$|\n)|(?:displayName)\s*[=:"]+\s*([A-Za-z][^,"\n]{2,50}?)(?=\s+\w+[=.]|\s*$|\n)|(?:Account\s+name)\s+([A-Z][a-zA-Z\s\-']{2,40}?)(?=\s+(?:Source|Time|Activity|Location|Risk|Department|Privileged|Email|Username|AD|SID|OU|See|IP|Network)\b))/gi;
     const displayNames = [];
     let nm;
     while ((nm = _nameRe.exec(t)) !== null) {
@@ -6553,7 +6557,7 @@ Produce the triage assessment. Be specific to the values above — do not genera
     const departments = deptMatch ? [deptMatch[1].trim()] : [];
 
     // Titles / Roles
-    const _titleRe = /\bTitle\s+([^\n]{3,60})(?=\s+(?:Network|Username|Email|Privileged|Risk|Source|Time|User|Alert|Classification|AD|SID|OU|See|IP|Activity|Department))/i;
+    const _titleRe = /\bTitle\s+([^\n]{3,60}?)(?=\s+(?:Network|Username|Email|Privileged|Risk|Source|Time|User|Alert|Classification|AD|SID|OU|See|IP|Activity|Department)\b)/i;
     const titleMatch = t.match(_titleRe);
     const titles = titleMatch ? [titleMatch[1].trim()] : [];
 
@@ -6573,7 +6577,8 @@ Produce the triage assessment. Be specific to the values above — do not genera
       .map(p => p.toLowerCase()));
 
     // Command lines
-    const _cmdRe = /(?:CommandLine|cmdline|command)\s*[=:"\s]+([^\n"]{5,200})/gi;
+    // CommandLine — stop at the next key=value boundary
+    const _cmdRe = /(?:CommandLine|cmdline)\s*[=:"\s]+([^\n"]{5,200}?)(?=\s+[A-Za-z_]+[A-Za-z0-9_]*\s*=|\s*$|\n)/gi;
     const cmdlines = [];
     let cl;
     while ((cl = _cmdRe.exec(t)) !== null) {
@@ -6689,7 +6694,7 @@ Produce the triage assessment. Be specific to the values above — do not genera
 
     // Identity
     sec("Email Addresses",     emails);
-    sec("Usernames",           usernames);
+    sec("User Accounts / Usernames", usernames);
     sec("Display Names",       names);
     sec("Departments",         departments);
     sec("Titles / Roles",      titles);
