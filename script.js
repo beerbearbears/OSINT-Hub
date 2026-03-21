@@ -1173,6 +1173,77 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
 
+    // 2c. SAAS / CASB / FILE-BASED ALERTS (Teams, OneDrive, SharePoint, Box, Dropbox)
+    if (
+      /(?:platform|app|application)\s*[=:]\s*(?:Teams|OneDrive|SharePoint|Box|Dropbox|Slack|Google\s*Drive|M365|Office365)/i.test(t) ||
+      /(?:filename|file_name|fileName)\s*[=:"]+\s*\S+\.(html|exe|dll|bat|ps1|js|vbs|zip|rar|7z|docm|xlsm|pptm)/i.test(t) ||
+      /(?:fileSize|file_size|malwareType|filePath)\s*[=:"]+\s*\S+/i.test(t) && /Teams|OneDrive|SharePoint|Dropbox|Box|Slack|CASB|SaaS/i.test(t) ||
+      /action\s*[=:]\s*(?:Quarantine|quarantined|DLP Block|file_blocked)/i.test(t) && /Teams|OneDrive|SharePoint|Dropbox|Slack|SaaS/i.test(t)
+    ) {
+      results.eventType = "SaaS / File Security Alert";
+      const user      = (t.match(/(?:user|username|upn|email)\s*[=:"]+\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i)||[])[1]||"";
+      const host      = (t.match(/(?:clientHostname|hostname|device|computer)\s*[=:"]+\s*([a-zA-Z0-9_.-]{2,60})/i)||[])[1]||"";
+      const filename  = (t.match(/(?:filename|file_name|fileName)\s*[=:"]+\s*([^\s\"',\n]{2,120})/i)||[])[1]||"";
+      const platform  = (t.match(/(?:platform|app|application|sourceApp|source_app)\s*[=:"]+\s*([^\s\"',\n]{2,40})/i)||[])[1]||"";
+      const action    = (t.match(/(?:action|verdict|disposition)\s*[=:"]+\s*([^\s\"',\n]{2,30})/i)||[])[1]||"";
+      const malType   = (t.match(/(?:malwareType|malware_type|threatName|threat_name|detectionName)\s*[=:"]+\s*([^\s\"',\n]{2,80})/i)||[])[1]||"";
+      const srcIP     = (t.match(/(?:srcIP|src_ip|clientIP|sourceIP|source_ip)\s*[=:"]+\s*(\d{1,3}(?:\.\d{1,3}){3})/i)||[])[1]||"";
+      const fileSize  = (t.match(/(?:fileSize|file_size|size)\s*[=:"]+\s*(\d+)/i)||[])[1]||"";
+      const isQuarantined = /quarantine|quarantined/i.test(action);
+      const isBlocked     = /blocked|block|deny|denied/i.test(action);
+      const isAllowed     = /allow|allowed|permit/i.test(action);
+
+      if (user)     { results.indicators.push(`User: ${user}`);     results.prefillData.username   = user; }
+      if (host)     { results.indicators.push(`Host: ${host}`);     results.prefillData.hostname   = host; }
+      if (srcIP)    { results.indicators.push(`SrcIP: ${srcIP}`);   results.prefillData.src_ip     = srcIP; }
+      if (platform) { results.indicators.push(`Platform: ${platform}`); results.prefillData.platform = platform; }
+      if (filename) { results.indicators.push(`File: ${filename}`); results.prefillData.threat_name = filename; }
+      if (malType)  { results.indicators.push(`Detection: ${malType}`); if (!results.prefillData.threat_name) results.prefillData.threat_name = malType; }
+      if (action)   { results.indicators.push(`Action: ${action}`); results.prefillData.verdict    = action.toUpperCase(); }
+
+      // Determine if file was executed or just detected
+      const noExec = isQuarantined || isBlocked || /no\s*exec|not\s*executed|storage\s*only|detected\s*not\s*run/i.test(t);
+      const possiblyExec = isAllowed || /executed|launched|ran|run|process\s*created/i.test(t);
+
+      if (isQuarantined) {
+        results.findings.push(`✅ File quarantined — threat contained before execution. No evidence of execution at this stage.`);
+        results.prefillData.control_action = "QUARANTINED";
+        results.severity = results.severity === "info" ? "medium" : results.severity;
+      } else if (isBlocked) {
+        results.findings.push(`✅ File blocked — access prevented. No execution risk.`);
+        results.prefillData.control_action = "BLOCKED";
+      } else if (isAllowed) {
+        results.findings.push(`⚠️ File ALLOWED — file was not blocked. Execution risk exists. Requires immediate EDR triage.`);
+        results.prefillData.control_action = "ALLOWED";
+        if (results.severity === "info") results.severity = "high";
+      }
+
+      // File extension analysis
+      if (/\.(exe|dll|bat|ps1|vbs|hta|msi|js)$/i.test(filename)) {
+        results.findings.push(`🚨 Executable file type: ${filename.split('.').pop().toUpperCase()} — high execution risk if run.`);
+        results.mitre.add("T1204.002"); results.severity = "high";
+      } else if (/\.(html|htm)$/i.test(filename)) {
+        results.findings.push(`⚠️ HTML file — potential phishing lure or ClickFix delivery mechanism.`);
+        results.mitre.add("T1566.002");
+        if (results.severity === "info") results.severity = "medium";
+      } else if (/\.(docm|xlsm|pptm|docx|xlsx)$/i.test(filename)) {
+        results.findings.push(`⚠️ Office document — potential macro-enabled malware delivery.`);
+        results.mitre.add("T1566.001");
+        if (results.severity === "info") results.severity = "medium";
+      } else if (/\.(zip|rar|7z|iso|img)$/i.test(filename)) {
+        results.findings.push(`⚠️ Archive/image file — possible malware container, evades AV scanning.`);
+        results.mitre.add("T1027");
+      }
+
+      // Platform-specific notes
+      if (/teams/i.test(platform)) results.findings.push(`ℹ️ File shared via Microsoft Teams — check sender, channel, and whether other users received/opened it.`);
+      else if (/onedrive|sharepoint/i.test(platform)) results.findings.push(`ℹ️ File stored in Microsoft 365 cloud storage — check sharing permissions and access logs.`);
+      else if (/dropbox|box|gdrive|google.*drive/i.test(platform)) results.findings.push(`ℹ️ File detected in shadow IT cloud storage — policy review may be needed.`);
+
+      results.mitre.add("T1566"); results.mitre.add("T1204");
+      return _finalizeTriage(results);
+    }
+
     // 3. PROOFPOINT (Email Security / TAP)
     if (/proofpoint|TAP|messageParts|THREAT_TYPE|clicksPermitted|messagesDelivered|spamScore|phishScore|mlxScore|policyRoutes|quarantineFolder|senderIP/i.test(t)) {
       results.eventType = "Proofpoint Email Security";
@@ -2463,6 +2534,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (results.iocs.domains && results.iocs.ips) {
       results.iocs.domains = results.iocs.domains.filter(d => !results.iocs.ips.includes(d));
     }
+    // ── Apply offline KB enrichment ───────────────────────────
+    // enrichFromKB is defined after this function — call it lazily
+    if (typeof enrichFromKB === "function") enrichFromKB(results);
     return results;
   }
 
@@ -2821,257 +2895,408 @@ document.addEventListener("DOMContentLoaded", () => {
   //   WHAT happened · WHO/WHAT was involved · WHY it's suspicious
   //   WHAT likely occurred · WHAT the next action should be
   // ═══════════════════════════════════════════════════════════════
-  function buildNarrativeParagraph(res) {
-    const iocs     = res.iocs     || {};
-    const pf       = res.prefillData || {};
-    const findings = res.findings || [];
-    const mitre    = res.mitre ? [...res.mitre] : [];
-    const raw      = (res._rawText || "").toLowerCase();
-    const et       = res.eventType || "Security Event";
-    const sev      = res.severity  || "info";
-    const findingsStr = findings.join(" ").toLowerCase();
-    const verdict  = scoreAutoVerdict(res);
+  // ══════════════════════════════════════════════════════════════════════
+  // OFFLINE THREAT INTELLIGENCE KNOWLEDGE BASE
+  // Embedded context used by the triage engine for instant, offline enrichment.
+  // No API call needed — this knowledge is always available.
+  // ══════════════════════════════════════════════════════════════════════
+  const THREAT_KB = {
 
-    // ── Field resolution ──────────────────────────────────────
-    const user    = pf.username  || iocs.usernames?.[0]  || pf.sender?.split("@")[0] || "";
+    // ── Malware / Threat Signature Context ────────────────────────────
+    signatures: {
+      "HTML.Trojan.ClickFix":        { verdict:"TP", sev:"high",    cat:"social-engineering", desc:"ClickFix lure page — instructs user to paste PowerShell/cmd into Run dialog. Pre-compromise delivery, not post-compromise.", mitre:["T1204.001","T1059.001"], action:"Block domain, pull EDR telemetry for clipboard/process activity on host." },
+      "HTML.Scam.TechSupport":       { verdict:"TP", sev:"medium",  cat:"scam",               desc:"Tech-support scam page — fake Windows error or Microsoft alert designed to harvest credentials or trick user into calling a fraudulent support number.", mitre:["T1566.002","T1204.001"], action:"Block domain, check if user called any phone number from the page." },
+      "HTML.Phishing":               { verdict:"TP", sev:"high",    cat:"phishing",           desc:"Phishing page — credential harvesting site designed to mimic a legitimate login portal.", mitre:["T1566.002","T1078"], action:"Block domain, check if user submitted credentials, force password reset." },
+      "JS.Miner":                    { verdict:"TP", sev:"low",     cat:"cryptominer",        desc:"Browser-based cryptominer — consumes CPU resources, typically not destructive but indicates a compromised or malicious website.", mitre:["T1496"], action:"Block domain. No credential risk, but investigate site category." },
+      "Trojan.GenericKD":            { verdict:"TP", sev:"critical",cat:"trojan",             desc:"Generic trojan dropper — multi-purpose malware loader. High risk of follow-on payload delivery or persistence.", mitre:["T1059","T1055","T1547"], action:"Isolate host immediately, full forensic triage." },
+      "Exploit.CVE":                 { verdict:"TP", sev:"critical",cat:"exploit",            desc:"Known CVE exploit attempt. Immediate patching and host isolation required.", mitre:["T1190","T1203"], action:"Isolate host, patch immediately, check for successful exploitation." },
+      "Cobalt.Strike":               { verdict:"TP", sev:"critical",cat:"c2",                 desc:"Cobalt Strike beacon — commercial pen-test tool widely abused by ransomware groups and APTs for C2 and lateral movement.", mitre:["T1071","T1055","T1021"], action:"IMMEDIATE: isolate host, block C2 IP/domain, escalate to IR." },
+      "Metasploit":                  { verdict:"TP", sev:"critical",cat:"c2",                 desc:"Metasploit framework activity — open-source exploitation framework. High confidence active attack.", mitre:["T1059","T1190"], action:"IMMEDIATE: isolate host, block source IP, escalate to IR." },
+      "Mimikatz":                    { verdict:"TP", sev:"critical",cat:"credential",         desc:"Mimikatz credential dumping tool — extracts plaintext passwords, hashes, Kerberos tickets from LSASS memory.", mitre:["T1003.001","T1078"], action:"IMMEDIATE: assume all domain credentials compromised, reset all, isolate host." },
+      "Ransomware":                  { verdict:"TP", sev:"critical",cat:"ransomware",         desc:"Ransomware activity detected. Encryption may be in progress or complete.", mitre:["T1486","T1490"], action:"IMMEDIATE: isolate host, take offline snapshot, do NOT reboot, escalate." },
+      "HTML.Scam.TechSupport":       { verdict:"TP", sev:"medium",  cat:"scam",               desc:"Tech-support scam page — fake Windows error or Microsoft alert designed to harvest credentials or trick user into calling a fraudulent support number.", mitre:["T1566.002","T1204.001"], action:"Block domain, check if user called any phone number from the page or submitted credentials." },
+      "EICAR":                       { verdict:"FP", sev:"info",    cat:"test",               desc:"EICAR antivirus test file — this is a standard AV test string, not real malware. Safe to ignore.", mitre:[], action:"Verify this is a planned AV test. If unexpected, investigate who ran it." },
+      "PUP":                         { verdict:"FP", sev:"low",     cat:"pup",                desc:"Potentially Unwanted Program — adware, toolbar, or bundled software. Low risk, typically not malicious.", mitre:[], action:"Remove if against policy. Not an active threat." },
+      "HTML.Trojan":                 { verdict:"TP", sev:"high",    cat:"trojan",             desc:"Browser-delivered trojan — malicious HTML/JS payload attempting to execute in browser context.", mitre:["T1059.007","T1204.001"], action:"Block domain, check for follow-on process execution on host." },
+      "Malware.pre-C2":              { verdict:"TP", sev:"high",    cat:"c2",                 desc:"Pre-C2 communication attempt — malware beaconing to establish command-and-control channel. Block before session is established.", mitre:["T1071","T1095"], action:"Block destination IP/domain, pull EDR for implant on host." },
+    },
+
+    // ── Alert Type Context ─────────────────────────────────────────────
+    alertTypes: {
+      "Access from unusual geolocation":  { risk:"high",    desc:"Authentication from a location not in the user's normal baseline. High confidence if combined with auth failures or carrier mismatch.", immediate:"Verify with user out-of-band. If unconfirmed, disable account." },
+      "Access from blocklisted location": { risk:"critical",desc:"Authentication from a country on the corporate or threat-intel blocklist. Treat as compromise until proven otherwise.", immediate:"Disable account NOW. Do not wait for user response." },
+      "Suspicious web-based activity":    { risk:"medium",  desc:"ML-detected anomalous web behavior — unusual browsing pattern, suspicious user-agent, or access to high-risk domain categories.", immediate:"Review full session, block suspicious domains, check for download activity." },
+      "Impossible travel":                { risk:"critical",desc:"Same account authenticated from two geographically distant locations within a timeframe that makes physical travel impossible.", immediate:"IMMEDIATE account disable, revoke all sessions." },
+      "MFA denied":                       { risk:"high",    desc:"User denied an MFA push they did not initiate — confirms attacker has credentials and is attempting to bypass MFA.", immediate:"Reset credentials immediately. Enable number matching on MFA." },
+      "MFA fatigue":                      { risk:"critical",desc:"Repeated MFA push notifications — attacker spamming MFA to exhaust user. Associated with Scattered Spider / UNC3944.", immediate:"Disable account, re-enrol MFA, investigate how credentials were obtained." },
+      "Concurrent login":                 { risk:"high",    desc:"Multiple simultaneous authenticated sessions from different IPs — session token theft or credential sharing.", immediate:"Revoke all active sessions, investigate session source." },
+      "Password spray":                   { risk:"high",    desc:"Low-and-slow brute force using common passwords across many accounts. Often precursor to credential stuffing.", immediate:"Check for successful auths after failures, lock accounts with repeated failures." },
+      "OAuth app consent":                { risk:"high",    desc:"Application consent grant — attacker may have registered a malicious OAuth app to persist access without credentials.", immediate:"Revoke consent immediately, audit all granted app permissions." },
+    },
+
+    // ── Carrier/ISP Attribution ───────────────────────────────────────
+    carriers: {
+      "RadioMovil Dipsa":   { country:"Mexico",      type:"mobile", note:"Telcel — Mexico's largest mobile carrier. Direct mobile connection, not a VPN or proxy." },
+      "Telcel":             { country:"Mexico",      type:"mobile", note:"Telcel (RadioMovil Dipsa) — Mexico's largest mobile carrier." },
+      "T-Mobile USA":       { country:"USA",         type:"mobile", note:"T-Mobile USA — major US mobile carrier. Commonly used for legitimate employee mobile access." },
+      "Verizon":            { country:"USA",         type:"mobile", note:"Verizon — major US carrier. Normal for corporate mobile devices." },
+      "AT&T":               { country:"USA",         type:"mobile", note:"AT&T — major US carrier. Normal for corporate mobile devices." },
+      "Rostelecom":         { country:"Russia",      type:"isp",    note:"Russia's state-owned ISP. High-risk origin for corporate auth events." },
+      "China Telecom":      { country:"China",       type:"isp",    note:"China state-owned ISP. High-risk origin for corporate auth events." },
+      "DigitalOcean":       { country:"USA",         type:"hosting",note:"Cloud hosting provider — commonly used for VPS-based attacks. Not a user ISP." },
+      "Linode":             { country:"USA",         type:"hosting",note:"Cloud hosting — commonly used for attack infrastructure." },
+      "Vultr":              { country:"USA",         type:"hosting",note:"Cloud VPS — commonly used for attack infrastructure." },
+      "M247":               { country:"Romania",     type:"vpn",    note:"M247 — bulletproof hosting/VPN provider frequently used for attack anonymization." },
+      "Mullvad":            { country:"Sweden",      type:"vpn",    note:"Mullvad VPN — legitimate privacy VPN. Auth from Mullvad may indicate deliberate anonymization." },
+    },
+
+    // ── URL/Domain Pattern Context ────────────────────────────────────
+    urlPatterns: [
+      { re:/\/verify\/?$|\/captcha\/?$|\/check\/?$|\/validate\/?$|\/confirm\/?$|\/update\/?$/i, label:"ClickFix/Verify lure path", risk:"high", desc:"Path matches ClickFix, CAPTCHA bypass, or verification lure patterns — commonly used in social engineering to deliver PowerShell payloads." },
+      { re:/\/admin\/|\/wp-admin\/|\/xmlrpc\.php/i,                                             label:"CMS admin/exploit path",   risk:"high", desc:"Targeting CMS admin panels or known vulnerable endpoints. Possible exploitation attempt." },
+      { re:/\.php\?id=|union.*select|' OR '1'='1/i,                                            label:"SQLi indicator",           risk:"critical", desc:"SQL injection pattern in URL. Active exploitation attempt." },
+      { re:/cmd\.exe|powershell|base64|eval\(|document\.write/i,                               label:"Code execution in URL",    risk:"critical", desc:"URL contains code execution payload. Likely XSS or command injection attempt." },
+      { re:/\.(exe|dll|bat|ps1|vbs|js|hta|msi|iso|zip|rar|7z)(\?|$)/i,                        label:"Executable/archive download",risk:"high", desc:"URL points to an executable or archive — potential malware delivery." },
+      { re:/\.ru\/|\.cn\/|\.tk\/|\.xyz\/|\.top\/|\.club\/|\.icu\//i,                          label:"High-risk TLD",            risk:"medium", desc:"Domain uses a TLD frequently associated with malware hosting and phishing." },
+      { re:/[a-z0-9]{15,}\.(com|net|org|io|me)\//i,                                           label:"DGA-like domain",          risk:"high", desc:"Long random-looking domain name — potential DGA (Domain Generation Algorithm) C2 domain." },
+    ],
+
+    // ── Verdict logic ─────────────────────────────────────────────────
+    getSignatureContext(sigName) {
+      if (!sigName) return null;
+      const sig = sigName.toLowerCase();
+      // Exact match first
+      const exact = Object.keys(this.signatures).find(k => sig === k.toLowerCase());
+      if (exact) return this.signatures[exact];
+      // Starts-with match (e.g. HTML.Scam.TechSupport matches HTML.Scam.TechSupport)
+      const starts = Object.keys(this.signatures).find(k => sig.startsWith(k.toLowerCase()) || k.toLowerCase().startsWith(sig.split(".").slice(0,2).join(".").toLowerCase()));
+      if (starts) return this.signatures[starts];
+      // Contains match (fallback)
+      const contains = Object.keys(this.signatures).find(k => sig.includes(k.toLowerCase()));
+      return contains ? this.signatures[contains] : null;
+    },
+    getAlertTypeContext(alertType) {
+      const key = Object.keys(this.alertTypes).find(k => alertType.toLowerCase().includes(k.toLowerCase()));
+      return key ? this.alertTypes[key] : null;
+    },
+    getCarrierContext(carrier) {
+      const key = Object.keys(this.carriers).find(k => carrier.toLowerCase().includes(k.toLowerCase()));
+      return key ? this.carriers[key] : null;
+    },
+    // VPN / Hosting IP ranges — common FP sources
+    vpnHostingASNs: [
+      "digitalocean","linode","vultr","amazon","amazonaws","google cloud","microsoft azure",
+      "ovhcloud","hetzner","contabo","m247","mullvad","expressvpn","nordvpn","protonvpn",
+      "private internet access","surfshark","ipvanish","torguard","hidemyass",
+    ],
+    isVPNOrHosting(carrier) {
+      if (!carrier) return false;
+      const c = carrier.toLowerCase();
+      return this.vpnHostingASNs.some(v => c.includes(v));
+    },
+    getURLContext(url) {
+      if (!url) return null;
+      for (const p of this.urlPatterns) {
+        if (p.re.test(url)) return p;
+      }
+      return null;
+    },
+  };
+
+  // ── Apply KB enrichment to every triage result ─────────────────────
+  function enrichFromKB(res) {
+    const pf  = res.prefillData || {};
+    // Look for signature in multiple fields + cmdline + findings
+    const sig = pf.threat_name || pf.rule ||
+                (pf.cmdline||"").match(/mimikatz|cobalt.strike|metasploit|meterpreter|bloodhound|sharphound|rubeus|kerberoast|procdump.*lsass/i)?.[0] ||
+                (res.findings||[]).join(" ").match(/mimikatz|cobalt.strike|metasploit|ransomware|lsass.*dump|credential.*dump/i)?.[0] || "";
+    const alertNames = (res._rawText||"").match(/Alert \d+\.\s+([^\n]{5,80})/gi)||[];
+
+    // Enrich from signature
+    const sigCtx = THREAT_KB.getSignatureContext(sig);
+    if (sigCtx) {
+      if (!pf.kb_verdict) pf.kb_verdict   = sigCtx.verdict;
+      if (!pf.kb_desc)   pf.kb_desc     = sigCtx.desc;
+      if (!pf.kb_action) pf.kb_action   = sigCtx.action;
+      if (!pf.kb_mitre)  pf.kb_mitre    = sigCtx.mitre;
+      // Upgrade severity if KB says higher
+      const sevOrder = {info:0,low:1,medium:2,high:3,critical:4};
+      if ((sevOrder[sigCtx.sev]||0) > (sevOrder[res.severity]||0)) res.severity = sigCtx.sev;
+    }
+
+    // Enrich from alert type names (Falcon Identity style)
+    alertNames.forEach(a => {
+      const alertCtx = THREAT_KB.getAlertTypeContext(a);
+      if (alertCtx) {
+        if (!pf.kb_alert_desc)    pf.kb_alert_desc    = alertCtx.desc;
+        if (!pf.kb_alert_action)  pf.kb_alert_action  = alertCtx.immediate;
+        const sevOrder = {low:0,medium:1,high:2,critical:3};
+        if ((sevOrder[alertCtx.risk]||0) > (sevOrder[res.severity]||0)) res.severity = alertCtx.risk;
+      }
+    });
+
+    // Enrich from carrier
+    const carrierCtx = THREAT_KB.getCarrierContext(pf.carrier||"");
+    if (carrierCtx) {
+      pf.kb_carrier_desc = `${pf.carrier} is a ${carrierCtx.type} carrier in ${carrierCtx.country}. ${carrierCtx.note}`;
+    }
+
+    // Enrich from URL pattern
+    const urlCtx = THREAT_KB.getURLContext(pf.url||"");
+    if (urlCtx && !res.findings.some(f => f.includes(urlCtx.label))) {
+      res.findings.push(`⚠️ URL pattern: ${urlCtx.label} — ${urlCtx.desc}`);
+    }
+
+    // Redirect chain builder
+    if (pf.url && pf.referer) {
+      try {
+        const destHost = new URL(pf.url).hostname;
+        const refHost  = new URL(pf.referer).hostname;
+        if (destHost !== refHost) {
+          pf.redirect_chain = `${refHost} → ${destHost}`;
+          pf.kb_redirect_desc = `User was browsing ${refHost} which silently redirected to ${destHost}. The referring site may itself be compromised or malicious.`;
+        }
+      } catch {}
+    }
+    // Check for multiple domain hops in the raw text (multi-redirect chains)
+    const rawDomains = [];
+    const domainHopRe = /https?:\/\/([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+    let m;
+    while ((m = domainHopRe.exec(res._rawText||"")) !== null) {
+      const d = m[1];
+      if (!rawDomains.includes(d)) rawDomains.push(d);
+    }
+    if (rawDomains.length > 2) {
+      pf.domain_chain = rawDomains.slice(0, 6).join(" → ");
+    }
+
+    // VPN/hosting check — may flip verdict to FP
+    if (THREAT_KB.isVPNOrHosting(pf.carrier||"")) {
+      pf.kb_vpn_flag = true;
+      pf.kb_vpn_desc = `Source carrier "${pf.carrier}" is a VPN or cloud hosting provider — this authentication may be from a corporate VPN or legitimate remote access tool. Verify before escalating.`;
+    }
+
+    // Control validation — what did the security control actually DO?
+    const rawLower = (res._rawText||"").toLowerCase();
+    const ctrlAction = pf.verdict || pf.control_action || pf.http_status || "";
+    if (/(blocked|block|ips drop|deny|denied|prevented|quarantine|quarantined)/i.test(ctrlAction + " " + rawLower.slice(0,200))) {
+      pf.control_result = "CONTAINED";
+      pf.control_desc   = "Security control blocked the threat. No content reached the endpoint.";
+    } else if (/(allowed|allow|permit|success|passed)/i.test(ctrlAction)) {
+      pf.control_result = "ALLOWED";
+      pf.control_desc   = "⚠️ Traffic was ALLOWED through. Manual investigation required to determine impact.";
+    } else if (/(detected|alert|flagged|raised)/i.test(ctrlAction)) {
+      pf.control_result = "DETECTED_ONLY";
+      pf.control_desc   = "Threat was detected but not automatically blocked. Action depends on follow-on activity.";
+    }
+
+    // Compromise check — did any post-compromise indicators appear?
+    const comprPromise = [
+      { re: /execut|process.*creat|child.*process|spawn/i,              label: "process execution detected" },
+      { re: /download|bytes.*recv|payload.*deliver/i,                   label: "file/payload download detected" },
+      { re: /persist|registry.*run|scheduled.*task|autorun/i,           label: "persistence mechanism detected" },
+      { re: /c2|command.*control|beacon.*success|callback.*success/i,   label: "C2 callback detected" },
+      { re: /exfil|data.*sent|upload.*success|bytes.*out.*[1-9]\d{4,}/i,label: "possible data exfiltration" },
+      { re: /lateral|rdp.*success|smb.*auth|pass.*hash/i,              label: "lateral movement detected" },
+    ];
+    const compromiseIndicators = comprPromise.filter(c => c.re.test(res._rawText||""));
+    if (compromiseIndicators.length > 0) {
+      pf.compromise_indicators = compromiseIndicators.map(c => c.label).join("; ");
+      pf.kb_verdict = "TP_ESCALATE";
+      res.severity = "critical";
+    } else if (pf.control_result === "CONTAINED") {
+      if (!pf.kb_verdict) pf.kb_verdict = "TP";
+      pf.no_compromise = true;
+    }
+
+    return res;
+  }
+
+  function buildNarrativeParagraph(res) {
+    const iocs        = res.iocs     || {};
+    const pf          = res.prefillData || {};
+    const findings    = res.findings || [];
+    const mitre       = res.mitre ? [...res.mitre] : [];
+    const raw         = (res._rawText || "").toLowerCase();
+    const et          = res.eventType || "Security Event";
+    const sev         = res.severity  || "info";
+    const findingsStr = findings.join(" ").toLowerCase();
+    const verdict     = scoreAutoVerdict(res);
+
+    // ── STEP 1: Alert Classification ─────────────────────────
+    const isWeb      = /zscaler|proxy|web.*log|zia|firewall.*network/i.test(et);
+    const isIdentity = /identity|okta|azure|entra|mfa|authentication|sso|falcon identity/i.test(et);
+    const isEndpoint = /crowdstrike|falcon|defender|sentinelone|edr|endpoint/i.test(et);
+    const isSaaS     = /saas|teams|onedrive|sharepoint|casb|file.*security/i.test(et);
+    const isNetwork  = /firewall|network|ids|ips|snort|suricata|darktrace|qradar/i.test(et);
+    const isEmail    = /proofpoint|email|phishing|spam/i.test(et);
+    const category   = isWeb ? "Network/Web" : isIdentity ? "Identity" : isEndpoint ? "Endpoint" : isSaaS ? "SaaS/File" : isEmail ? "Email" : isNetwork ? "Network" : "Unknown";
+
+    // ── STEP 2: Entity extraction (already done by parser) ────
+    const user    = pf.username  || iocs.usernames?.[0]  || "";
     const host    = pf.hostname  || iocs.hostnames?.[0]  || "";
     const srcIP   = pf.src_ip    || "";
     const dstIP   = pf.dest_ip   || (iocs.ips||[]).find(ip => !isPrivateIPv4(ip) && ip !== srcIP) || "";
+    const dstPort = pf.dest_port || "";
+    const url     = pf.url       || iocs.urls?.[0] || "";
+    const referer = pf.referer   || "";
+    const sig     = pf.threat_name || pf.rule || "";
+    const cat     = pf.category  || "";
+    const action  = pf.verdict   || pf.control_action || "";
+    const ts      = pf.timestamp || iocs.timestamps?.[0] || "";
+    const dept    = pf.department || "";
+    const role    = pf.role       || "";
+    const carrier = pf.carrier    || "";
+    const loc     = pf.location   || pf.suspicious_location || "";
+    const failIPs = pf.fail_ips   || "";
+    const succIPs = pf.success_ips|| "";
+    const device  = pf.device     || "";
     const hash    = iocs.hashes?.[0] || "";
-    const domain  = iocs.domains?.[0] || "";
-    const url     = iocs.urls?.[0]    || "";
-    const email   = pf.sender    || iocs.emails?.[0]  || "";
-    const proc    = iocs.processes?.[0] || "";
-    const cmd     = pf.cmdline   || iocs.cmdlines?.[0] || "";
-    const dstPort = pf.dest_port || iocs.ports?.[0]   || "";
-    const crit    = findings.filter(f => f.startsWith("🚨")).map(f => f.replace(/^🚨\s*/,""));
-    const warn    = findings.filter(f => f.startsWith("⚠️")).map(f => f.replace(/^⚠️\s*/,""));
-    const mitreStr = mitre.slice(0,3).map(t => `${t} (${getMitreName(t)})`).join(", ");
+    const proc    = pf.process    || "";
+    const cmdline = pf.cmdline    || "";
+    const domain  = url ? (() => { try { return new URL(url).hostname; } catch { return ""; }})() : (iocs.domains||[])[0] || "";
+    const refDomain = referer ? (() => { try { return new URL(referer).hostname; } catch { return ""; }})() : "";
 
-    // ── Helper: natural subject ───────────────────────────────
-    const subject = user && host ? `user ${user} on host ${host}`
-                  : user ? `user ${user}`
-                  : host ? `host ${host}`
-                  : srcIP ? `source ${srcIP}`
-                  : "the affected endpoint";
+    // ── STEP 3: Timeline (reconstruct event sequence) ─────────
+    const timelineStr = (() => {
+      if (ts) {
+        try {
+          const d = new Date(ts.replace(/^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+/i, m => m.replace(".", "")));
+          if (!isNaN(d.getTime())) {
+            return d.toLocaleDateString("en-US", {month:"short",day:"numeric",year:"numeric"}) + " at " +
+                   d.getUTCHours().toString().padStart(2,"0") + ":" + d.getUTCMinutes().toString().padStart(2,"0") + " UTC";
+          }
+        } catch {}
+        return ts;
+      }
+      return "";
+    })();
 
-    // ── PARAGRAPH 1: WHAT HAPPENED ────────────────────────────
+    // Redirect chain
+    const redirectChain = pf.domain_chain || (refDomain && domain && refDomain !== domain ? `${refDomain} → ${domain}` : "");
+    const failSuccPattern = (failIPs && succIPs && failIPs !== succIPs);
+
+    // ── STEP 4: Detection translation (KB already enriched) ───
+    const kbDesc     = pf.kb_desc || pf.kb_alert_desc || "";
+    const kbAction   = pf.kb_action || pf.kb_alert_action || "";
+    const kbCarrier  = pf.kb_carrier_desc || "";
+    const kbVPN      = pf.kb_vpn_desc || "";
+    const kbRedirect = pf.kb_redirect_desc || "";
+
+    // ── STEP 5: Behavior analysis ─────────────────────────────
+    const behaviors = [];
+    if (redirectChain)     behaviors.push(`redirect chain: ${redirectChain}`);
+    if (/\.sbs\/|\.id\/|\.xyz\/|\.top\/|\.tk\/|\.club\/|\.icu\//i.test(url||"")) behaviors.push("suspicious TLD in destination");
+    if (failSuccPattern)   behaviors.push(`failed auth from ${failIPs} → success from ${succIPs}`);
+    if (pf.alert_count > 1) behaviors.push(`${pf.alert_count} correlated alerts in rapid succession`);
+    if (device && failIPs) behaviors.push(`same device (${device}) active from multiple countries simultaneously`);
+    if (pf.kb_vpn_flag)    behaviors.push("source identified as VPN or hosting provider");
+
+    // ── STEP 6: Control validation ────────────────────────────
+    const controlResult = pf.control_result || (
+      /blocked|drop|deny|quarantine|prevented/i.test(action) ? "CONTAINED" :
+      /allowed|permit|success/i.test(action) ? "ALLOWED" :
+      "DETECTED_ONLY"
+    );
+    const controlIcon   = controlResult === "CONTAINED" ? "✅" : controlResult === "ALLOWED" ? "⚠️" : "ℹ️";
+    const controlLabel  = controlResult === "CONTAINED" ? "BLOCKED/QUARANTINED — threat contained" :
+                          controlResult === "ALLOWED"   ? "ALLOWED — manual investigation required" :
+                          "DETECTED — verify if blocked or allowed";
+
+    // ── STEP 7: Compromise check ──────────────────────────────
+    const comprIndicators = pf.compromise_indicators || "";
+    const noCompromise    = pf.no_compromise || (controlResult === "CONTAINED" && !comprIndicators);
+    const comprStatus     = comprIndicators
+      ? `⚠️ Post-compromise indicators: ${comprIndicators}`
+      : noCompromise
+      ? "✅ No evidence of execution, download, persistence, C2, or data exfiltration based on available logs."
+      : "ℹ️ Insufficient telemetry to confirm or rule out compromise — EDR review recommended.";
+
+    // ── STEP 8: Root cause ────────────────────────────────────
+    const rootCause = (() => {
+      if (redirectChain || isWeb)    return kbDesc || `User's browser was directed to a malicious destination${redirectChain ? " via redirect chain from " + refDomain : ""}. ${sig ? sig + " is the detected threat signature." : ""}`;
+      if (isIdentity && failSuccPattern) return `Credential abuse pattern detected — authentication failures from a foreign IP followed by success suggests the legitimate user's credentials are in use by an attacker.`;
+      if (isIdentity)                return kbDesc || "Anomalous authentication event — location or device does not match the user's baseline.";
+      if (isSaaS)                    return `Malicious file detected in ${pf.platform || "cloud platform"} — likely delivered via social engineering or compromised sender account.`;
+      if (isEndpoint && cmdline)     return `Malicious process execution — ${sig || "suspicious command"} was launched on the endpoint.`;
+      if (isEndpoint)                return kbDesc || "Endpoint security detected malicious behavior or a known threat signature.";
+      return "Security control detected anomalous activity matching a known threat pattern.";
+    })();
+
+    // ── STEP 9 & 10: Verdict + Disposition ───────────────────
+    const effectiveVerdict = pf.kb_verdict === "TP_ESCALATE" ? "ESCALATE" :
+                             controlResult === "CONTAINED" && !comprIndicators ? "TP_BLOCKED_NFA" :
+                             controlResult === "ALLOWED" && comprIndicators ? "TP_ESCALATE" :
+                             pf.kb_verdict === "FP" || verdict.verdict === "LIKELY FALSE POSITIVE" ? "FP" :
+                             pf.kb_vpn_flag ? "TP_BENIGN" : "TP_BLOCKED_NFA";
+
+    const verdictText = {
+      TP_BLOCKED_NFA:  "TP – Blocked / No Further Action. Threat was contained by security controls with no evidence of compromise.",
+      TP_ESCALATE:     "⚠️ TP – Escalation Required. Suspicious activity succeeded or post-compromise indicators are present.",
+      TP_BENIGN:       "TP – Likely Benign. Detection appears related to expected user behavior (VPN/remote access). Verify with user.",
+      FP:              "Likely False Positive. No malicious activity confirmed. Review detection rule for tuning.",
+      UNKNOWN:         "Inconclusive. Insufficient context — manual review required.",
+    }[effectiveVerdict] || "";
+
+    const mitreParts = mitre.slice(0, 4).map(t => `${t} (${getMitreName(t)})`).join(", ");
+    const mitreContext = mitreParts ? `MITRE ATT&CK: ${mitreParts}` : "";
+
+    // ── BUILD P1: The Story (WHO + WHAT + WHEN + WHERE + HOW) ─
+    const whenWhere = [timelineStr, loc && isIdentity ? `from ${loc}` : ""].filter(Boolean).join(", ");
+    const who  = user && host ? `${user} on host ${host}` : user || host || (srcIP ? `host ${srcIP}` : "an internal user");
+    const whom = dept || role ? ` (${[role, dept].filter(Boolean).join(", ")})` : "";
+
     let p1 = "";
-
-    // CrowdStrike / Endpoint EDR
-    if (/crowdstrike|falcon|edr|endpoint/i.test(et)) {
-      p1 = `A ${sev.toUpperCase()} severity endpoint detection was raised by ${et} against ${subject}.`;
-      if (proc)  p1 += ` The flagged process was ${proc}`;
-      if (cmd)   p1 += ` executed with the command: ${cmd.slice(0,120)}${cmd.length>120?"…":""}` + ".";
-      if (proc || cmd) p1 += ".";
-      if (hash)  p1 += ` The associated file hash is ${hash.slice(0,16)}... — this should be cross-referenced in VirusTotal, MalwareBazaar, and your EDR quarantine history.`;
-      if (srcIP && !isPrivateIPv4(srcIP)) p1 += ` An outbound network connection to external IP ${srcIP} was observed${dstPort ? ` on port ${dstPort}` : ""}.`;
-    }
-    // Ransomware
-    else if (/ransomware|encrypt/i.test(findingsStr + raw)) {
-      p1 = `A CRITICAL ransomware-type event was detected on ${subject}.`;
-      if (proc) p1 += ` The process ${proc} was involved in suspicious file operations.`;
-      if (/vssadmin|shadowcopy|wbadmin|bcdedit/i.test(findingsStr + raw))
-        p1 += ` Shadow copy deletion commands were detected — a deliberate anti-recovery step taken immediately before file encryption in virtually all modern ransomware campaigns.`;
-    }
-    // Azure AD / Entra / Cloud Identity
-    else if (/azure ad|entra|azure audit|cloudtrail|okta/i.test(et)) {
-      p1 = `A ${sev.toUpperCase()} cloud identity event was captured from ${et}`;
-      p1 += user ? ` for account ${user}.` : ".";
-      if (srcIP) p1 += ` The action originated from IP ${srcIP}${isPrivateIPv4(srcIP) ? " (internal network)" : " (external — verify this is an expected location)"}.`;
-      if (/oauth.*consent|consent.*grant|consent to application/i.test(findingsStr + raw))
-        p1 += ` An OAuth application consent grant event was recorded — an application was authorized to access tenant resources.`;
-      if (/signin.*fail|failed.*signin|failed.*logon/i.test(findingsStr + raw))
-        p1 += ` Multiple failed authentication attempts were detected before this event.`;
-    }
-    // Impossible Travel / Identity Behavioral
-    else if (/identity security|impossible travel|concurrent.*location/i.test(et + findingsStr + raw)) {
-      const allIPs = iocs.ips || [];
-      p1 = `An identity behavioral alert was triggered for ${subject}.`;
-      if (allIPs.length >= 2)
-        p1 += ` The account authenticated from ${allIPs.length} distinct IP addresses — ${allIPs.slice(0,3).join("`, `")} — within a timeframe that makes legitimate physical movement between those locations implausible.`;
-    }
-    // Proofpoint / Email Security
-    else if (/proofpoint|email|mail|phish/i.test(et)) {
-      p1 = `An email security alert was generated by ${et}.`;
-      if (email)  p1 += ` A message from ${email} was flagged`;
-      if (user)   p1 += ` targeting ${user}`;
-      p1 += ".";
-      if (url)    p1 += ` The message contained a malicious URL: ${url.slice(0,80)}.`;
-      if (hash)   p1 += ` An attachment with hash ${hash.slice(0,16)}... was detected.`;
-    }
-    // Zscaler / CASB / Web Security vendors
-    else if (/zscaler|netskope|casb|umbrella|proxySG|blue.?coat|mcafee.*web|skyhigh|forcepoint.*web|barracuda.*web|websense|symantec.*web|proxy|web.*log/i.test(et)) {
-      p1 = `A ${sev.toUpperCase()} web security event was logged by ${et}`;
-      p1 += user ? ` for user ${user}.` : ".";
-      if (domain || url) p1 += ` Traffic was directed to ${url||domain}.`;
-      if (srcIP)  p1 += ` The originating source was ${srcIP}.`;
-    }
-    // Firewall / Network / IDS
-    else if (/firewall|network|suricata|snort|ids|ips|darktrace|ndr/i.test(et)) {
-      p1 = `A ${sev.toUpperCase()} network security alert was raised by ${et}.`;
-      if (srcIP)  p1 += ` Traffic from ${srcIP}`;
-      if (dstIP)  p1 += ` to ${dstIP}`;
-      if (dstPort) p1 += ` on port ${dstPort}`;
-      if (srcIP || dstIP) p1 += " was flagged.";
-    }
-    // SentinelOne
-    else if (/sentinelone/i.test(et)) {
-      p1 = `SentinelOne raised a ${sev.toUpperCase()} threat detection for ${subject}.`;
-      if (proc)  p1 += ` The threat involved process ${proc}.`;
-      if (/not.*mitigated|mitigation.*fail/i.test(findingsStr))
-        p1 += ` Critically, the threat was NOT automatically mitigated — immediate manual intervention is required.`;
-    }
-    // Windows Event Log
-    else if (/windows event/i.test(et)) {
-      p1 = `A Windows security event was captured from ${subject}.`;
-      if (/4625|failed.*logon|logon.*fail/i.test(findingsStr + raw))
-        p1 += ` A failed logon attempt (Event ID 4625) was recorded.`;
-      if (/4688|process.*creat/i.test(findingsStr + raw))
-        p1 += ` A process creation event (Event ID 4688) was logged.`;
-      if (/4720|account.*creat/i.test(findingsStr + raw))
-        p1 += ` A new user account creation event (Event ID 4720) was detected.`;
-    }
-    // Palo Alto
-    else if (/palo alto|pan-os|ngfw/i.test(et)) {
-      p1 = `Palo Alto NGFW raised a ${sev.toUpperCase()} alert.`;
-      if (srcIP && dstIP) p1 += ` Traffic from ${srcIP} to ${dstIP}${dstPort ? ` on port ${dstPort}` : ""} was flagged by a threat signature.`;
-    }
-    // Generic fallback
-    else {
-      p1 = `A ${sev.toUpperCase()} severity alert was generated by ${et}`;
-      p1 += subject !== "the affected endpoint" ? ` involving ${subject}.` : ".";
-      if (srcIP)  p1 += ` Source: ${srcIP}.`;
-      if (dstIP)  p1 += ` Destination: ${dstIP}.`;
+    if (isWeb || isSaaS) {
+      const actionDesc = controlResult === "CONTAINED" ? "was blocked" : "accessed";
+      if (redirectChain) {
+        p1 = `${who}${whom}${whenWhere ? " at " + whenWhere : ""} accessed ${refDomain || "a website"}, which redirected to ${domain || dstIP}${sig ? `, triggering the ${sig} signature` : ""}. Zscaler returned HTTP ${pf.http_status || "403"}, blocking the connection before any content was delivered.`;
+      } else if (isSaaS) {
+        p1 = `${who}${whom}${whenWhere ? " at " + whenWhere : ""} — a file${sig ? " (" + sig + ")" : ""} was detected via ${pf.platform || "cloud platform"}${action ? " and " + action.toLowerCase() : ""}.`;
+      } else {
+        p1 = `${who}${whom}${whenWhere ? " at " + whenWhere : ""} attempted to reach ${url || domain || dstIP}${sig ? ", which matched the threat signature " + sig : ""}${cat ? " (" + cat + ")" : ""}. The security control ${actionDesc} the request.`;
+      }
+    } else if (isIdentity) {
+      const alertCountStr = pf.alert_count > 1 ? `${pf.alert_count} correlated identity alerts` : "a suspicious identity alert";
+      p1 = `${who}${whom} triggered ${alertCountStr}${whenWhere ? " at " + whenWhere : ""}. `;
+      if (failSuccPattern) {
+        const failCount = (res._rawText||"").match(/\bFAILURE\b/gi)?.length || 0;
+        p1 += `Authentication logs show ${failCount || "multiple"} consecutive failures from ${failIPs} (${loc}) followed by successful logins from ${succIPs} — indicating credentials were being actively tested from a foreign location while the legitimate user remained active on their known device.`;
+      } else if (carrier) {
+        p1 += `Access was sourced from ${loc || "an unusual location"}${carrier ? " via " + carrier : ""}${kbCarrier ? " — " + kbCarrier.split(".")[1]?.trim() : ""}.`;
+      }
+    } else if (isEndpoint) {
+      p1 = `${who}${whom}${whenWhere ? " at " + whenWhere : ""} — ${sig || "a threat"} was detected on endpoint ${host || "the device"}${proc ? " via process " + proc : ""}${cmdline ? ". Command: " + cmdline.slice(0,100) : ""}.`;
+    } else {
+      p1 = `${who}${whom}${whenWhere ? " at " + whenWhere : ""} — ${sig || et} detected. ${controlLabel}.`;
     }
 
-    // ── PARAGRAPH 2: WHY IT'S SUSPICIOUS ─────────────────────
-    let p2 = "";
-    const reasons = [];
+    // ── BUILD P2: Why it matters + Control validation ─────────
+    let p2 = rootCause;
+    if (kbCarrier && !p1.includes(kbCarrier.slice(0,20))) p2 += " " + kbCarrier;
+    if (kbVPN)  p2 = kbVPN;
 
-    if (crit.length) reasons.push(...crit.slice(0,2));
-    else if (warn.length) reasons.push(...warn.slice(0,2));
+    // ── BUILD P3: Compromise check ────────────────────────────
+    const p3 = comprStatus;
 
-    if (/-enc\b|-EncodedCommand/i.test(cmd + findingsStr))
-      reasons.push("The command line contains a Base64-encoded payload — a deliberate obfuscation technique used to evade static detection and hide the true intent of the script");
-    if (/lolbin|rundll32|mshta|regsvr32|wscript|cscript|certutil/i.test(findingsStr + raw) && !reasons.some(r => /lolbin/i.test(r)))
-      reasons.push("Living-off-the-Land Binary (LOLBin) abuse was detected — the attacker is using a legitimate Windows system binary to execute malicious code, bypassing application whitelisting");
-    if (/lsass|credential.*dump|mimikatz/i.test(findingsStr + raw) && !reasons.some(r => /lsass|dump/i.test(r)))
-      reasons.push("LSASS memory access or credential dumping was detected — attackers target LSASS to extract password hashes for lateral movement and privilege escalation");
-    if (/c2|beacon|cobalt.*strike|command.*control/i.test(findingsStr + raw) && !reasons.some(r => /c2|beacon/i.test(r)))
-      reasons.push("The network traffic pattern is consistent with Command & Control (C2) communication — periodic outbound connections to an external server are a hallmark of an active malware implant");
-    if (/spf.*fail|dkim.*fail|dmarc.*fail/i.test(findingsStr + raw) && !reasons.some(r => /spf|dkim/i.test(r)))
-      reasons.push("Email authentication checks failed (SPF/DKIM/DMARC) — the sender domain is either spoofed or the message was modified in transit");
-    if (/newly.*regist|new.*domain|domain.*age.*[0-9]+.*day/i.test(findingsStr + raw))
-      reasons.push("The domain was recently registered — newly registered domains are a strong phishing and malware hosting indicator");
-    if (/oauth|consent.*grant/i.test(findingsStr + raw) && !reasons.some(r => /oauth/i.test(r)))
-      reasons.push("An OAuth application was granted permissions — if unauthorized, this enables persistent access to mailboxes, files, and user data without requiring the user's password");
-    if (/impossible.*travel|multiple.*location|concurrent.*location/i.test(findingsStr + raw) && !reasons.some(r => /travel|location/i.test(r)))
-      reasons.push("The account authenticated from geographically distant locations within a timeframe that makes legitimate travel impossible — this is a strong indicator of compromised credentials being used by a threat actor");
-    if (/shadow.*copy|vssadmin|wbadmin.*delete/i.test(findingsStr + raw) && !reasons.some(r => /shadow/i.test(r)))
-      reasons.push("Volume shadow copy deletion was detected — this is a pre-ransomware step designed to prevent victims from restoring files without paying the ransom");
-    if (/root.*account|root.*used/i.test(findingsStr + raw) && !reasons.some(r => /root/i.test(r)))
-      reasons.push("Root account activity was observed — the AWS root account should never be used for routine operations; any root usage indicates either a misconfigured workflow or a compromised account");
-
-    if (reasons.length) {
-      p2 = "This alert is considered " + (sev === "critical" ? "critically suspicious" : sev === "high" ? "highly suspicious" : "suspicious") +
-        " for the following reason" + (reasons.length > 1 ? "s" : "") + ": " +
-        reasons.map((r, i) => i === 0 ? r.charAt(0).toLowerCase() + r.slice(1) : r.charAt(0).toLowerCase() + r.slice(1)).join("; and ") + ".";
-    }
-
-    // ── PARAGRAPH 3: WHAT LIKELY HAPPENED (ATTACK NARRATIVE) ─
-    let p3 = "";
-    const attackNarratives = [];
-
-    // Phishing → execution chain
-    if (/phish|spf.*fail|dkim.*fail/i.test(findingsStr + raw) && (/encoded|lolbin|download/i.test(findingsStr + raw) || /process.*creat|child.*proc/i.test(findingsStr + raw)))
-      attackNarratives.push("Based on the indicators, the probable attack chain is: a phishing email was delivered → the user interacted with the attachment or link → a malicious process was spawned, potentially downloading and executing a payload in memory");
-    else if (/phish|spf.*fail|dkim.*fail/i.test(findingsStr + raw))
-      attackNarratives.push("A phishing email was likely delivered to the target. The key question is whether the user interacted with any links or attachments — endpoint telemetry should be reviewed for the 30 minutes following email delivery");
-    // Encoded PS → download cradle → C2
-    if (/-enc\b|-EncodedCommand/i.test(cmd + findingsStr) && /download|webclient|iex/i.test(findingsStr + raw))
-      attackNarratives.push("The encoded PowerShell command appears to be a download cradle — a common technique where a small initial payload downloads and executes a larger second-stage implant entirely in memory, leaving minimal disk artifacts");
-    // Office → LOLBin
-    if (/office|winword|excel|outlook/i.test(findingsStr + raw) && /lolbin|rundll|mshta|wscript/i.test(findingsStr + raw))
-      attackNarratives.push("An Office application appears to have spawned a LOLBin process — this is consistent with a malicious macro embedded in a weaponized Office document, a common initial access technique in targeted phishing campaigns");
-    // Lateral movement chain
-    if (/lateral.*movement|rdp|smb|pass.*hash|pass.*ticket/i.test(findingsStr + raw))
-      attackNarratives.push("Lateral movement indicators suggest the attacker has already established a foothold elsewhere in the environment and is now attempting to spread to additional hosts — the initial compromise point needs to be identified separately");
-    // Credential dump → lateral movement
-    if (/lsass|mimikatz|credential.*dump/i.test(findingsStr + raw))
-      attackNarratives.push("Credential dumping from LSASS is typically a precursor to lateral movement — once password hashes or plaintext credentials are extracted, the attacker can authenticate to other systems using pass-the-hash or pass-the-ticket techniques");
-    // Ransomware
-    if (/ransomware|shadow.*copy|encrypt.*file/i.test(findingsStr + raw))
-      attackNarratives.push("The pattern of shadow copy deletion followed by file operations is the classic ransomware pre-encryption sequence — the attacker is removing recovery options before beginning encryption to maximize leverage");
-    // Impossible travel
-    if (/impossible.*travel|concurrent.*location/i.test(findingsStr + raw))
-      attackNarratives.push("The impossible travel pattern is most consistent with stolen credentials being used by a remote threat actor — the legitimate user's credentials were likely harvested through phishing, credential stuffing, or a third-party breach");
-    // OAuth persistence
-    if (/oauth.*consent|consent.*grant/i.test(findingsStr + raw))
-      attackNarratives.push("OAuth consent abuse is used by attackers to establish persistent access that survives password resets — once an app is granted consent, it can access data indefinitely using OAuth tokens, even if the user changes their password");
-    // C2 beaconing
-    if (/beacon|c2|cobalt.*strike/i.test(findingsStr + raw))
-      attackNarratives.push("Active C2 communication suggests a live implant is running on the endpoint — the attacker is maintaining interactive access and may be staging further actions such as reconnaissance, lateral movement, or data collection");
-
-    if (attackNarratives.length) {
-      p3 = attackNarratives[0];
-      if (attackNarratives.length > 1) p3 += " " + attackNarratives[1];
-    }
-
-    // ── PARAGRAPH 4: WHAT TO DO NEXT ─────────────────────────
+    // ── BUILD P4: Recommended action ─────────────────────────
     const urgencyMap = {
-      critical: "Immediate containment is required.",
-      high:     "This alert warrants prompt escalation and investigation.",
-      medium:   "This alert should be investigated during the current shift.",
-      low:      "This alert can be reviewed during normal analyst workflow.",
-      info:     "No immediate action required — document for baseline reference.",
+      critical: "IMMEDIATE ACTION REQUIRED — isolate host/account, block IOCs, escalate to IR.",
+      high:     "Priority review — verify impact, block IOCs, pull EDR telemetry.",
+      medium:   "Standard review — validate detection, check for follow-on activity.",
+      low:      "Low priority — validate and close or tune if FP.",
+      info:     "Informational — log and monitor.",
     };
-
-    const nextSteps = [];
-    if (/crowdstrike|falcon|edr|sentinelone|defender/i.test(et) && sev === "critical")
-      nextSteps.push("isolate the endpoint immediately via EDR network containment");
-    if (/crowdstrike|falcon|edr|sentinelone|defender/i.test(et))
-      nextSteps.push("review the full process tree in the EDR console");
-    if (hash)
-      nextSteps.push(`cross-reference hash ${hash.slice(0,16)}... in VirusTotal and MalwareBazaar`);
-    if (srcIP && !isPrivateIPv4(srcIP))
-      nextSteps.push(`check reputation of ${srcIP} in AbuseIPDB, GreyNoise, and Talos`);
-    if (/lsass|credential.*dump|mimikatz/i.test(findingsStr + raw))
-      nextSteps.push("reset credentials for the affected user and any accounts that may have been cached on the host");
-    if (/lateral.*movement|pass.*hash/i.test(findingsStr + raw))
-      nextSteps.push("scope lateral movement by reviewing authentication events from this host to all other internal systems");
-    if (/oauth|consent.*grant/i.test(findingsStr + raw))
-      nextSteps.push("revoke the OAuth consent in Azure AD > Enterprise Applications and audit all permissions granted");
-    if (/impossible.*travel/i.test(findingsStr + raw))
-      nextSteps.push("contact the user directly to confirm whether the sessions are theirs, then revoke all active sessions and enforce MFA re-enrollment");
-    if (/phish|spf.*fail|dkim.*fail/i.test(findingsStr + raw))
-      nextSteps.push("determine whether the user clicked any links or opened attachments, and search email gateway logs for other recipients of the same campaign");
-    if (/ransomware|shadow.*copy/i.test(findingsStr + raw))
-      nextSteps.push("immediately isolate all affected hosts from the network and check backup integrity before any remediation");
-    if (mitre.length)
-      nextSteps.push(`review MITRE ATT&CK coverage for ${mitre.slice(0,2).join(", ")} to identify detection gaps`);
-
     let p4 = urgencyMap[sev] || urgencyMap.info;
-    if (nextSteps.length) {
-      p4 += " Recommended next steps: " + nextSteps.map((s,i) => `(${i+1}) ${s}`).join("; ") + ".";
-    }
+    if (kbAction) p4 += " " + kbAction;
 
     // ── VERDICT LINE ──────────────────────────────────────────
-    const verdictLine = `Based on available evidence, this alert has a ${verdict.tpPct}% likelihood of being a True Positive${
-      verdict.tpReasons.length ? ` (signals: ${verdict.tpReasons.slice(0,3).join(", ")})` : ""
-    }. ${verdict.verdict === "LIKELY TRUE POSITIVE" ? "Treat as confirmed malicious until proven otherwise." :
-         verdict.verdict === "LIKELY FALSE POSITIVE" ? "Verify through context before closing." :
-         "Further investigation is needed to determine the final verdict."}`;
+    const verdictLine = verdictText || `Based on available evidence: ${verdict.verdict}. TP likelihood: ${verdict.tpPct}%.`;
 
-    // ── MITRE CONTEXT ─────────────────────────────────────────
-    const mitreContext = mitreStr
-      ? `The observed behavior maps to MITRE ATT&CK technique${mitre.length > 1 ? "s" : ""} ${mitreStr}${mitre.length > 3 ? `, and ${mitre.length - 3} additional technique${mitre.length-3>1?"s":""}` : ""}.`
-      : "";
-
-    return { p1, p2, p3, p4, verdictLine, mitreContext };
+    return { p1, p2, p3, p4, verdictLine, mitreContext, category, controlResult, controlIcon, controlLabel, effectiveVerdict, redirectChain, behaviors };
   }
 
-  function buildAlertContextSummary(res) {
+    function buildAlertContextSummary(res) {
     const sev     = res.severity || "info";
     const type    = res.eventType || "Unknown";
     const findings = res.findings || [];
@@ -4042,21 +4267,81 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
     // 1. Structured IOC extraction table (top — most useful at a glance)
     html += iocPanel;
 
-    // 2. Paragraph narrative — analyst-grade incident summary
+    // 2. Structured 10-step triage analysis panel
+    const _vColor = narr.effectiveVerdict === "TP_ESCALATE" ? "#ef4444" :
+                    narr.effectiveVerdict === "TP_BLOCKED_NFA" ? "#34d399" :
+                    narr.effectiveVerdict === "TP_BENIGN" ? "#fbbf24" :
+                    narr.effectiveVerdict === "FP" ? "#9ca3af" : "#a78bfa";
+
     html += `<div class="lt-narrative-panel">
       <div class="lt-narrative-head">
-        <span class="lt-narrative-icon">📰</span>
-        <span class="lt-narrative-title">Alert Narrative</span>
-        <span class="lt-narrative-sub">What happened · Why it matters · What to do</span>
+        <span class="lt-narrative-icon">🧠</span>
+        <span class="lt-narrative-title">Triage Analysis</span>
+        <span class="lt-narrative-sub">10-step automated analysis · ${narr.category || "Security Event"}</span>
         <button class="lt-narrative-copy-btn" id="lt-narr-copy-btn" type="button">📋 Copy</button>
       </div>
       <div class="lt-narrative-body" id="lt-narr-body">
-        ${narr.p1 ? `<p class="lt-narr-p lt-narr-what"><span class="lt-narr-label">What happened</span>${esc(narr.p1)}</p>` : ""}
-        ${narr.p2 ? `<p class="lt-narr-p lt-narr-why"><span class="lt-narr-label">Why it's suspicious</span>${esc(narr.p2)}</p>` : ""}
-        ${narr.p3 ? `<p class="lt-narr-p lt-narr-attack"><span class="lt-narr-label">What likely occurred</span>${esc(narr.p3)}</p>` : ""}
-        ${narr.mitreContext ? `<p class="lt-narr-p lt-narr-mitre"><span class="lt-narr-label">MITRE context</span>${esc(narr.mitreContext)}</p>` : ""}
-        <p class="lt-narr-p lt-narr-next"><span class="lt-narr-label">Recommended action</span>${esc(narr.p4)}</p>
-        <p class="lt-narr-p lt-narr-verdict"><span class="lt-narr-label">Analyst assessment</span>${esc(narr.verdictLine)}</p>
+
+        <div class="lt-triage-step">
+          <span class="lt-step-num">1</span>
+          <span class="lt-step-label">Alert Classification</span>
+          <span class="lt-step-val">${esc(narr.category || et)} · ${res.severityLabel}</span>
+        </div>
+
+        ${user||host ? `<div class="lt-triage-step">
+          <span class="lt-step-num">2</span>
+          <span class="lt-step-label">Entities</span>
+          <span class="lt-step-val">${user ? "👤 "+esc(user)+" " : ""}${host ? "💻 "+esc(host)+" " : ""}${srcIP ? "🌐 "+esc(srcIP) : ""}</span>
+        </div>` : ""}
+
+        ${narr.p1 ? `<div class="lt-triage-step lt-step-story">
+          <span class="lt-step-num">3</span>
+          <span class="lt-step-label">Timeline / Story</span>
+          <span class="lt-step-val">${esc(narr.p1)}</span>
+        </div>` : ""}
+
+        ${narr.p2 ? `<div class="lt-triage-step">
+          <span class="lt-step-num">4–5</span>
+          <span class="lt-step-label">Detection + Behavior</span>
+          <span class="lt-step-val">${esc(narr.p2)}${narr.behaviors?.length ? " Observed: "+esc(narr.behaviors.join("; "))+"." : ""}</span>
+        </div>` : ""}
+
+        <div class="lt-triage-step">
+          <span class="lt-step-num">6</span>
+          <span class="lt-step-label">Control Action</span>
+          <span class="lt-step-val" style="color:${narr.controlResult==="CONTAINED"?"#34d399":narr.controlResult==="ALLOWED"?"#ef4444":"#fbbf24"}">${narr.controlIcon} ${esc(narr.controlLabel)}</span>
+        </div>
+
+        <div class="lt-triage-step">
+          <span class="lt-step-num">7</span>
+          <span class="lt-step-label">Compromise Check</span>
+          <span class="lt-step-val">${esc(narr.p3)}</span>
+        </div>
+
+        ${narr.p2 ? `<div class="lt-triage-step">
+          <span class="lt-step-num">8</span>
+          <span class="lt-step-label">Root Cause</span>
+          <span class="lt-step-val">${esc(narr.p2.split(".")[0]+".")}</span>
+        </div>` : ""}
+
+        <div class="lt-triage-step lt-step-verdict" style="border-left:3px solid ${_vColor}">
+          <span class="lt-step-num" style="background:${_vColor}">9</span>
+          <span class="lt-step-label">Verdict</span>
+          <span class="lt-step-val" style="font-weight:700;">${esc(narr.verdictLine)}</span>
+        </div>
+
+        <div class="lt-triage-step">
+          <span class="lt-step-num">10</span>
+          <span class="lt-step-label">Actions</span>
+          <span class="lt-step-val">${esc(narr.p4)}</span>
+        </div>
+
+        ${narr.mitreContext ? `<div class="lt-triage-step" style="opacity:0.75;">
+          <span class="lt-step-num">TTP</span>
+          <span class="lt-step-label">MITRE</span>
+          <span class="lt-step-val">${esc(narr.mitreContext)}</span>
+        </div>` : ""}
+
       </div>
     </div>`;
 
@@ -4341,41 +4626,205 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
     // ── ALERT CONTEXT SUMMARY (Feature 8 + 11) ───────────────────
 
   // ── SOC Case Note Generator — global listeners ───────────
-  $("lt-soc-generate-btn")?.addEventListener("click", () => {
+  $("lt-soc-generate-btn")?.addEventListener("click", async () => {
     if (!lastTriageResult) { alert("Run Auto-Triage first on a pasted log."); return; }
-    const verdict     = $("lt-soc-verdict")?.value     || "TBD";
-    const disposition = $("lt-soc-disposition")?.value || "NFA";
-    const analyst     = $("lt-soc-analyst")?.value?.trim() || "";
-    const extra       = $("lt-soc-extra-context")?.value?.trim() || "";
-    const note        = generateSOCCaseNote(lastTriageResult, verdict, disposition, analyst, extra);
-    const panel = $("lt-soc-note-panel");
-    const body  = $("lt-soc-note-body");
-    if (panel) panel.style.display = "block";
-    if (body) {
-      // Convert markdown-style **bold** and `code` to HTML for display
-      const toHTML = txt => esc(txt)
-        .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/`([^`\n]+)`/g, '<code style="font-family:monospace;background:rgba(56,189,248,0.1);padding:1px 5px;border-radius:3px;color:#38bdf8;">$1</code>');
-      // Split into paragraphs and render each
-      const paras = note.split('\n\n').map(para => {
-        const lines = para.split('\n');
-        if (lines.length === 1) return `<p style="margin:0 0 14px;line-height:1.8">${toHTML(lines[0])}</p>`;
-        // Multi-line block (like Recommended Actions list)
-        return '<p style="margin:0 0 14px;line-height:1.8">' + 
-               lines.map((l,i) => {
-                 if (l.startsWith('  ') && /^\s+\d+\./.test(l)) return `<br><span style="padding-left:12px;">${toHTML(l.trim())}</span>`;
-                 return i===0 ? toHTML(l) : '<br>' + toHTML(l);
-               }).join('') + '</p>';
-      }).join('');
-      body.innerHTML = paras;
+
+    const verdict  = $("lt-soc-verdict")?.value     || "TBD";
+    const disp     = $("lt-soc-disposition")?.value  || "NFA";
+    const analyst  = $("lt-soc-analyst")?.value?.trim() || "SOC Analyst";
+    const extra    = $("lt-soc-extra-context")?.value?.trim() || "";
+    const panel    = $("lt-soc-note-panel");
+    const body     = $("lt-soc-note-body");
+    if (!panel || !body) return;
+
+    // Show loading
+    panel.style.display = "block";
+    body.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:12px 0;">
+      <span style="display:inline-block;animation:spin 1s linear infinite;margin-right:8px;">⟳</span>
+      Composing SOC case note…</div>`;
+    panel.scrollIntoView({ behavior:"smooth", block:"start" });
+
+    // Collect all structured parser fields
+    const res  = lastTriageResult;
+    const pf   = res.prefillData || {};
+    const iocs = res.iocs || {};
+    const vMap = { TP_blocked:"TP – Blocked", TP_detected:"TP – Detected (not blocked)",
+      TP_confirmed:"TP – Confirmed Compromise", FP:"FP – False Positive",
+      BEN:"Benign – Expected Activity", TBD:"TBD – Under Investigation" };
+    const dMap = { NFA:"No Further Action (NFA)", escalated:"Escalated to Tier 2 / Incident Response",
+      contained:"Contained – Endpoint Isolated", monitoring:"Continue Monitoring",
+      remediated:"Remediated", user_notified:"User Notified" };
+
+    // Structured context block — every extracted field, labelled for 5W clarity
+    const ctx = [
+      `EVENT TYPE: ${res.eventType || "Security Event"}`,
+      `SEVERITY: ${(res.severity||"info").toUpperCase()}`,
+      `ANALYST VERDICT: ${vMap[verdict]||verdict}`,
+      `ANALYST DISPOSITION: ${dMap[disp]||disp}`,
+      `ANALYST NAME: ${analyst}`,
+      ``,
+      `=== WHO ===`,
+      pf.username    ? `User account: ${pf.username}` : "",
+      pf.department  ? `Department: ${pf.department}` : "",
+      pf.role        ? `Role/Title: ${pf.role}` : "",
+      pf.hostname    ? `Endpoint: ${pf.hostname}` : "",
+      pf.device      ? `Device type: ${pf.device}` : "",
+      ``,
+      `=== WHAT ===`,
+      pf.threat_name ? `Threat/Signature: ${pf.threat_name}` : "",
+      pf.category    ? `Category: ${pf.category}` : "",
+      pf.rule        ? `Rule/Policy triggered: ${pf.rule}` : "",
+      pf.url         ? `Target URL: ${pf.url}` : "",
+      pf.referer     ? `HTTP Referrer: ${pf.referer}` : "",
+      pf.cmdline     ? `Command line: ${pf.cmdline.slice(0,200)}` : "",
+      pf.hash        ? `File hash (SHA256): ${pf.hash.slice(0,64)}` : "",
+      pf.process     ? `Process: ${pf.process}` : "",
+      pf.verdict     ? `Action taken: ${pf.verdict}` : "",
+      pf.http_status ? `HTTP response: ${pf.http_status}` : "",
+      pf.bytes       ? `Bytes transferred: ${pf.bytes}` : "",
+      pf.alert_count ? `Correlated alert count: ${pf.alert_count}` : "",
+      (res.mitre||[]).length ? `MITRE ATT&CK: ${res.mitre.slice(0,5).join(", ")}` : "",
+      ``,
+      `=== WHEN ===`,
+      pf.timestamp   ? `Event time: ${pf.timestamp}` : "",
+      pf.alert_count > 1 ? "Multiple alerts triggered within minutes of each other" : "",
+      ``,
+      `=== WHERE ===`,
+      pf.src_ip      ? `Source IP: ${pf.src_ip}` : "",
+      pf.dest_ip     ? `Destination IP: ${pf.dest_ip}` : "",
+      pf.dest_port   ? `Destination port: ${pf.dest_port}` : "",
+      pf.location    ? `Geographic location: ${pf.location}` : "",
+      pf.carrier     ? `Carrier/ISP: ${pf.carrier}` : "",
+      pf.fail_ips    ? `Auth failure source IPs: ${pf.fail_ips}` : "",
+      pf.success_ips ? `Auth success source IPs (known-good): ${pf.success_ips}` : "",
+      ``,
+      `=== WHY / HOW ===`,
+      (res.findings||[]).length ? `Parser findings:\n${(res.findings||[]).map(f=>"  "+f).join("\n")}` : "",
+      extra          ? `Analyst context: ${extra}` : "",
+    ].filter(Boolean).join("\n");
+
+    const systemPrompt = [
+      "You are a senior SOC analyst writing a case note for a security ticket.",
+      "Write in clear flowing prose — like a skilled analyst narrating what happened to a colleague who was not there.",
+      "No headers, no bullet sections, no labels. Just tight readable paragraphs that cover all the facts and end with a clear verdict.",
+      "STYLE: Write as one continuous narrative. No WHO: WHAT: WHERE: labels.",
+      "Open with who the user is, what host they were on, what they did or what happened to them.",
+      "Weave in when it happened, where the traffic went, what the security control detected and did, all in natural sentence flow.",
+      "Name every IOC explicitly: full email, exact hostname, exact IPs, exact URLs, exact threat signature, exact rule name.",
+      "If there is a referrer or redirect chain trace it in order: accessed X which redirected to Y then to Z.",
+      "If there is an auth pattern tell that story chronologically with the specific IPs and locations.",
+      "Explain WHY it matters briefly. State whether there is or is not evidence of compromise, based only on what the logs show.",
+      "End with: Recommend marking as [VERDICT] / [DISPOSITION]",
+      "After the narrative add: Recommended Actions: with 3-5 numbered specific steps using the actual IOCs.",
+      "Maximum 200 words total. Plain text only. No bold, no markdown, no headers.",
+    ].join("\n");
+    const userPrompt = "EVENT DATA:\n" + ctx +
+      (extra ? "\n\nADDITIONAL ANALYST CONTEXT: " + extra : "") +
+      "\n\nVerdict: " + (vMap[verdict]||verdict) + "\nDisposition: " + (dMap[disp]||disp) + "\nAnalyst: " + analyst + "\n\nWrite the case note now. Plain text only.";
+    try {
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1200,
+          system: systemPrompt,
+          messages: [{ role:"user", content: userPrompt }],
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        // Fallback to the offline regex-based note
+        const fallbackNote = generateSOCCaseNote(res, verdict, disp, analyst, extra);
+        renderSOCNote(body, panel, fallbackNote);
+        setLTStatus("Enhanced note unavailable — showing standard note");
+        return;
+      }
+
+      const data  = await resp.json();
+      const text  = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").trim();
+
+      renderSOCNote(body, panel, text);
+      setLTStatus("SOC case note generated");
+
+    } catch (e) {
+      // Network error — fall back to offline note silently
+      const fallbackNote = generateSOCCaseNote(res, verdict, disp, analyst, extra);
+      renderSOCNote(body, panel, fallbackNote);
+      setLTStatus("Standard note generated (network unavailable)");
     }
-    panel?.scrollIntoView({ behavior:"smooth", block:"start" });
-    // Store for copy
-    panel._socNote = note;
   });
-  $("lt-soc-copy-btn")?.addEventListener("click", async () => {
+
+  // Shared render function for SOC note (used by both AI and fallback)
+  function renderSOCNote(body, panel, text) {
+    const esc2 = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+    // Split into paragraphs on blank lines
+    const blocks = text.split(/\n\n+/).filter(b => b.trim());
+    const html = blocks.map(block => {
+      const lines = block.split("\n").filter(l => l.trim());
+      if (!lines.length) return "";
+
+      // Escalation block (has ☐ checkboxes)
+      if (block.includes("☐") || /ESCALATION REQUIRED/i.test(lines[0])) {
+        return '<div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:12px 14px;margin:10px 0;">' +
+          lines.map(l => {
+            if (/ESCALATION/i.test(l)) return `<div style="color:#ef4444;font-weight:800;font-size:12px;margin-bottom:8px;">🚨 ${esc2(l.replace(/🚨/g,"").trim())}</div>`;
+            if (l.includes("☐"))       return `<div style="padding:3px 0 3px 4px;font-size:11.5px;">${esc2(l)}</div>`;
+            return `<div style="font-size:11px;color:var(--muted);padding:1px 0;">${esc2(l)}</div>`;
+          }).join("") + "</div>";
+      }
+
+      // Numbered action list (e.g. "Recommended Actions:" header + numbered items)
+      if (/^Recommended Actions:/i.test(lines[0]) || /^Immediate Actions:/i.test(lines[0])) {
+        const header = lines[0];
+        const items  = lines.slice(1);
+        return `<div style="margin:12px 0 0;">
+          <div style="font-weight:800;font-size:11.5px;color:var(--text);margin-bottom:6px;">${esc2(header)}</div>
+          ${items.map(l => {
+            const m = l.match(/^(\d+)[.)]\s+(.+)/);
+            return m
+              ? `<div style="display:flex;gap:8px;padding:3px 0;font-size:11.5px;"><span style="color:#a78bfa;font-weight:800;min-width:18px;">${m[1]}.</span><span style="line-height:1.6;">${esc2(m[2])}</span></div>`
+              : `<div style="padding-left:26px;font-size:11.5px;line-height:1.6;">${esc2(l)}</div>`;
+          }).join("")}
+        </div>`;
+      }
+
+      // Detect inline numbered list (starts directly with "1.")
+      if (/^\d+[.)\s]/.test(lines[0]) && lines.every(l => /^\d+[.)\s]/.test(l.trim()) || l.trim() === "")) {
+        return '<div style="margin:8px 0;">' + lines.map(l => {
+          const m = l.match(/^(\d+)[.)]\s+(.+)/);
+          return m
+            ? `<div style="display:flex;gap:8px;padding:3px 0;font-size:12px;"><span style="color:#a78bfa;font-weight:800;min-width:18px;">${m[1]}.</span><span style="line-height:1.7;">${esc2(m[2])}</span></div>`
+            : `<div style="padding-left:26px;font-size:12px;">${esc2(l)}</div>`;
+        }).join("") + "</div>";
+      }
+
+      // Standard narrative paragraph — the main body
+      const paraText = lines.join(" ");
+      // Highlight key IOC patterns inline for readability
+      const highlighted = esc2(paraText)
+        .replace(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/g,
+          '<strong style="color:var(--text);">$1</strong>')
+        .replace(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g,
+          '<strong style="color:#38bdf8;">$1</strong>')
+        .replace(/\b(CVE-\d{4}-\d+)\b/gi,
+          '<strong style="color:#f59e0b;">$1</strong>')
+        .replace(/\b(HTML\.[A-Za-z.]+|JS\.[A-Za-z.]+|Trojan\.[A-Za-z.]+|Malware\.[A-Za-z.]+|Exploit\.[A-Za-z.]+)\b/g,
+          '<em style="color:#f87171;">$1</em>');
+      return `<p style="margin:0 0 14px;line-height:1.9;font-size:12px;color:var(--text);">${highlighted}</p>`;
+    }).join("");
+
+    body.innerHTML = html || `<p style="color:var(--muted);font-size:12px;">No note content generated.</p>`;
+    panel._socNote = text;
+    panel.scrollIntoView({ behavior:"smooth", block:"start" });
+  }
+
+    $("lt-soc-copy-btn")?.addEventListener("click", async () => {
     const note = $("lt-soc-note-panel")?._socNote || $("lt-soc-note-body")?.innerText || "";
-    try { await navigator.clipboard.writeText(note); setLTStatus("SOC case note copied to clipboard"); } catch {}
+    if (!note) { setLTStatus("No note to copy — generate a SOC note first."); return; }
+    try { await navigator.clipboard.writeText(note); setLTStatus("SOC case note copied to clipboard ✓"); } catch { setLTStatus("Copy failed — please select and copy manually."); }
   });
   $("lt-soc-addcase-btn")?.addEventListener("click", () => {
     const note = $("lt-soc-note-panel")?._socNote || $("lt-soc-note-body")?.textContent || "";
@@ -4390,16 +4839,305 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
   // Expose key functions globally for testing and external access
   window.generateSOCCaseNote = generateSOCCaseNote;
   window.triageLog = triageLog;
+
+  // ════════════════════════════════════════════════════════════════
+  // DEEP TRIAGE — Enhanced contextual analysis engine
+  // Uses the structured output from the regex parser as grounding,
+  // then runs a deeper analysis pass for context the regex misses.
+  // Zero external branding — appears as internal toolkit feature only.
+  // ════════════════════════════════════════════════════════════════
+  $("lt-deep-triage-btn")?.addEventListener("click", async () => {
+    const input  = $("lt-input");
+    const rawLog = input?.value?.trim();
+    if (!rawLog) { setLTStatus("Paste a log first."); return; }
+
+    const panel  = $("lt-deep-triage-panel");
+    const body   = $("lt-deep-triage-body");
+    if (!panel || !body) return;
+
+    // Run the regex triage first (or reuse existing result)
+    if (!lastTriageResult) {
+      $("lt-analyze-btn")?.click();
+      await new Promise(r => setTimeout(r, 600));
+    }
+    const triageRes = lastTriageResult || {};
+    const pf = triageRes.prefillData || {};
+    const findings = (triageRes.findings || []).join("\n");
+    const iocs = triageRes.iocs || {};
+    const eventType = triageRes.eventType || "Unknown";
+    const severity  = triageRes.severity  || "info";
+
+    // Show loading state
+    panel.style.display = "block";
+    body.innerHTML = `<div style="color:var(--muted);font-size:11px;padding:8px 0;">
+      <span style="display:inline-block;animation:spin 1s linear infinite;margin-right:6px;">⟳</span>
+      Running enhanced analysis…
+    </div>`;
+    panel.scrollIntoView({ behavior:"smooth", block:"start" });
+
+    // Build a concise structured context block from the parser output
+    // This grounds the analysis in what we already know — reduces hallucination
+    const structuredContext = [
+      `EVENT TYPE: ${eventType}`,
+      `SEVERITY: ${severity.toUpperCase()}`,
+      pf.username     ? `USER: ${pf.username}` : "",
+      pf.hostname     ? `ENDPOINT: ${pf.hostname}` : "",
+      pf.src_ip       ? `SOURCE IP: ${pf.src_ip}` : "",
+      pf.dest_ip      ? `DEST IP: ${pf.dest_ip}` : "",
+      pf.dest_port    ? `DEST PORT: ${pf.dest_port}` : "",
+      pf.url          ? `URL: ${pf.url}` : "",
+      pf.referer      ? `REFERER: ${pf.referer}` : "",
+      pf.threat_name  ? `THREAT/SIGNATURE: ${pf.threat_name}` : "",
+      pf.category     ? `CATEGORY: ${pf.category}` : "",
+      pf.rule         ? `RULE/POLICY: ${pf.rule}` : "",
+      pf.location     ? `LOCATION: ${pf.location}` : "",
+      pf.carrier      ? `CARRIER/ISP: ${pf.carrier}` : "",
+      pf.department   ? `DEPARTMENT: ${pf.department}` : "",
+      pf.role         ? `USER ROLE: ${pf.role}` : "",
+      pf.alert_count  ? `ALERT COUNT: ${pf.alert_count} correlated alerts` : "",
+      pf.fail_ips     ? `FAILURE IPs: ${pf.fail_ips}` : "",
+      pf.success_ips  ? `SUCCESS IPs: ${pf.success_ips}` : "",
+      pf.device       ? `DEVICE: ${pf.device}` : "",
+      pf.cmdline      ? `COMMAND LINE: ${pf.cmdline.slice(0,200)}` : "",
+      pf.hash         ? `SHA256: ${pf.hash.slice(0,64)}` : "",
+      findings        ? `\nPARSER FINDINGS:\n${findings}` : "",
+      (iocs.ips||[]).length ? `IPs EXTRACTED: ${iocs.ips.slice(0,6).join(", ")}` : "",
+      (triageRes.mitre||[]).length ? `MITRE: ${triageRes.mitre.slice(0,5).join(", ")}` : "",
+    ].filter(Boolean).join("\n");
+
+    // The system prompt — zero AI/vendor attribution
+    const systemPrompt = `You are a senior SOC analyst with 10+ years in incident response, threat hunting, and DFIR. You receive parsed security log data and produce a structured triage assessment.
+
+RULES:
+- Never mention AI, machine learning, LLMs, or any vendor name
+- Write in first-person analyst voice: "I assess...", "The pattern indicates...", "My recommendation..."
+- Be direct and specific — no filler phrases, no hedging on clear indicators
+- Always ground analysis in the specific field values provided — never invent IOCs
+- Structure output exactly as specified below
+
+OUTPUT FORMAT (use these exact section headers):
+## Triage Assessment
+[2-3 sentences: what happened, confidence level (High/Medium/Low), and why]
+
+## Key Risk Indicators
+[Bullet list of the 3-6 most significant signals from the log — be specific with values]
+
+## Attack Chain Analysis  
+[What technique/pattern this represents, what stage in the kill chain, what likely happened before/after this event]
+
+## Verdict & Confidence
+[TP/FP/BEN + confidence % + one-line justification]
+
+## Immediate Actions
+[Numbered list of 3-6 specific, actionable steps — include tool names, commands, or console paths where relevant]
+
+## Hunt Pivots
+[2-4 specific follow-on queries or pivots an analyst should run — reference the specific IOCs from this log]`;
+
+    const userPrompt = `STRUCTURED PARSER OUTPUT:
+${structuredContext}
+
+RAW LOG (first 3000 chars):
+${rawLog.slice(0, 3000)}
+
+Produce the triage assessment. Be specific to the values above — do not generalise.`;
+
+    try {
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1500,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        body.innerHTML = `<div style="color:#f87171;font-size:11px;">Analysis unavailable: ${err?.error?.message || resp.status}. Check network settings.</div>`;
+        return;
+      }
+
+      const data = await resp.json();
+      const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
+
+      // Render with markdown-style formatting — bold, headers, bullets
+      const rendered = text
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+        .replace(/^## (.+)$/gm, '<div style="font-weight:800;color:#a78bfa;font-size:12px;margin:14px 0 6px;border-bottom:1px solid rgba(167,139,250,0.2);padding-bottom:4px;">$1</div>')
+        .replace(/^### (.+)$/gm, '<div style="font-weight:700;color:var(--text);font-size:11px;margin:10px 0 4px;">$1</div>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code style="font-family:monospace;background:rgba(56,189,248,0.1);padding:1px 5px;border-radius:3px;color:#38bdf8;font-size:10.5px;">$1</code>')
+        .replace(/^- (.+)$/gm, '<div style="padding:2px 0 2px 12px;border-left:2px solid rgba(167,139,250,0.3);margin:3px 0;">$1</div>')
+        .replace(/^(\d+\.) (.+)$/gm, '<div style="padding:2px 0 2px 12px;margin:3px 0;"><span style="color:#a78bfa;font-weight:700;">$1</span> $2</div>')
+        .replace(/\n/g, '<br>');
+
+      body.innerHTML = rendered;
+      panel._deepNote = text;
+      setLTStatus("Enhanced analysis complete");
+
+    } catch (e) {
+      body.innerHTML = `<div style="color:#f87171;font-size:11px;">Network error: ${e.message}. Ensure the toolkit has API access.</div>`;
+    }
+  });
+
+  // Deep triage copy button
+  $("lt-deep-copy-btn")?.addEventListener("click", async () => {
+    const note = $("lt-deep-triage-panel")?._deepNote || $("lt-deep-triage-body")?.innerText || "";
+    try { await navigator.clipboard.writeText(note); setLTStatus("Enhanced analysis copied to clipboard"); } catch {}
+  });
+
+  // Deep triage add to case
+  $("lt-deep-addcase-btn")?.addEventListener("click", () => {
+    const note = $("lt-deep-triage-panel")?._deepNote || $("lt-deep-triage-body")?.textContent || "";
+    if (!note) return;
+    if (!activeCase) { alert("No active case. Create one in Case Manager first."); return; }
+    activeCase.notes = (activeCase.notes||"") + "\n\n─────────────────────────────────\nENHANCED TRIAGE ANALYSIS\n─────────────────────────────────\n" + note;
+    saveActiveCase();
+    setLTStatus("Enhanced analysis added to active case");
+    switchTab("case");
+  });
   window.analyzeEmailHeadersFull = analyzeEmailHeadersFull;
 
-  if (ltAnalyzeBtn) ltAnalyzeBtn.addEventListener("click", () => {
+  if (ltAnalyzeBtn) ltAnalyzeBtn.addEventListener("click", async () => {
     const text = ($("lt-input")?.value || "").trim();
     if (!text) { setLTStatus("Paste a log first."); return; }
+
+    // ── STEP 1: Run regex parser instantly (offline, < 100ms) ──
     lastTriageResult = triageLog(text);
     window.lastTriageResult = lastTriageResult;
     renderLTResults(lastTriageResult);
     const total = Object.values(lastTriageResult.iocs).reduce((s,a)=>s+(a?.length||0),0);
     setLTStatus(`Triage complete — ${lastTriageResult.eventType} · ${total} IOCs extracted`);
+
+    // ── STEP 2: Auto-generate SOC note via AI in background ───
+    // Show the SOC note panel immediately with a loading state
+    const socPanel = $("lt-soc-note-panel");
+    const socBody  = $("lt-soc-note-body");
+    const socCtrl  = $("lt-soc-note-controls");
+    if (socPanel && socBody) {
+      socPanel.style.display = "block";
+      socBody.innerHTML = `<div style="color:var(--muted);font-size:11.5px;padding:8px 0;display:flex;align-items:center;gap:8px;">
+        <span style="display:inline-block;animation:spin 1s linear infinite;">⟳</span>
+        Composing case note…
+      </div>`;
+      // Hide controls — we're auto-generating with defaults
+      if (socCtrl) socCtrl.style.display = "none";
+    }
+
+    const res  = lastTriageResult;
+    const pf   = res.prefillData || {};
+    const iocs = res.iocs || {};
+
+    // Build context from all extracted fields
+    const ctx = [
+      `EVENT TYPE: ${res.eventType || "Security Event"}`,
+      `SEVERITY: ${(res.severity||"info").toUpperCase()}`,
+      ``,
+      pf.username    ? `User account: ${pf.username}` : "",
+      pf.department  ? `Department: ${pf.department}` : "",
+      pf.role        ? `Role/Title: ${pf.role}` : "",
+      pf.hostname    ? `Endpoint/Host: ${pf.hostname}` : "",
+      pf.device      ? `Device: ${pf.device}` : "",
+      ``,
+      pf.threat_name ? `Threat/Signature: ${pf.threat_name}` : "",
+      pf.category    ? `Category: ${pf.category}` : "",
+      pf.rule        ? `Rule/Policy: ${pf.rule}` : "",
+      pf.url         ? `Target URL: ${pf.url}` : "",
+      pf.referer     ? `HTTP Referrer: ${pf.referer}` : "",
+      pf.cmdline     ? `Command line: ${pf.cmdline.slice(0,200)}` : "",
+      pf.hash        ? `File hash: ${pf.hash.slice(0,64)}` : "",
+      pf.verdict     ? `Control action: ${pf.verdict}` : "",
+      pf.http_status ? `HTTP status: ${pf.http_status}` : "",
+      pf.bytes       ? `Bytes transferred: ${pf.bytes}` : "",
+      ``,
+      pf.timestamp   ? `Timestamp: ${pf.timestamp}` : "",
+      pf.alert_count ? `Alert count: ${pf.alert_count} correlated alerts` : "",
+      ``,
+      pf.src_ip      ? `Source IP: ${pf.src_ip}` : "",
+      pf.dest_ip     ? `Destination IP: ${pf.dest_ip}` : "",
+      pf.dest_port   ? `Port: ${pf.dest_port}` : "",
+      pf.location    ? `Location: ${pf.location}` : "",
+      pf.carrier     ? `Carrier/ISP: ${pf.carrier}` : "",
+      pf.fail_ips    ? `Auth failure IPs: ${pf.fail_ips}` : "",
+      pf.success_ips ? `Auth success IPs (known-good): ${pf.success_ips}` : "",
+      ``,
+      (res.findings||[]).length ? `Triage findings:\n${(res.findings||[]).map(f=>"  "+f.replace(/[🚨⚠️ℹ️]/g,"").trim()).join("\n")}` : "",
+      (res.mitre||[]).length ? `MITRE: ${res.mitre.slice(0,5).join(", ")}` : "",
+      (iocs.domains||[]).length ? `Domains: ${iocs.domains.slice(0,8).join(", ")}` : "",
+      (iocs.ips||[]).length ? `IPs: ${iocs.ips.slice(0,6).join(", ")}` : "",
+      (iocs.urls||[]).length ? `URLs: ${iocs.urls.slice(0,4).join(", ")}` : "",
+    ].filter(Boolean).join("\n");
+
+    // Auto-pick verdict based on scoreAutoVerdict
+    const autoV = scoreAutoVerdict(res);
+    const autoVLabel = autoV === "TP" ? "TP – Blocked" : autoV === "FP" ? "FP – False Positive" : "TBD – Under Investigation";
+    const autoDisp   = (res.severity === "critical" || res.severity === "high")
+      ? "Escalated to Tier 2 / Incident Response" : "No Further Action (NFA)";
+
+    const systemPrompt = [
+      "You are a senior SOC analyst writing a case note for a security ticket.",
+      "Write in clear flowing prose like a skilled analyst narrating what happened to a colleague who was not there.",
+      "No headers, no bullet sections, no labels. Just tight readable paragraphs that cover all the facts and end with a clear verdict.",
+      "",
+      "STYLE RULES:",
+      "Write as one continuous narrative. No WHO: WHAT: WHERE: labels. No markdown headers.",
+      "Open with: who the user is, what host they were on, what they did or what happened to them.",
+      "Weave in when it happened, where the traffic went, what the security control detected and did, all in natural sentence flow.",
+      "Name every IOC explicitly: full email, exact hostname, exact IPs, exact URLs, exact threat signature, exact rule name.",
+      "If there is a referrer or redirect chain trace it in order: accessed X which redirected to Y then to Z.",
+      "If there is an auth pattern (failures then successes or two locations) tell that story chronologically with the specific IPs and locations.",
+      "Explain WHY it matters briefly, what the threat type means in plain terms.",
+      "State whether there is or is not evidence of compromise, based only on what the logs show.",
+      "End with a single recommendation sentence: Recommend marking as [VERDICT] / [DISPOSITION]",
+      "After the narrative add a short Recommended Actions: section with 3-5 numbered specific steps using the actual IOCs.",
+      "Maximum total length: 150-200 words for narrative plus actions. Be concise. Every sentence must add information.",
+      "Do not mention AI any vendor tools or how this note was generated.",
+      "Do not use bold headers or markdown formatting of any kind. Plain text only.",
+      "",
+      "EXAMPLE OF THE CORRECT OUTPUT STYLE:",
+      "User rb092513@mmhfgb.com on host 2411-5FR2WH3 accessed hytechroofing.com which then redirected to multiple suspicious domains including eztwl.attemportantly.my.id chimebutetrinime.attemportantly.my.id and userstatics.com. These requests were blocked by Zscaler under the signature HTML.Scam.TechSupport indicating attempted access to malicious tech-support scam content. Based on the available logs the malicious web traffic was blocked before full content retrieval so there is no direct evidence of successful execution or compromise at this time. Recommend marking as TP Blocked / No Further Action.",
+      "",
+      "Recommended Actions:",
+      "1. Add hytechroofing.com userstatics.com and *.attemportantly.my.id to the proxy blocklist.",
+      "2. Pull EDR telemetry for host 2411-5FR2WH3 covering 30 minutes before and after the event.",
+      "3. Check proxy logs for other users who accessed hytechroofing.com in the same window.",
+    ].join("\n");
+
+
+    const userPrompt = "EVENT DATA:\n" + ctx + "\n\nVerdict: " + autoVLabel + "\nDisposition: " + autoDisp + "\n\nWrite the case note now. Plain text, no markdown, no headers, no labels.";
+
+    try {
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 600,
+          system: systemPrompt,
+          messages: [{ role:"user", content: userPrompt }],
+        }),
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        const noteText = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n").trim();
+        if (socPanel && socBody) renderSOCNote(socBody, socPanel, noteText);
+        setLTStatus(`Triage complete — ${res.eventType} · ${total} IOCs · Case note ready`);
+      } else {
+        // API error — show offline fallback silently
+        const fallback = generateSOCCaseNote(res, "TP_blocked", "NFA", "", "");
+        if (socPanel && socBody) renderSOCNote(socBody, socPanel, fallback);
+        setLTStatus(`Triage complete — ${res.eventType} · ${total} IOCs extracted`);
+      }
+    } catch (_) {
+      // Network unavailable — show offline fallback silently
+      const fallback = generateSOCCaseNote(res, "TP_blocked", "NFA", "", "");
+      if (socPanel && socBody) renderSOCNote(socBody, socPanel, fallback);
+      setLTStatus(`Triage complete — ${res.eventType} · ${total} IOCs extracted`);
+    }
   });
 
   if (ltPrefillBtn) ltPrefillBtn.addEventListener("click", () => {
@@ -4700,8 +5438,12 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
     cve_cisa:"https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
     cve_exploitdb:"https://www.exploit-db.com/", cve_vulners:"https://vulners.com/",
     cve_github:"https://github.com/search",
-    cvep_cisa_kev:"https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
-    cvep_epss:"https://www.first.org/epss/",
+    cvep_cisa_kev:  "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+    cvep_epss:      "https://www.first.org/epss/",
+    cvep_socradar:  "https://socradar.io/labs/vulnerability-intelligence/",
+    cvep_greynoise: "https://viz.greynoise.io/trends/",
+    cvep_shodan:    "https://www.shodan.io/search?query=vuln:",
+    cvep_vulncheck: "https://vulncheck.com/browse/cve",
     emart_msgid_search:"https://toolbox.googleapps.com/apps/messageheader/analyzeheader",
     emart_dkim_domain:"https://www.virustotal.com/", emart_spf_domain:"https://www.virustotal.com/",
     lb_lolbas:"https://lolbas-project.github.io/", lb_gtfobins:"https://gtfobins.github.io/",
