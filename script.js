@@ -6445,81 +6445,293 @@ Produce the triage assessment. Be specific to the values above — do not genera
   // ─── Smart IOC Extractor ──────────────────────────────────────
   function extractSmartIOCs(text) {
     const now = new Date().toISOString();
-    const t = (text || "").replace(/\r\n/g,"\n");
-    const headerDetected = looksLikeHeaders(t);
-    const h = headerDetected ? parseEmailHeaders(t) : null;
-    const originLink = h?.originIp ? `https://www.virustotal.com/gui/ip-address/${enc(h.originIp)}` : "-";
-    const dkimLink = h?.dkimDomain ? `https://www.virustotal.com/gui/domain/${enc(h.dkimDomain)}` : "-";
-    const spfLink = h?.spfMailfromDomain ? `https://www.virustotal.com/gui/domain/${enc(h.spfMailfromDomain)}` : "-";
-    const returnPathLink = h?.returnPathDomain ? `https://www.virustotal.com/gui/domain/${enc(h.returnPathDomain)}` : "-";
-    if (headerDetected) return `SMART IOC EXTRACTOR\nExtracted At (UTC): ${now}\n\nEMAIL HEADER INTEL:\n- Sender (From): ${h?.senderEmail||"-"}\n- Receiver (To): ${h?.receiverEmail||"-"}\n- Subject: ${h?.subject||"-"}\n- Date: ${h?.date||"-"}\n- Message-ID: ${h?.messageId||"-"}\n- Return-Path: ${h?.returnPath||"-"}\n- Return-Path Domain: ${h?.returnPathDomain||"-"}\n- Origin IP (heuristic): ${h?.originIp||"-"}\n- SPF Result: ${h?.spfResult||"-"}   (smtp.mailfrom: ${h?.spfMailfrom||"-"})\n- DKIM Result: ${h?.dkimResult||"-"} (d=${h?.dkimDomain||"-"}; s=${h?.dkimSelector||"-"})\n\nQUICK PIVOTS:\n- Return-Path Domain Pivot: ${returnPathLink}\n- Origin IP Pivot: ${originLink}\n- SPF Domain Pivot: ${spfLink}\n- DKIM Domain Pivot: ${dkimLink}\n`;
-    const refanged = refangSmart(t);
+    const t   = (text || "").replace(/\r\n/g, "\n");
 
-    // ── Core network IOCs ──────────────────────────────────────
-    const ips     = [...new Set((refanged.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g)||[]).filter(isValidIPv4))];
-    const ipv6    = [...new Set((refanged.match(/\b[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{0,4}){2,7}\b/g)||[]).filter(m => {
+    // ── If email headers — use dedicated parser ────────────────
+    if (looksLikeHeaders(t)) {
+      const h = parseEmailHeaders(t);
+      const enc2 = v => encodeURIComponent(v||"");
+      return [
+        "SMART IOC EXTRACTOR — Email Headers",
+        `Extracted At (UTC): ${now}`, "",
+        `Sender (From):       ${h?.senderEmail||"-"}`,
+        `Receiver (To):       ${h?.receiverEmail||"-"}`,
+        `Subject:             ${h?.subject||"-"}`,
+        `Date:                ${h?.date||"-"}`,
+        `Message-ID:          ${h?.messageId||"-"}`,
+        `Return-Path:         ${h?.returnPath||"-"}`,
+        `Return-Path Domain:  ${h?.returnPathDomain||"-"}`,
+        `Origin IP:           ${h?.originIp||"-"}`,
+        `SPF Result:          ${h?.spfResult||"-"} (${h?.spfMailfrom||"-"})`,
+        `DKIM Result:         ${h?.dkimResult||"-"} (d=${h?.dkimDomain||"-"}; s=${h?.dkimSelector||"-"})`,
+        "",
+        h?.originIp      ? `VT IP:     https://www.virustotal.com/gui/ip-address/${enc2(h.originIp)}`:"",
+        h?.dkimDomain    ? `VT Domain: https://www.virustotal.com/gui/domain/${enc2(h.dkimDomain)}`:"",
+      ].filter(l => l !== undefined).join("\n");
+    }
+
+    // ── Refang any defanged IOCs first ─────────────────────────
+    const r = refangSmart(t);
+
+    // Helper: dedupe + sort + filter empty
+    const uniq = arr => [...new Set(arr.filter(Boolean))].sort();
+
+    // ══════════════════════════════════════════════════════════
+    // SECTION 1 — NETWORK / IP / URL
+    // ══════════════════════════════════════════════════════════
+    const ips = uniq((r.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g)||[]).filter(isValidIPv4));
+
+    const ipv6 = uniq((r.match(/\b[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{0,4}){3,7}\b/g)||[]).filter(m => {
       try { return isValidIPv6(m); } catch { return false; }
-    }))];
-    const urls    = [...new Set((refanged.match(/https?:\/\/[^\s<>"'\]]+/gi)||[]))];
-    const domains = [...new Set(
-      (refanged.match(/\b([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+)\b/g)||[])
-      .filter(d => !ips.includes(d) && !/^\d+\.\d+/.test(d) && /\.[a-z]{2,}$/i.test(d)
-        && !/\.(exe|dll|ps1|bat|vbs|js|py|sh|pdf|doc|xls|zip|png|jpg|gif|svg|css|json|log|txt|csv|xml|md|rst)$/i.test(d))
-    )];
-    const emails  = [...new Set((refanged.match(/\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b/g)||[]))];
+    }));
 
-    // ── File & endpoint IOCs ───────────────────────────────────
-    const hashes  = [...new Set((refanged.match(/\b[a-fA-F0-9]{32}\b|\b[a-fA-F0-9]{40}\b|\b[a-fA-F0-9]{64}\b/g)||[]))];
-    const filePaths = [...new Set((refanged.match(/(?:[A-Za-z]:\\[^\s"<>|*?]+|\\\\[^\s"<>|*?]+|\/(?:etc|var|tmp|home|usr|opt|bin|sbin|proc)\/[^\s"<>|*?]+)/g)||[]))];
-    const regKeys   = [...new Set((refanged.match(/HKEY_(?:LOCAL_MACHINE|CURRENT_USER|CLASSES_ROOT|USERS|CURRENT_CONFIG)[\\\w\s%_.\-]*/g)||[]))];
-    const processes = [...new Set((refanged.match(/\b([\w\-]{2,40}\.(?:exe|dll|sys|bat|cmd|ps1|vbs|hta|msi|jar|sh|py))\b/gi)||[]).map(p=>p.toLowerCase()))];
+    const urls = uniq((r.match(/https?:\/\/[^\s<>"'\]\n]+/gi)||[])
+      .map(u => u.replace(/[.,;)]+$/, "")));
 
-    // ── Identity & account IOCs ────────────────────────────────
-    // Usernames: word@domain or standalone user= / username= patterns
-    const userAccounts = [...new Set([
-      ...(refanged.match(/\b(?:user(?:name)?|actor|account)\s*[=:"]+\s*([^\s"',\n]{3,60})/gi)||[])
-        .map(m => (m.match(/[=:"]+\s*(.+)/)||[])[1]?.trim()).filter(Boolean),
-      ...(refanged.match(/\b[a-zA-Z0-9][a-zA-Z0-9._\-]{2,30}@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b/g)||[]),
-    ])];
+    const SKIP_DOMAIN_PATTERNS = /^(?:\d+\.\d+|\d+$|actor\.|client\.|outcome\.|target\.|user\.|eventType|displayName|alternateId|ipAddress|geographicalContext|publishedAt|debugContext|authenticationContext|requestUri|userAgent|session\.|logonType|workstation|Subject|Message|Return|Received|DKIM|SPF|Content|MIME|X-|Date:|From:|To:|Cc:|resul|method\.|request\.|HTML\.|JS\.|Win32\.|Malware\.|Exploit\.|Trojan\.|Ransom\.|Backdoor\.|Adware\.|PUA\.|CVE-|john\.doe$|jane\.doe$)/i;
+    // Also skip anything that looks like a Okta-style dotted field key (3+ segments all lowercase)
+    const isOktaField = d => d.split(".").length >= 3 && d.split(".").every(p => /^[a-z][a-zA-Z0-9]*$/.test(p));
+    const domains = uniq(
+      (r.match(/\b([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+)\b/g)||[])
+      .filter(d =>
+        !ips.includes(d) &&
+        /\.[a-zA-Z]{2,}$/.test(d) &&
+        !/\.(exe|dll|ps1|bat|vbs|js|py|sh|pdf|doc|xls|zip|png|jpg|gif|svg|css|json|log|txt|csv|xml|md|html|htm|jar|msi|iso|iso|rar|7z|cab|lnk|scr|com|sys|drv|tmp|bak|ini|cfg|conf)$/i.test(d) &&
+        !SKIP_DOMAIN_PATTERNS.test(d) &&
+        !isOktaField(d) &&
+        !d.split(".").every(p => /^\d+$/.test(p))
+      )
+    );
 
-    // Hostnames: CORP-XXX-NNN, DC-NNN, WS-NNN patterns + ComputerName= values
-    const hostnames = [...new Set([
-      ...(refanged.match(/\b(?:ComputerName|hostname|host|AgentComputerName|devicehostname|clientHostname)\s*[=:"]+\s*([A-Za-z0-9][A-Za-z0-9_\-.]{2,50})/gi)||[])
-        .map(m => (m.match(/[=:"]+\s*(.+)/)||[])[1]?.trim()).filter(Boolean),
-      ...(refanged.match(/\b(?:[A-Z]{2,6}-[A-Z0-9]{2,6}-[A-Z0-9]{2,8}|DC-\w+|WS-\w+|SRV-\w+|CORP-[\w-]+)\b/g)||[]),
-    ])];
+    // Ports: only extract from explicit key=value fields (not bare :number which catches timestamps)
+    const ports = uniq((r.match(/\b(?:dstport|srcport|remoteport|ipport|RemotePort|IpPort|port)\s*[=:]\s*(\d{1,5})\b/gi)||[])
+      .map(m => (m.match(/(\d{1,5})$/)||[])[1]).filter(p => p && parseInt(p) <= 65535 && parseInt(p) >= 1));
 
-    // ── Threat intelligence IOCs ───────────────────────────────
-    const cves      = [...new Set((refanged.match(/CVE-\d{4}-\d{4,}/gi)||[]).map(c=>c.toUpperCase()))];
-    const mitreTTPs = [...new Set((refanged.match(/\bT\d{4}(?:\.\d{3})?\b/g)||[]))];
-    const asns      = [...new Set((refanged.match(/\bAS\d{4,6}\b|\bASN\s*\d{4,6}\b/gi)||[]).map(a=>a.toUpperCase()))];
-    const eventIDs  = [...new Set((refanged.match(/\bEvent(?:ID|Id|ID)?\s*[=:]?\s*(\d{3,5})\b/g)||[]).map(m=>"EventID: "+(m.match(/\d{3,5}/)||[])[0]))];
+    // ══════════════════════════════════════════════════════════
+    // SECTION 2 — IDENTITY & ACCOUNT
+    // ══════════════════════════════════════════════════════════
+    const emails = uniq((r.match(/\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b/g)||[])
+      .map(e => e.toLowerCase()));
 
-    // ── Build output ───────────────────────────────────────────
-    const lines = ["SMART IOC EXTRACTOR", `Extracted At (UTC): ${now}`, ""];
-    const add = (label, arr) => { if (arr.length) lines.push(`${label} (${arr.length}):\n${arr.map(v=>"  "+v).join("\n")}\n`); };
-    add("IPv4 Addresses",   ips);
-    add("IPv6 Addresses",   ipv6);
-    add("URLs",             urls);
-    add("Domains",          domains);
-    add("Email Addresses",  emails);
-    add("File Hashes",      hashes);
-    add("File Paths",       filePaths);
-    add("Registry Keys",    regKeys);
-    add("Processes/Files",  processes);
-    add("User Accounts",    userAccounts);
-    add("Hostnames",        hostnames);
-    add("CVEs",             cves);
-    add("MITRE TTPs",       mitreTTPs);
-    add("ASNs",             asns);
-    add("Windows Event IDs",eventIDs);
-    const total = ips.length+ipv6.length+urls.length+domains.length+emails.length+hashes.length+
-                  filePaths.length+regKeys.length+processes.length+userAccounts.length+
-                  hostnames.length+cves.length+mitreTTPs.length+asns.length+eventIDs.length;
-    if (total === 0) lines.push("No recognizable IOCs found.");
-    else lines.unshift(`Total IOCs extracted: ${total}\n`);
-    return lines.join("\n");
+    // Non-email usernames from structured key=value fields
+    const _rawUsernames = [];
+    const USER_KEYS = /\b(?:UserName|SubjectUserName|TargetUserName|actor\.alternateId|username|account\s+name|account name|Secondary\s+name|Username)\s*[=:"\s]+\s*/gi;
+    let um;
+    const _tmpText = t;
+    const _userRe  = /\b(?:UserName|SubjectUserName|TargetUserName|actor\.alternateId|username|account\s+name|Secondary\s+name)\s*[=:"\s]+([^\s"',\n]{2,60})/gi;
+    while ((um = _userRe.exec(_tmpText)) !== null) {
+      const val = um[1].trim().replace(/^["']|["']$/g, "");
+      if (val && !val.match(/^(?:None|null|N\/A|--|true|false|\d+)$/i)) _rawUsernames.push(val);
+    }
+    const usernames = uniq(_rawUsernames.filter(u => !emails.includes(u.toLowerCase())));
+
+    // Display names: "User FirstName LastName", displayName=, actor.displayName, target.displayName
+    const _nameRe = /\b(?:User\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+Privileged|(?:displayName|actor\.displayName|target\.displayName|UserDisplayName)\s*[=:"]+\s*([^,"\n]{3,60})|(?:Account\s+name|Subject)\s+([A-Z][a-zA-Z\s\-']{2,40})(?=\s+(?:Source|Time|Activity|Location|Risk|Department|Privileged|Email|Username|AD|SID|OU|See|IP|Network|User\b)))/gi;
+    const displayNames = [];
+    let nm;
+    while ((nm = _nameRe.exec(t)) !== null) {
+      const val = (nm[1]||nm[2]||nm[3]||"").trim();
+      if (val && val.length > 2 && !/^(?:None|null|--)$/i.test(val)) displayNames.push(val);
+    }
+    const names = uniq(displayNames);
+
+    // Hostnames
+    const _hostRe = /\b(?:ComputerName|clientHostname|AgentComputerName|devicehostname|Computer|WorkstationName|hostname)\s*[=:"\s]+([A-Za-z0-9][A-Za-z0-9_\-\.]{2,50})/gi;
+    const hostnames = [];
+    let hm;
+    while ((hm = _hostRe.exec(t)) !== null) {
+      const v = hm[1].trim();
+      if (v && !hostnames.includes(v)) hostnames.push(v);
+    }
+    // Also match CORP-XX-NNN style patterns
+    (t.match(/\b(?:[A-Z]{2,6}-[A-Z0-9]{2,6}-[A-Z0-9]{2,8}|DC-\w{2,20}|WS-\w{2,20}|SRV-\w{2,20})\b/g)||[])
+      .forEach(h => { if (!hostnames.includes(h)) hostnames.push(h); });
+
+    // Departments
+    const _deptRe = /\bDepartment\s+([^\n]{3,60}?)(?=\s+(?:Title|Network|Username|Email|Privileged|Risk|Source|Time|User|Alert|Classification|AD|SID|OU|See|IP|Activity)\b)/i;
+    const deptMatch = t.match(_deptRe);
+    const departments = deptMatch ? [deptMatch[1].trim()] : [];
+
+    // Titles / Roles
+    const _titleRe = /\bTitle\s+([^\n]{3,60})(?=\s+(?:Network|Username|Email|Privileged|Risk|Source|Time|User|Alert|Classification|AD|SID|OU|See|IP|Activity|Department))/i;
+    const titleMatch = t.match(_titleRe);
+    const titles = titleMatch ? [titleMatch[1].trim()] : [];
+
+    // ══════════════════════════════════════════════════════════
+    // SECTION 3 — ENDPOINT / FILE
+    // ══════════════════════════════════════════════════════════
+    const hashes = uniq((r.match(/\b[a-fA-F0-9]{32}\b|\b[a-fA-F0-9]{40}\b|\b[a-fA-F0-9]{64}\b/g)||[])
+      .filter(h => /^[a-fA-F0-9]+$/.test(h)));
+
+    const filePaths = uniq((r.match(/(?:[A-Za-z]:\\[^\s"<>|*?\n]+|\\\\[^\s"<>|*?\n]+|\/(?:etc|var|tmp|home|usr|opt|bin|sbin|proc|dev)\/[^\s"<>\n]+)/g)||[])
+      .map(p => p.replace(/[,;.]+$/, "")));
+
+    const regKeys = uniq((r.match(/HKEY_(?:LOCAL_MACHINE|CURRENT_USER|CLASSES_ROOT|USERS|CURRENT_CONFIG)[\\\/\w\s%_.\-]*/g)||[])
+      .map(k => k.trim()));
+
+    const processes = uniq((r.match(/\b([\w\-]{2,40}\.(?:exe|dll|sys|bat|cmd|ps1|vbs|hta|msi|jar|sh|py))\b/gi)||[])
+      .map(p => p.toLowerCase()));
+
+    // Command lines
+    const _cmdRe = /(?:CommandLine|cmdline|command)\s*[=:"\s]+([^\n"]{5,200})/gi;
+    const cmdlines = [];
+    let cl;
+    while ((cl = _cmdRe.exec(t)) !== null) {
+      const v = cl[1].trim().replace(/^["']|["']$/g,"");
+      if (v.length > 4) cmdlines.push(v.slice(0,200));
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // SECTION 4 — ALERT / EVENT CONTEXT
+    // ══════════════════════════════════════════════════════════
+
+    // Timestamps / dates
+    const timestamps = uniq([
+      ...(t.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?/g)||[]),
+      ...(t.match(/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}(?:\.\d+)?/gi)||[]),
+      ...(t.match(/\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)/gi)||[]),
+    ]);
+
+    // Geo — countries and cities
+    const GEO_PATTERNS = /\b(?:Location country|country|city|geographicalContext\.country|geographicalContext\.city)\s*[=:"\s]+([A-Za-z][A-Za-z\s]{2,30})(?=[,\s\n(]|$)/gi;
+    const geoMatches = [];
+    let gm;
+    while ((gm = GEO_PATTERNS.exec(t)) !== null) {
+      const v = gm[1].trim().replace(/\s+(?:Location|Source|Time|User|Alert|Risk).*$/i,"");
+      if (v && v.length > 1 && !/^(?:None|null|--)$/i.test(v)) geoMatches.push(v);
+    }
+    // Also extract city names from auth log lines
+    const KNOWN_CITIES = /\b(San Juan|Vega Baja|Mexico City|Dallas|Miami|Houston|Chicago|New York|Los Angeles|San Francisco|Moscow|Beijing|London|Tokyo|Manila|Cebu|Dubai|Singapore|Toronto|Sydney|Berlin|Paris|Rome|Madrid|Seoul|Taipei|Jakarta|Lagos|Cairo|Riyadh|Bogota|Lima|Santiago|Buenos Aires|Karachi|Mumbai|Delhi|Bangalore|Kolkata)\b/gi;
+    (t.match(KNOWN_CITIES)||[]).forEach(c => geoMatches.push(c));
+    const geoLocations = uniq(geoMatches.map(g => g.trim()));
+
+    // Carriers / ISPs
+    const CARRIER_PATTERNS = /\b(Liberty Mobile Puerto Rico|T-Mobile USA|T-Mobile|RadioMovil Dipsa|Telcel|AT&T|Verizon|Sprint|Comcast|Charter|Cox|CenturyLink|Lumen|Windstream|Frontier|Rogers|Bell Canada|Telus|Videotron|Claro|Movistar|Entel|Tigo|Digicel|Flow|BTC|Orange|Vodafone|Deutsche Telekom|Telefonica|Telenor|TeliaSonera|Swisscom|KPN|Proximus|Belgacom|BT Group|Sky|TalkTalk|Virgin Media|EE|O2|Three|Softbank|NTT|KDDI|Rakuten|Korea Telecom|SK Telecom|LG Uplus|Chunghwa|Far EasTone|Taiwan Mobile|Globe|PLDT|Smart|Reliance Jio|Airtel|BSNL|Idea|Jazztel|Yoigo)[^\n,;.]{0,30}/gi;
+    const carriers = uniq((t.match(CARRIER_PATTERNS)||[]).map(c => c.trim().replace(/[,;.]+$/,"")));
+
+    // Applications / services
+    const APP_PATTERNS = /(?:Destination application identifier|application|platform|app|sourceApp)\s*[=:"\s]+([^\n"',]{3,60})/gi;
+    const apps = [];
+    let am;
+    while ((am = APP_PATTERNS.exec(t)) !== null) {
+      const v = am[1].trim().replace(/^["']|["']$/g,"").replace(/\s+(?:Location|Source|Time|User|Account).*$/i,"");
+      if (v && v.length > 2 && !/^(?:None|null|true|false|\d+)$/i.test(v) && !apps.includes(v)) apps.push(v);
+    }
+
+    // Auth outcomes
+    const outcomes = [];
+    const failCount  = (t.match(/\bFAILURE\b/gi)||[]).length;
+    const succCount  = (t.match(/\bSUCCESS\b/gi)||[]).length;
+    const blockedCount = (t.match(/\bblocked\b|\bdenied\b|\bdrop\b/gi)||[]).length;
+    if (failCount)    outcomes.push(`FAILURE ×${failCount}`);
+    if (succCount)    outcomes.push(`SUCCESS ×${succCount}`);
+    if (blockedCount) outcomes.push(`BLOCKED/DENIED ×${blockedCount}`);
+
+    // Risk / severity
+    const riskMatch = t.match(/\bRisk score\s+([\w,. ]+?)(?=\s+(?:Classification|Privileged|Department|User|Source|Time))/i) ||
+                     t.match(/\bSeverity\s*[=:]\s*(\w+)/i) ||
+                     t.match(/\bseverity\s*[=:]\s*(\w+)/i);
+    const riskScores = riskMatch ? [riskMatch[1].trim()] : [];
+
+    // Threat names / signatures
+    const _threatRe = /(?:threatName|DetectDescription|DetectionName|alert_name)\s*[=:"\s]+([^\n"',\s][^\n"',]{2,79}?)(?=\s+\w+=|\s*$|\s+[A-Z][a-zA-Z]+=)/gi;
+    const threats = [];
+    let tm;
+    while ((tm = _threatRe.exec(t)) !== null) {
+      const v = tm[1].trim().replace(/^["']|["']$/g,"");
+      if (v && v.length > 2 && !threats.includes(v)) threats.push(v);
+    }
+
+    // Subjects (email subjects)
+    const subjMatch = t.match(/\bsubject\s*[=:]\s*(.+?)(?=\s+\w+=|\n|$)/i);
+    const subjects = subjMatch ? [subjMatch[1].trim()] : [];
+
+    // Attachments
+    const _attRe = /(?:attachmentName|attachment_name|attach)\s*[=:"\s]+([^\s"',\n]{2,80})/gi;
+    const attachments = [];
+    let attm;
+    while ((attm = _attRe.exec(t)) !== null) {
+      const v = attm[1].trim();
+      if (v && !attachments.includes(v)) attachments.push(v);
+    }
+
+    // Logon types
+    const logonMatch = t.match(/\bLogonType\s*[=:]\s*(\d+)/i);
+    const logonTypes = logonMatch ? [`LogonType ${logonMatch[1]} — ${({
+      "2":"Interactive","3":"Network","4":"Batch","5":"Service","7":"Unlock",
+      "8":"NetworkCleartext","9":"NewCredentials","10":"RemoteInteractive","11":"CachedInteractive"
+    }[logonMatch[1]]||"Unknown")}`] : [];
+
+    // Failure reasons
+    const failReasonMatch = t.match(/FailureReason\s*[=:]\s*(.+?)(?=\n|$)/i);
+    const failReasons = failReasonMatch ? [failReasonMatch[1].trim()] : [];
+
+    // CVEs, MITRE TTPs, Event IDs
+    const cves      = uniq((r.match(/CVE-\d{4}-\d{4,}/gi)||[]).map(c=>c.toUpperCase()));
+    const mitreTTPs = uniq((r.match(/\bT\d{4}(?:\.\d{3})?\b/g)||[]));
+    const eventIDs  = uniq((r.match(/\bEventID?\s*[=:]\s*(\d{3,5})/gi)||[]).map(m=>"EventID "+((m.match(/\d{3,5}/)||[])[0])));
+    const asns      = uniq((r.match(/\bAS\d{4,6}\b|\bASN\s*\d{4,6}\b/gi)||[]).map(a=>a.toUpperCase()));
+
+    // ══════════════════════════════════════════════════════════
+    // BUILD OUTPUT
+    // ══════════════════════════════════════════════════════════
+    const sections = [];
+    const sec = (label, arr, note) => {
+      if (arr.length) sections.push(`${label} (${arr.length})${note?" ["+note+"]":""}:\n${arr.map(v=>"  "+v).join("\n")}`);
+    };
+
+    // Network
+    sec("IPv4 Addresses",      ips);
+    sec("IPv6 Addresses",      ipv6);
+    sec("URLs",                urls);
+    sec("Domains",             domains);
+    sec("Ports",               ports);
+
+    // Identity
+    sec("Email Addresses",     emails);
+    sec("Usernames",           usernames);
+    sec("Display Names",       names);
+    sec("Departments",         departments);
+    sec("Titles / Roles",      titles);
+    sec("Hostnames",           uniq(hostnames));
+
+    // Endpoint
+    sec("File Hashes",         hashes, hashes.length===1?({32:"MD5",40:"SHA1",64:"SHA256"}[hashes[0].length]||""):"");
+    sec("Processes / Files",   processes);
+    sec("File Paths",          filePaths);
+    sec("Registry Keys",       regKeys);
+    sec("Command Lines",       uniq(cmdlines), "truncated at 200 chars");
+
+    // Context / Alert
+    sec("Threat Names",        uniq(threats));
+    sec("Email Subjects",      subjects);
+    sec("Attachments",         attachments);
+    sec("Auth Outcomes",       outcomes);
+    sec("Risk / Severity",     riskScores);
+    sec("Logon Types",         logonTypes);
+    sec("Failure Reasons",     failReasons);
+    sec("Geographic Locations",geoLocations);
+    sec("Carriers / ISPs",     carriers);
+    sec("Applications",        uniq(apps));
+    sec("Timestamps",          timestamps.slice(0,10), timestamps.length>10?"first 10 of "+timestamps.length:"");
+
+    // Threat intel
+    sec("CVEs",                cves);
+    sec("MITRE ATT&CK TTPs",   mitreTTPs);
+    sec("Windows Event IDs",   eventIDs);
+    sec("ASNs",                asns);
+
+    const total = sections.reduce((n, s) => n + parseInt((s.match(/\((\d+)\)/)||[,"0"])[1]), 0);
+    const header = [
+      "SMART IOC EXTRACTOR",
+      `Extracted At (UTC): ${now}`,
+      `Total observables:  ${total}`,
+      "",
+    ];
+    if (!sections.length) return [...header, "No recognizable observables found."].join("\n");
+    return [...header, ...sections].join("\n\n");
   }
+
 
   // ─── Link builders ────────────────────────────────────────────
   function buildLinksForIP(ip) {
