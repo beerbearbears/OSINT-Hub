@@ -6087,7 +6087,7 @@ Produce the triage assessment. Be specific to the values above — do not genera
     cve_github:"https://github.com/search",
     cvep_cisa_kev:  "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
     cvep_epss:      "https://www.first.org/epss/",
-    cvep_socradar:  "https://socradar.io/labs/vulnerability-intelligence/",
+    cvep_socradar:  "https://socradar.io/labs/app/cve-radar/",
     cvep_greynoise: "https://viz.greynoise.io/trends/",
     cvep_shodan:    "https://www.shodan.io/search?query=vuln:",
     cvep_vulncheck: "https://vulncheck.com/browse/cve",
@@ -6991,13 +6991,13 @@ Produce the triage assessment. Be specific to the values above — do not genera
     setHref("cve_exploitdb",`https://www.exploit-db.com/search?cve=${enc(cve)}`);
     setHref("cve_vulners",`https://vulners.com/search?query=${enc(cve)}`);
     setHref("cve_github",`https://github.com/search?q=${enc(cve)}`);
-    setHref("cve_socradar",`https://socradar.io/labs/app/vulnerability-intelligence/${enc(cve)}`);
+    setHref("cve_socradar",`https://socradar.io/labs/app/cve-radar/${enc(cve)}`);
     setHref("cve_rapid7",`https://attackerkb.com/search?q=${enc(cve)}`);
     setHref("cve_snyk",`https://security.snyk.io/vuln?search=${enc(cve)}`);
     setHref("cve_assetnote",`https://github.com/search?q=${enc(cve)}+nuclei+template&type=repositories`);
     setHref("cvep_cisa_kev",gsearch(`CISA KEV ${cve}`));
     setHref("cvep_epss",`https://www.first.org/epss/?q=${enc(cve)}`);
-    setHref("cvep_socradar",`https://socradar.io/labs/app/vulnerability-intelligence/${enc(cve)}`);
+    setHref("cvep_socradar",`https://socradar.io/labs/app/cve-radar/${enc(cve)}`);
     setHref("cvep_greynoise",`https://viz.greynoise.io/query/?gnql=cve%3A${enc(cve)}`);
     setHref("cvep_shodan",`https://www.shodan.io/search?query=${enc(cve)}`);
     setHref("cvep_vulncheck",`https://vulncheck.com/browse/cve?q=${enc(cve)}`);
