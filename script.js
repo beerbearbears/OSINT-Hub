@@ -636,25 +636,36 @@ document.addEventListener("DOMContentLoaded", () => {
   // ═══════════════════════════════════════════════════
   function defangSmart(text) {
     let t = (text || "");
-    t = t.replace(/\bhttps?:\/\/[^\s<>"')]+/gi, m => {
-      let x = m.replace(/^https:\/\//i,"hxxps://").replace(/^http:\/\//i,"hxxp://");
-      x = x.replace(/\./g,"[.]"); return x;
+    // 1. Full URLs with scheme — defang scheme + dots
+    t = t.replace(/\b(https?|ftp):\/\/([^\s<>"')]+)/gi, (m, scheme, rest) => {
+      const defScheme = scheme.toLowerCase() === "https" ? "hxxps" : scheme.toLowerCase() === "ftp" ? "fxp" : "hxxp";
+      return defScheme + "://" + rest.replace(/\./g, "[.]");
     });
-    t = t.replace(/\b([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,})\b/gi, (m,u,d) => `${u}[@]${String(d).replace(/\./g,"[.]")}`);
-    t = t.replace(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/g, m => isValidIPv4(m) ? m.replace(/\./g,"[.]") : m);
-    t = t.replace(/(\[?[0-9A-Fa-f:]{2,}\]?)/g, token => {
-      if (!token.includes(":")) return token;
-      const trail = token.match(/[),.;]+$/)?.[0] || "";
-      const core = token.slice(0, token.length - trail.length);
-      const cleaned = core.replace(/^\[|\]$/g,"");
-      if (!isValidIPv6(cleaned)) return token;
-      return core.replace(/:/g,"[:]") + trail;
+    // 2. Emails — defang @ and dots in domain
+    t = t.replace(/\b([A-Z0-9._%+-]+)@([A-Z0-9.-]+\.[A-Z]{2,})\b/gi,
+      (m, u, d) => `${u}[@]${d.replace(/\./g, "[.]")}`);
+    // 3. IPv4 addresses — defang dots
+    t = t.replace(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g,
+      m => isValidIPv4(m) ? m.replace(/\./g, "[.]") : m);
+    // 4. IPv6 addresses — defang colons
+    // Match full IPv6 (must have 2+ colon groups to avoid false positives)
+    t = t.replace(/\b([0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{1,4}){3,7}(?::(?:[0-9A-Fa-f]{1,4}|))*)\b/g, m => {
+      if (isValidIPv6(m)) return m.replace(/:/g, "[:]");
+      return m;
     });
-    t = t.replace(/\b([a-z0-9-]+(?:\.[a-z0-9-]+)+)\b/gi, m => {
-      if (m.includes("[.]")) return m;
-      if (/\.(exe|dll|sys|bat|cmd|ps1|js|vbs)$/i.test(m)) return m;
-      if (!/\.[a-z]{2,}$/i.test(m)) return m;
-      return m.replace(/\./g,"[.]");
+    // 5. Bare domains (not already defanged, not inside a URL already processed)
+    // Only defang if it looks like a real domain (has a valid TLD, not a file extension)
+    const COMMON_TLDS = /\.(com|net|org|io|gov|edu|mil|int|co|uk|de|fr|jp|cn|ru|br|in|au|ca|mx|eu|xyz|top|icu|sbs|me|info|biz|name|us|app|dev|cloud|store|online|site|web|tech|club|live|news|agency|solutions|services|support|group|global)\b/i;
+    t = t.replace(/\b([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+)\b/gi, m => {
+      // Skip if already defanged or is a file/version string
+      if (m.includes("[.]") || m.includes("[:]")) return m;
+      // Must have a valid TLD
+      if (!COMMON_TLDS.test(m)) return m;
+      // Skip purely numeric looking domains (they'd be caught as IPs already)
+      if (/^\d+\.\d+/.test(m)) return m;
+      // Skip file extensions like evil.exe, report.pdf
+      if (/\.(exe|dll|sys|bat|cmd|ps1|vbs|js|py|sh|pdf|doc|xls|zip|rar|7z|png|jpg|gif|svg|css|html|htm|xml|json|log|txt|csv)$/i.test(m)) return m;
+      return m.replace(/\./g, "[.]");
     });
     return t;
   }
@@ -1314,7 +1325,14 @@ document.addEventListener("DOMContentLoaded", () => {
       ].filter(Boolean).join(" | ");
       results.prefillData.correlated_story = _storyParts;
       results.prefillData.patterns = patterns;
-      results.prefillData.alert_count = String(_totalEvents);
+      // Only set alert_count if identity parser hasn't already set it
+      // and only when lines are actual alerts (not user log lines)
+      if (!results.prefillData.alert_count || results.prefillData.alert_count === "1") {
+        const _realEventCount = _parsedLines.filter(l => 
+          !(l.raw||"").match(/^Mar\.|^Jan\.|^Feb\.|^Apr\.|^May\.|^Jun\.|^Jul\.|^Aug\.|^Sep\.|^Oct\.|^Nov\.|^Dec\./)
+        ).length;
+        if (_realEventCount > 1) results.prefillData.alert_count = String(_realEventCount);
+      }
 
       // Store IPs in iocs
       if (_allIPs.length) results.iocs.ips = _allIPs;
@@ -2650,7 +2668,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const failures = (t.match(/\bFAILURE\b/gi)||[]).length;
       const successes= (t.match(/\bSUCCESS\b/gi)||[]).length;
       // Falcon Identity multi-alert context
-      const alertNames = (t.match(/Alert \d+\.\s+([^\n]{5,80})/gi)||[]).map(a=>a.replace(/Alert \d+\.\s+/i,'').trim());
+      // Only count actual "Alert N. <name>" patterns — exclude noise from "# of hosts" etc
+      const alertNames = (t.match(/\bAlert\s+\d+\.\s+([A-Z][^\n]{5,80})/g)||[])
+        .map(a => a.replace(/\bAlert\s+\d+\.\s+/i,'').trim())
+        .filter(a => !/^\d|^#|^See|^Related|^Time|^Source|^Location|^Account|^IP/.test(a));
       const alertCount = alertNames.length || 1;
       // Extract display name: "User Miguel Vargas Torres Privileged"
       const displayName = (t.match(/\bUser\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+Privileged/)||[])[1]?.trim() || "";
@@ -3739,6 +3760,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const kbCarrier  = pf.kb_carrier_desc || "";
     const kbVPN      = pf.kb_vpn_desc || "";
     const kbRedirect = pf.kb_redirect_desc || "";
+    // OSINT context from analyst-added section
+    const osintClean = pf.osint_clean || false;
+    const osintDesc  = osintClean
+      ? 'OSINT check on ' + (srcIP||'IP') + ': VT clean, Talos neutral, AbuseIPDB not found — no threat intelligence associations. Source IP has no known malicious history.'
+      : (pf.osint_vt === 'MALICIOUS' || pf.osint_talos === 'POOR')
+        ? 'OSINT: IP ' + (srcIP||'source') + ' has threat intelligence hits — VT: ' + (pf.osint_vt||'?') + ', Talos: ' + (pf.osint_talos||'?') + '. Treat as malicious.'
+        : '';
 
     // ── STEP 5: Behavior analysis ─────────────────────────────
     const behaviors = [];
@@ -3785,7 +3813,9 @@ document.addEventListener("DOMContentLoaded", () => {
                              controlResult === "CONTAINED" && !comprIndicators ? "TP_BLOCKED_NFA" :
                              controlResult === "ALLOWED" && comprIndicators ? "TP_ESCALATE" :
                              pf.kb_verdict === "FP" || verdict.verdict === "LIKELY FALSE POSITIVE" ? "FP" :
-                             pf.kb_vpn_flag ? "TP_BENIGN" : "TP_BLOCKED_NFA";
+                             pf.kb_vpn_flag ? "TP_BENIGN" :
+                             (osintClean && pf.user_log_parsed && pf.user_log_day1_summary) ? "TP_BENIGN" :
+                             "TP_BLOCKED_NFA";
 
     const verdictText = {
       TP_BLOCKED_NFA:  "TP – Blocked / No Further Action. Threat was contained by security controls with no evidence of compromise.",
@@ -3816,7 +3846,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (isIdentity) {
       const alertCountStr = pf.alert_count > 1 ? `${pf.alert_count} correlated identity alerts` : "a suspicious identity alert";
       p1 = `${who}${whom} triggered ${alertCountStr}${whenWhere ? " at " + whenWhere : ""}. `;
-      if (failSuccPattern) {
+      // User log day-shift takes priority as the P1 story when available
+      if (pf.user_log_parsed && pf.user_log_day1_summary && pf.user_log_day2_summary) {
+        p1 += `User log analysis shows a day-over-day carrier and location shift: ${pf.user_log_day1_summary} → ${pf.user_log_day2_summary}. The same device (${device||"iPhone iOS"}) was used on both days, suggesting a network change rather than a different actor.`;
+      } else if (failSuccPattern) {
         const failCount = (res._rawText||"").match(/\bFAILURE\b/gi)?.length || 0;
         p1 += `Authentication logs show ${failCount || "multiple"} consecutive failures from ${failIPs} (${loc}) followed by successful logins from ${succIPs} — indicating credentials were being actively tested from a foreign location while the legitimate user remained active on their known device.`;
       } else if (carrier) {
@@ -3832,6 +3865,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let p2 = rootCause;
     if (kbCarrier && !p1.includes(kbCarrier.slice(0,20))) p2 += " " + kbCarrier;
     if (kbVPN)  p2 = kbVPN;
+      if (osintDesc && !p2.includes('OSINT')) p2 = (p2 ? p2 + ' ' : '') + osintDesc;
 
     // ── BUILD P3: Compromise check ────────────────────────────
     const p3 = comprStatus;
@@ -4402,9 +4436,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const _userCtx = department ? ` (${department}${_role ? ", " + _role : ""})` : _role ? ` (${_role})` : "";
       p1parts.push(`${whenStr}, ${src} raised ${_identDesc} for account **${who}**${_userCtx}${_locPart}${_riskPart}.`);
 
-      // Multi-alert summary
+      // Multi-alert summary — only include "blocklisted country" if alert explicitly says so
       if (/unusual geolocation|blocklisted|suspicious web/i.test(raw)) {
-        p1parts.push(`The alerts cover: **access from an unusual geolocation**, **suspicious web-based activity flagged by ML**, and **access from a blocklisted country** — all three firing on the same account within minutes is a strong indicator of active credential abuse or account compromise.`);
+        const hasGeolocation = /unusual.geolocation|Access from unusual/i.test(raw);
+        const hasBlocklisted = /blocklisted.(?:location|country)|Access from blocklisted/i.test(raw);
+        const hasSuspiciousWeb = /suspicious.web|web-based.activity/i.test(raw);
+        const alertParts = [
+          hasGeolocation ? "**access from an unusual geolocation**" : "",
+          hasSuspiciousWeb ? "**suspicious web-based activity flagged by ML**" : "",
+          hasBlocklisted ? "**access from a blocklisted country**" : "",
+        ].filter(Boolean);
+        if (alertParts.length > 0) {
+          p1parts.push(`The alert covers: ${alertParts.join(", ")} — ${alertParts.length > 1 ? "multiple signals firing on the same account within minutes is" : "this"} a strong indicator requiring investigation.`);
+        }
       }
 
       // Carrier / ISP geographic context
@@ -4427,7 +4471,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Device context
       if (_device) {
-        p1parts.push(`The user-agent is **${_device}** running Outlook Mobile — matching the user's known device profile. This means either the attacker has a stolen session token that bypasses password requirements, or the user's physical device is in the flagged country.`);
+        const _appName = /VMware Identity|vmware/i.test(raw) ? "VMware Identity Service"
+                       : /Outlook/i.test(raw) ? "Outlook Mobile"
+                       : /Microsoft Authentication/i.test(raw) ? "Microsoft Authentication Broker"
+                       : "the target application";
+        p1parts.push(`The user-agent is **${_device}** accessing **${_appName}** — ${pf.user_log_parsed && pf.user_log_day1_summary ? "the same device was seen from both the normal and flagged location, consistent with a carrier or location change." : "matching the user\'s known device profile. This means either the attacker has a stolen session token, or the user\'s physical device is in the flagged location."}`);
       }
 
       // Okta-specific event type
@@ -4507,6 +4555,18 @@ document.addEventListener("DOMContentLoaded", () => {
         return (name && name !== tid && !name.startsWith("T1")) ? `**${tid}** (${name})` : `**${tid}**`;
       }).join(", ");
       p1parts.push(`This activity aligns with MITRE ATT&CK: ${mitreDesc}.`);
+
+      // ── User log section context (day-over-day carrier/location shift) ──
+      if (pf.user_log_parsed && pf.user_log_day1_summary && pf.user_log_day2_summary) {
+        p1parts.push(`User log analysis across ${pf.user_log_dates||"multiple days"} shows: **${pf.user_log_day1_summary}** → **${pf.user_log_day2_summary}**. The same device (${pf.device||"iPhone iOS"}) was used on both days.`);
+      }
+
+      // ── OSINT context (analyst-added IP reputation results) ──────────
+      if (pf.osint_clean) {
+        p1parts.push(`OSINT check on **${srcIP||"source IP"}** returned no threat intelligence hits — VT: ${pf.osint_vt||"CLEAN"}, Talos: ${pf.osint_talos||"NEUTRAL"}, AbuseIPDB: ${pf.osint_abuseipdb||"CLEAN"}. The source IP has no known malicious history.`);
+      } else if (pf.osint_vt === "MALICIOUS" || pf.osint_talos === "POOR") {
+        p1parts.push(`**OSINT ALERT**: IP **${srcIP}** has threat intelligence hits — VT: ${pf.osint_vt}, Talos: ${pf.osint_talos}. Treat this IP as confirmed malicious infrastructure.`);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -4539,8 +4599,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // Identity-specific P2
     if (isIdent) {
       const _identAction = isBlocked ? "blocked this sign-in attempt" : "flagged this event for review";
-      p2parts.push(`**${src} ${_identAction}.** ${isBlocked ? "The authentication did not complete — the account was not compromised during this specific session. However, the attacker clearly has valid credentials and is actively attempting access." : "The sign-in may have succeeded. Verify immediately in the audit log whether the session was established and what actions were taken post-authentication."}`);
-      p2parts.push(`Immediate containment is warranted — credential compromise at this risk level requires full incident response: revoke all active sessions, rotate credentials, re-enrol MFA from a trusted device, and audit every action taken during the suspicious session window.`);
+      // OSINT clean + user log same device = likely benign carrier change
+      if (pf.osint_clean && pf.user_log_parsed && pf.user_log_day1_summary) {
+        p2parts.push(`**${src} flagged this event for review.** Based on the user log and OSINT context, this activity is consistent with a network or carrier change — the same device (${pf.device||"iPhone iOS"}) was used on both days and the source IP (${srcIP}) has no threat intelligence associations.`);
+        p2parts.push(`Recommended action: verify with the user directly by phone to confirm the location change. If confirmed, close as **TP – Benign**. If the user cannot confirm, escalate immediately and treat as credential compromise.`);
+      } else {
+        p2parts.push(`**${src} ${_identAction}.** ${isBlocked ? "The authentication did not complete — the account was not compromised during this specific session. However, the attacker clearly has valid credentials and is actively attempting access." : "The sign-in may have succeeded. Verify immediately in the audit log whether the session was established and what actions were taken post-authentication."}`);
+        p2parts.push(`Immediate containment is warranted — credential compromise at this risk level requires full incident response: revoke all active sessions, rotate credentials, re-enrol MFA from a trusted device, and audit every action taken during the suspicious session window.`);
+      }
     }
 
     // No-follow-on scope statement
@@ -4577,9 +4643,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (host) nextSteps.push(`Run a full AV and EDR scan on **${host}** and review the process tree`);
       nextSteps.push(`Hunt for lateral movement from **${host||"the affected endpoint"}** — check auth logs, SMB, and RDP sessions`);
     } else if (isIdent) {
-      nextSteps.push(`Revoke all active sessions for **${user||"the account"}** immediately and force a password reset`);
-      nextSteps.push(`Re-enrol MFA from a trusted, verified device`);
-      nextSteps.push(`Review all actions taken during the suspicious session — look for data access, new OAuth grants, or rule changes`);
+      // If OSINT clean + user log same device = verify first, don't automatically reset
+      if (pf.osint_clean && pf.user_log_parsed && pf.user_log_day1_summary) {
+        nextSteps.push(`Call **${user||"the user"}** directly to confirm whether the location change (${pf.user_log_day2_summary?.split(" ")[0]||"new location"}) was expected — use phone, not email`);
+        nextSteps.push(`Review session activity after the flagged login — check for email reads, file access, forwarding rule changes`);
+        nextSteps.push(`If user cannot confirm: immediately revoke sessions and force password + MFA reset`);
+        nextSteps.push(`If user confirms: close as TP – Benign and document the carrier/location change`);
+      } else {
+        nextSteps.push(`Revoke all active sessions for **${user||"the account"}** immediately and force a password reset`);
+        nextSteps.push(`Re-enrol MFA from a trusted, verified device`);
+        nextSteps.push(`Review all actions taken during the suspicious session — look for data access, new OAuth grants, or rule changes`);
+      }
     } else if (isEmail) {
       nextSteps.push(`Search for other recipients of messages from **${email||"this sender"}** in the past 7 days`);
       nextSteps.push(`Confirm whether the recipient clicked any links before the email was quarantined`);
@@ -4595,7 +4669,9 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
     const p1 = p1parts.filter(Boolean).join(" ");
     const p2 = p2parts.filter(Boolean).join(" ");
     // ── ESCALATION NOTE ─────────────────────────────────────────
-    const _needsEscalation = (
+    // Don't escalate if OSINT is clean AND user log shows same device — likely benign carrier change
+    const _likelyBenign = pf.osint_clean && pf.user_log_parsed && pf.user_log_day1_summary && pf.user_log_day2_summary;
+    const _needsEscalation = !_likelyBenign && (
       (isIdent && (sev === "high" || sev === "critical")) ||
       /impossible.*travel|blocklisted.*location|unusual.*geolocation|concurrent.*location/i.test(findingsStr + raw) ||
       /mfa.*fail|push.*deny|mfa.*bypass/i.test(findingsStr) ||
@@ -5220,7 +5296,8 @@ ${nextSteps.map((s,i)=>`  ${i+1}. ${s}`).join("\n")}`:""
     const iocs = res.iocs || {};
     const vMap = { TP_blocked:"TP – Blocked", TP_detected:"TP – Detected (not blocked)",
       TP_confirmed:"TP – Confirmed Compromise", FP:"FP – False Positive",
-      BEN:"Benign – Expected Activity", TBD:"TBD – Under Investigation" };
+      BEN:"Benign – Expected Activity", TBD:"TBD – Under Investigation",
+      TP_verify:"TP – Verify with User (OSINT Clean)" };
     const dMap = { NFA:"No Further Action (NFA)", escalated:"Escalated to Tier 2 / Incident Response",
       contained:"Contained – Endpoint Isolated", monitoring:"Continue Monitoring",
       remediated:"Remediated", user_notified:"User Notified" };
@@ -6377,20 +6454,70 @@ Produce the triage assessment. Be specific to the values above — do not genera
     const returnPathLink = h?.returnPathDomain ? `https://www.virustotal.com/gui/domain/${enc(h.returnPathDomain)}` : "-";
     if (headerDetected) return `SMART IOC EXTRACTOR\nExtracted At (UTC): ${now}\n\nEMAIL HEADER INTEL:\n- Sender (From): ${h?.senderEmail||"-"}\n- Receiver (To): ${h?.receiverEmail||"-"}\n- Subject: ${h?.subject||"-"}\n- Date: ${h?.date||"-"}\n- Message-ID: ${h?.messageId||"-"}\n- Return-Path: ${h?.returnPath||"-"}\n- Return-Path Domain: ${h?.returnPathDomain||"-"}\n- Origin IP (heuristic): ${h?.originIp||"-"}\n- SPF Result: ${h?.spfResult||"-"}   (smtp.mailfrom: ${h?.spfMailfrom||"-"})\n- DKIM Result: ${h?.dkimResult||"-"} (d=${h?.dkimDomain||"-"}; s=${h?.dkimSelector||"-"})\n\nQUICK PIVOTS:\n- Return-Path Domain Pivot: ${returnPathLink}\n- Origin IP Pivot: ${originLink}\n- SPF Domain Pivot: ${spfLink}\n- DKIM Domain Pivot: ${dkimLink}\n`;
     const refanged = refangSmart(t);
-    const ips = [...new Set((refanged.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/g)||[]).filter(isValidIPv4))];
-    const domains = [...new Set((refanged.match(/\b([a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+\.[a-zA-Z]{2,})\b/g)||[]).filter(d=>!/\d{1,3}\.\d{1,3}\.\d{1,3}/.test(d)))];
-    const hashes = [...new Set((refanged.match(/\b[a-fA-F0-9]{32,64}\b/g)||[]).filter(h=>[32,40,64].includes(h.length)))];
-    const cves = [...new Set((refanged.match(/CVE-\d{4}-\d{4,}/gi)||[]).map(c=>c.toUpperCase()))];
-    const emails = [...new Set((refanged.match(/\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g)||[]))];
-    const urls = [...new Set((refanged.match(/https?:\/\/[^\s<>"']+/gi)||[]))];
-    const lines = [`SMART IOC EXTRACTOR`,`Extracted At (UTC): ${now}`,``];
-    if (ips.length) lines.push(`IPs (${ips.length}):\n${ips.map(v=>"  "+v).join("\n")}`);
-    if (domains.length) lines.push(`\nDomains (${domains.length}):\n${domains.map(v=>"  "+v).join("\n")}`);
-    if (urls.length) lines.push(`\nURLs (${urls.length}):\n${urls.map(v=>"  "+v).join("\n")}`);
-    if (emails.length) lines.push(`\nEmails (${emails.length}):\n${emails.map(v=>"  "+v).join("\n")}`);
-    if (hashes.length) lines.push(`\nHashes (${hashes.length}):\n${hashes.map(v=>"  "+v).join("\n")}`);
-    if (cves.length) lines.push(`\nCVEs (${cves.length}):\n${cves.map(v=>"  "+v).join("\n")}`);
-    if (!ips.length&&!domains.length&&!hashes.length&&!cves.length&&!emails.length&&!urls.length) lines.push("No recognizable IOCs found.");
+
+    // ── Core network IOCs ──────────────────────────────────────
+    const ips     = [...new Set((refanged.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g)||[]).filter(isValidIPv4))];
+    const ipv6    = [...new Set((refanged.match(/\b[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{0,4}){2,7}\b/g)||[]).filter(m => {
+      try { return isValidIPv6(m); } catch { return false; }
+    }))];
+    const urls    = [...new Set((refanged.match(/https?:\/\/[^\s<>"'\]]+/gi)||[]))];
+    const domains = [...new Set(
+      (refanged.match(/\b([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+)\b/g)||[])
+      .filter(d => !ips.includes(d) && !/^\d+\.\d+/.test(d) && /\.[a-z]{2,}$/i.test(d)
+        && !/\.(exe|dll|ps1|bat|vbs|js|py|sh|pdf|doc|xls|zip|png|jpg|gif|svg|css|json|log|txt|csv|xml|md|rst)$/i.test(d))
+    )];
+    const emails  = [...new Set((refanged.match(/\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b/g)||[]))];
+
+    // ── File & endpoint IOCs ───────────────────────────────────
+    const hashes  = [...new Set((refanged.match(/\b[a-fA-F0-9]{32}\b|\b[a-fA-F0-9]{40}\b|\b[a-fA-F0-9]{64}\b/g)||[]))];
+    const filePaths = [...new Set((refanged.match(/(?:[A-Za-z]:\\[^\s"<>|*?]+|\\\\[^\s"<>|*?]+|\/(?:etc|var|tmp|home|usr|opt|bin|sbin|proc)\/[^\s"<>|*?]+)/g)||[]))];
+    const regKeys   = [...new Set((refanged.match(/HKEY_(?:LOCAL_MACHINE|CURRENT_USER|CLASSES_ROOT|USERS|CURRENT_CONFIG)[\\\w\s%_.\-]*/g)||[]))];
+    const processes = [...new Set((refanged.match(/\b([\w\-]{2,40}\.(?:exe|dll|sys|bat|cmd|ps1|vbs|hta|msi|jar|sh|py))\b/gi)||[]).map(p=>p.toLowerCase()))];
+
+    // ── Identity & account IOCs ────────────────────────────────
+    // Usernames: word@domain or standalone user= / username= patterns
+    const userAccounts = [...new Set([
+      ...(refanged.match(/\b(?:user(?:name)?|actor|account)\s*[=:"]+\s*([^\s"',\n]{3,60})/gi)||[])
+        .map(m => (m.match(/[=:"]+\s*(.+)/)||[])[1]?.trim()).filter(Boolean),
+      ...(refanged.match(/\b[a-zA-Z0-9][a-zA-Z0-9._\-]{2,30}@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b/g)||[]),
+    ])];
+
+    // Hostnames: CORP-XXX-NNN, DC-NNN, WS-NNN patterns + ComputerName= values
+    const hostnames = [...new Set([
+      ...(refanged.match(/\b(?:ComputerName|hostname|host|AgentComputerName|devicehostname|clientHostname)\s*[=:"]+\s*([A-Za-z0-9][A-Za-z0-9_\-.]{2,50})/gi)||[])
+        .map(m => (m.match(/[=:"]+\s*(.+)/)||[])[1]?.trim()).filter(Boolean),
+      ...(refanged.match(/\b(?:[A-Z]{2,6}-[A-Z0-9]{2,6}-[A-Z0-9]{2,8}|DC-\w+|WS-\w+|SRV-\w+|CORP-[\w-]+)\b/g)||[]),
+    ])];
+
+    // ── Threat intelligence IOCs ───────────────────────────────
+    const cves      = [...new Set((refanged.match(/CVE-\d{4}-\d{4,}/gi)||[]).map(c=>c.toUpperCase()))];
+    const mitreTTPs = [...new Set((refanged.match(/\bT\d{4}(?:\.\d{3})?\b/g)||[]))];
+    const asns      = [...new Set((refanged.match(/\bAS\d{4,6}\b|\bASN\s*\d{4,6}\b/gi)||[]).map(a=>a.toUpperCase()))];
+    const eventIDs  = [...new Set((refanged.match(/\bEvent(?:ID|Id|ID)?\s*[=:]?\s*(\d{3,5})\b/g)||[]).map(m=>"EventID: "+(m.match(/\d{3,5}/)||[])[0]))];
+
+    // ── Build output ───────────────────────────────────────────
+    const lines = ["SMART IOC EXTRACTOR", `Extracted At (UTC): ${now}`, ""];
+    const add = (label, arr) => { if (arr.length) lines.push(`${label} (${arr.length}):\n${arr.map(v=>"  "+v).join("\n")}\n`); };
+    add("IPv4 Addresses",   ips);
+    add("IPv6 Addresses",   ipv6);
+    add("URLs",             urls);
+    add("Domains",          domains);
+    add("Email Addresses",  emails);
+    add("File Hashes",      hashes);
+    add("File Paths",       filePaths);
+    add("Registry Keys",    regKeys);
+    add("Processes/Files",  processes);
+    add("User Accounts",    userAccounts);
+    add("Hostnames",        hostnames);
+    add("CVEs",             cves);
+    add("MITRE TTPs",       mitreTTPs);
+    add("ASNs",             asns);
+    add("Windows Event IDs",eventIDs);
+    const total = ips.length+ipv6.length+urls.length+domains.length+emails.length+hashes.length+
+                  filePaths.length+regKeys.length+processes.length+userAccounts.length+
+                  hostnames.length+cves.length+mitreTTPs.length+asns.length+eventIDs.length;
+    if (total === 0) lines.push("No recognizable IOCs found.");
+    else lines.unshift(`Total IOCs extracted: ${total}\n`);
     return lines.join("\n");
   }
 
