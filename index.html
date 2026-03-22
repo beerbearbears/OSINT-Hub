@@ -123,6 +123,7 @@
         <button class="tab-btn" data-tab="defangbulk" type="button">🛡 Defang/Refang</button>
         <button class="tab-btn" data-tab="yara" type="button">📜 YARA/Sigma</button>
         <button class="tab-btn" data-tab="logtriage" type="button">🧾 Log Triage</button>
+        <button class="tab-btn" data-tab="threat" type="button">🕵 Threat Actor</button>
         <button class="tab-btn" data-tab="custom" type="button">⚙ Custom Tools</button>
         <button class="tab-btn" data-tab="utils" type="button">🛠 SOC Utils</button>
         <button class="tab-btn" data-tab="cti" type="button">🌐 CTI Feed</button>
@@ -887,7 +888,6 @@
         <textarea id="lt-input" spellcheck="false" placeholder="Paste raw SIEM alert, Windows Event Log, firewall log, email header, or any security event here...&#10;&#10;Examples:&#10;  EventID: 4688 — A new process has been created...&#10;  SRC=192.168.1.5 DST=10.0.0.1 PROTO=TCP DPT=443...&#10;  Authentication-Results: spf=fail; dkim=pass..."></textarea>
         <div class="tools" style="margin-top:10px;">
           <button id="lt-analyze-btn" type="button">🔍 Auto-Triage</button>
-          <button id="lt-deep-triage-btn" type="button" title="Enhanced triage — deeper contextual analysis" style="background:linear-gradient(135deg,#7c3aed,#1D9E75);color:#fff;border:none;font-weight:800;">⚡ Deep Triage</button>
           <button id="lt-prefill-btn" type="button">📝 Pre-fill Write-up</button>
           <button id="lt-copy-btn" type="button">📋 Copy Results</button>
           <button id="lt-casenotes-btn" type="button" title="Copy structured case notes">📝 Copy Case Notes</button>
@@ -939,28 +939,28 @@
           <div id="lt-soc-note-body" style="padding:16px;font-size:12px;line-height:1.9;color:var(--text);white-space:pre-wrap;font-family:inherit;"></div>
         </div>
       </div>
-      <!-- Deep Triage Output Panel -->
-      <div id="lt-deep-triage-panel" style="display:none;margin-top:14px;">
-        <div style="background:var(--bg2);border:1px solid rgba(124,58,237,0.35);border-radius:12px;overflow:hidden;">
-          <div style="display:flex;align-items:center;gap:10px;padding:11px 16px 10px;border-bottom:1px solid var(--border);background:rgba(124,58,237,0.06);">
-            <span style="font-size:14px;">⚡</span>
-            <span style="font-size:12px;font-weight:800;color:var(--text);">Enhanced Triage Analysis</span>
-            <span style="font-size:10px;color:var(--muted);flex:1;">Deep contextual analysis — not for external sharing</span>
-            <button id="lt-deep-copy-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📋 Copy</button>
-            <button id="lt-deep-addcase-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📁 Add to Case</button>
-          </div>
-          <div id="lt-deep-triage-body" style="padding:16px;font-size:12px;line-height:1.9;color:var(--text);font-family:inherit;"></div>
-        </div>
-      </div>
     </div>
 
     <!-- ===== THREAT ACTOR TAB ===== -->
+    <div id="tab-threat" class="tab-panel">
+      <div class="input-panel">
+        <div class="bulk-header">
+          <h3>🕵 Threat Actor / Campaign Lookup</h3>
+          <p class="sub">Search by actor name (APT29, Lazarus, etc.) or campaign keyword. Get MITRE ATT&amp;CK group page, known TTPs, tools used, and external intelligence pivot links.</p>
+        </div>
+        <div class="input-row">
+          <input id="ta-input" type="text" class="aw-input" placeholder="Actor name, alias, or campaign (e.g. APT29, Lazarus, Cozy Bear, FIN7)" style="flex:1" />
+          <button id="ta-search-btn" type="button">🔍 Search</button>
+        </div>
+        <div id="ta-status" class="status" style="margin-top:10px;">
+          <span>Enter an actor or campaign name above</span><span class="badge">THREAT INTEL</span>
+        </div>
+      </div>
+      <div id="ta-results" class="ta-results"></div>
+    </div>
+
     <!-- ===== CUSTOM TOOLS TAB ===== -->
     <div id="tab-custom" class="tab-panel">
-      <div class="tab-back-bar">
-        <button class="tab-back-btn" type="button">← Back</button>
-      </div>
-
       <div class="input-panel">
         <div class="bulk-header">
           <h3>⚙ Custom Tool Slot Builder</h3>
@@ -989,10 +989,6 @@
 
     <!-- ===== SOC UTILITIES TAB ===== -->
     <div id="tab-utils" class="tab-panel">
-      <div class="tab-back-bar">
-        <button class="tab-back-btn" type="button">← Back</button>
-      </div>
-
       <div class="utils-grid">
 
         <!-- Quick Base64 Encode/Decode -->
@@ -1366,10 +1362,6 @@
 
     <!-- ===== CTI FEED TAB ===== -->
     <div id="tab-cti" class="tab-panel">
-      <div class="tab-back-bar">
-        <button class="tab-back-btn" type="button">← Back</button>
-      </div>
-
       <div class="input-panel">
         <div class="bulk-header">
           <h3>🌐 CTI — Cyber Threat Intelligence</h3>
@@ -1385,8 +1377,6 @@
         <button class="cti-sub-btn" data-ctitab="ioc-check" type="button">🎯 IOC Intel Check</button>
         <button class="cti-sub-btn" data-ctitab="campaigns" type="button">📊 Campaign Tracker</button>
         <button class="cti-sub-btn" data-ctitab="hunt" type="button">🏹 Hunt Queries</button>
-        <button class="cti-sub-btn" data-ctitab="trending" type="button">🔥 Trending CVEs</button>
-        <button class="cti-sub-btn" data-ctitab="ttp" type="button">🧩 TTP Analyzer</button>
         <button class="cti-sub-btn" data-ctitab="resources" type="button">📚 Intel Resources</button>
       </div>
 
@@ -1446,14 +1436,9 @@
       <!-- ACTOR INTEL PANEL -->
       <div id="cti-panel-actors" class="cti-panel">
         <div class="cti-search-row">
-          <input id="cti-actor-input" class="aw-input" type="text" placeholder="Actor name, alias, or campaign (e.g. APT29, APT73, Lazarus, FIN7, Scattered Spider, Salt Typhoon)" />
+          <input id="cti-actor-input" class="aw-input" type="text" placeholder="Actor name, alias, or group (e.g. APT29, Lazarus, FIN7, Scattered Spider)" />
           <button id="cti-actor-search-btn" type="button">🔍 Search</button>
           <button id="cti-actor-random" type="button" title="Show a random known threat actor">🎲 Random Actor</button>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;padding:4px 0 8px;font-size:10.5px;color:var(--muted);">
-          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 6px #34d399;flex-shrink:0;"></span>
-          <span>Local KB + Live CTI — unknown actors are looked up in real-time via threat intelligence feeds</span>
-          <span id="cti-actor-live-badge" style="display:none;margin-left:auto;background:rgba(167,139,250,0.12);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;">⚡ LIVE LOOKUP</span>
         </div>
         <div id="cti-actor-results" class="cti-actor-results"></div>
       </div>
@@ -1496,40 +1481,6 @@
           <button id="cti-camp-export" type="button">📤 Export Campaigns</button>
           <button id="cti-camp-clear" type="button">🗑 Clear All</button>
         </div>
-      </div>
-
-      <!-- TRENDING CVEs PANEL -->
-      <div id="cti-panel-trending" class="cti-panel">
-        <div style="display:flex;align-items:center;gap:10px;padding:0 0 12px;flex-wrap:wrap;">
-          <span style="font-size:13px;font-weight:800;color:var(--text);">🔥 Trending & Actively Exploited CVEs</span>
-          <span style="font-size:10.5px;color:var(--muted);flex:1;">Real-time — top CVEs by EPSS score, KEV status, and active exploitation signals</span>
-          <button id="cti-trending-refresh" type="button" class="cti-news-btn">🔄 Refresh</button>
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-          <button class="cti-trend-filter active" data-filter="all">All</button>
-          <button class="cti-trend-filter" data-filter="kev">🔴 CISA KEV</button>
-          <button class="cti-trend-filter" data-filter="ransomware">💀 Ransomware</button>
-          <button class="cti-trend-filter" data-filter="critical">🟠 Critical CVSS</button>
-          <button class="cti-trend-filter" data-filter="network">🌐 Network</button>
-        </div>
-        <div id="cti-trending-status" style="font-size:11px;color:var(--muted);padding:8px 0 4px;"></div>
-        <div id="cti-trending-grid" style="display:flex;flex-direction:column;gap:8px;"></div>
-      </div>
-
-      <!-- TTP ANALYZER PANEL -->
-      <div id="cti-panel-ttp" class="cti-panel">
-        <div style="padding:0 0 12px;">
-          <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:4px;">🧩 TTP Analyzer — Paste TTPs, Get Actor Attribution</div>
-          <div style="font-size:11px;color:var(--muted);">Paste MITRE ATT&CK technique IDs (T1566, T1078.004...) or a raw alert/log. Get likely actor attribution, attack phase mapping, and detection guidance.</div>
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:flex-start;flex-wrap:wrap;">
-          <textarea id="cti-ttp-input" spellcheck="false" rows="4" placeholder="Paste TTPs (e.g. T1566.001, T1078.004, T1059.001, T1071.001)&#10;or paste a raw alert/log and let the analyzer extract the TTPs automatically" style="flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:monospace;font-size:11.5px;resize:vertical;"></textarea>
-          <div style="display:flex;flex-direction:column;gap:6px;">
-            <button id="cti-ttp-analyze-btn" type="button" style="background:linear-gradient(135deg,#7c3aed,#1D9E75);color:#fff;border:none;font-weight:800;padding:8px 16px;border-radius:8px;font-size:11px;cursor:pointer;white-space:nowrap;">⚡ Analyze TTPs</button>
-            <button id="cti-ttp-clear-btn" type="button" class="cti-news-btn">🗑 Clear</button>
-          </div>
-        </div>
-        <div id="cti-ttp-result" style=""></div>
       </div>
 
       <!-- RESOURCES PANEL -->
