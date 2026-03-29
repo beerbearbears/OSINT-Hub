@@ -1912,8 +1912,13 @@ body.light .eha-flag-cat-head { color:#374151; }
   display: none;
   align-items: center;
   gap: 10px;
-  padding: 8px 16px 0;
-  margin-bottom: 4px;
+  padding: 10px 20px 10px;
+  margin-bottom: 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .tab-back-btn {
   display: inline-flex;
