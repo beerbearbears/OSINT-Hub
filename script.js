@@ -677,6 +677,152 @@ document.addEventListener("DOMContentLoaded", () => {
     return t;
   }
 
+  // ── Smart IOC Extractor (28 observable categories) ───────────
+  function extractSmartIOCs(text) {
+    const now = new Date().toISOString();
+    const t   = (text || "").replace(/\r\n/g, "\n");
+    const r   = refangSmart(t);
+    const uniq = arr => [...new Set(arr.filter(Boolean))].sort();
+
+    // Network
+    const ips  = uniq((r.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/g)||[]).filter(isValidIPv4));
+    const ipv6 = uniq((r.match(/\b[0-9A-Fa-f]{1,4}(?::[0-9A-Fa-f]{0,4}){3,7}\b/g)||[]).filter(m => { try { return isValidIPv6(m); } catch { return false; } }));
+    const urls = uniq((r.match(/https?:\/\/[^\s<>"'\]\n]+/gi)||[]).map(u => u.replace(/[.,;)]+$/, "")));
+    const SKIP_DOM = /^(?:\d+\.\d+|\d+$|actor\.|client\.|outcome\.|target\.|user\.|eventType|displayName|alternateId|ipAddress|geographicalContext|HTML\.|JS\.|Win32\.|Malware\.|Exploit\.|Trojan\.|Ransom\.|Backdoor\.|CVE-)/i;
+    const isOktaField = d => d.split(".").length >= 3 && d.split(".").every(p => /^[a-z][a-zA-Z0-9]*$/.test(p));
+    const domains = uniq(
+      (r.match(/\b([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+)\b/g)||[])
+      .filter(d => !ips.includes(d) && /\.[a-zA-Z]{2,}$/.test(d) &&
+        !/\.(exe|dll|ps1|bat|vbs|js|py|sh|pdf|doc|xls|zip|png|jpg|gif|svg|css|json|log|txt|csv|xml|md|html|htm|jar|msi|rar|7z|cab|lnk|scr|sys)$/i.test(d) &&
+        !SKIP_DOM.test(d) && !isOktaField(d) && !d.split(".").every(p => /^\d+$/.test(p))
+      )
+    );
+    const ports = uniq((r.match(/\b(?:dstport|srcport|remoteport|ipport|RemotePort|IpPort|port)\s*[=:]\s*(\d{1,5})\b/gi)||[])
+      .map(m => (m.match(/(\d{1,5})$/)||[])[1]).filter(p => p && parseInt(p) <= 65535 && parseInt(p) >= 1));
+    const emails = uniq((r.match(/\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b/g)||[]).map(e => e.toLowerCase()));
+
+    // Usernames from structured fields
+    const _rawUsernames = [];
+    const _userRe = /\b(?:UserName|SubjectUserName|TargetUserName|actor\.alternateId|username|account\s+name|Secondary\s+name|Username)\s*[=:"\s]+([^\s"',\n]{2,60})/gi;
+    let um;
+    while ((um = _userRe.exec(t)) !== null) {
+      const v = um[1].trim().replace(/^["']|["']$/g, "");
+      if (v && !/^(?:None|null|N\/A|--|true|false|\d+)$/i.test(v)) _rawUsernames.push(v);
+    }
+    const usernames = uniq(_rawUsernames);
+
+    // Display names
+    const _nameRe = /\b(?:User\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+Privileged|(?:actor\.displayName|target\.displayName|UserDisplayName)\s*[=:"]+\s*([^,"\n\s][^,"\n]{2,50}?)(?=\s+\w+[=.]|\s*$|\n)|(?:displayName)\s*[=:"]+\s*([A-Za-z][^,"\n]{2,50}?)(?=\s+\w+[=.]|\s*$|\n))/gi;
+    const displayNames = [];
+    let nm;
+    while ((nm = _nameRe.exec(t)) !== null) {
+      const v = (nm[1]||nm[2]||nm[3]||"").trim();
+      if (v && v.length > 2 && !/^(?:None|null|--)$/i.test(v)) displayNames.push(v);
+    }
+
+    // Departments, titles
+    const deptM  = t.match(/\bDepartment\s+([^\n]{3,60}?)(?=\s+(?:Title|Network|Username|Email|Privileged|Risk|Source|Time|User|Alert|Classification|AD|SID|OU|See|IP|Activity)\b)/i);
+    const titleM = t.match(/\bTitle\s+([^\n]{3,60}?)(?=\s+(?:Network|Username|Email|Privileged|Risk|Source|Time|User|Alert|Classification|AD|SID|OU|See|IP|Activity)\b)/i);
+
+    // Hostnames
+    const _hostRe = /\b(?:ComputerName|clientHostname|AgentComputerName|devicehostname|Computer|WorkstationName|hostname)\s*[=:"\s]+([A-Za-z0-9][A-Za-z0-9_\-\.]{2,50})/gi;
+    const hostnames = [];
+    let hm;
+    while ((hm = _hostRe.exec(t)) !== null) { const v=hm[1].trim(); if (v&&!hostnames.includes(v)) hostnames.push(v); }
+    (t.match(/\b(?:[A-Z]{2,6}-[A-Z0-9]{2,6}-[A-Z0-9]{2,8}|DC-\w{2,20}|WS-\w{2,20}|SRV-\w{2,20})\b/g)||[]).forEach(h=>{ if (!hostnames.includes(h)) hostnames.push(h); });
+
+    // Hashes, files, registry
+    const hashes   = uniq((r.match(/\b[a-fA-F0-9]{32}\b|\b[a-fA-F0-9]{40}\b|\b[a-fA-F0-9]{64}\b/g)||[]).filter(h => /^[a-fA-F0-9]+$/.test(h)));
+    const filePaths= uniq((r.match(/(?:[A-Za-z]:\\[^\s"<>|*?\n]+|\\\\[^\s"<>|*?\n]+|\/(?:etc|var|tmp|home|usr|opt|bin|sbin|proc|dev)\/[^\s"<>\n]+)/g)||[]).map(p=>p.replace(/[,;.]+$/, "")));
+    const regKeys  = uniq((r.match(/HKEY_(?:LOCAL_MACHINE|CURRENT_USER|CLASSES_ROOT|USERS|CURRENT_CONFIG)[\\\/\w\s%_.\-]*/g)||[]).map(k=>k.trim()));
+    const processes= uniq((r.match(/\b([\w\-]{2,40}\.(?:exe|dll|sys|bat|cmd|ps1|vbs|hta|msi|jar|sh|py))\b/gi)||[]).map(p=>p.toLowerCase()));
+
+    // Command lines
+    const cmdlines = [];
+    const _cmdRe = /(?:CommandLine|cmdline)\s*[=:"\s]+([^\n"]{5,200}?)(?=\s+[A-Za-z_]+[A-Za-z0-9_]*\s*=|\s*$|\n)/gi;
+    let cl;
+    while ((cl = _cmdRe.exec(t)) !== null) { const v=cl[1].trim().replace(/^["']|["']$/g,""); if (v.length>4) cmdlines.push(v.slice(0,200)); }
+
+    // Timestamps
+    const timestamps = uniq([
+      ...(t.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?/g)||[]),
+      ...(t.match(/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}:\d{2}(?:\.\d+)?/gi)||[]),
+    ]);
+
+    // Geo, carriers, apps
+    const GEO_RE = /\b(?:Location country|country|city|geographicalContext\.country|geographicalContext\.city)\s*[=:"\s]+([A-Za-z][A-Za-z\s]{2,30})(?=[,\s\n(]|$)/gi;
+    const geoMatches = [];
+    let gm;
+    while ((gm = GEO_RE.exec(t)) !== null) { const v=gm[1].trim().replace(/\s+(?:Location|Source|Time|User|Alert|Risk).*$/i,""); if (v&&v.length>1&&!/^(?:None|null|--)$/i.test(v)) geoMatches.push(v); }
+    const KNOWN_CITIES = /\b(San Juan|Vega Baja|Mexico City|Dallas|Miami|Houston|Chicago|New York|Los Angeles|San Francisco|Moscow|Beijing|London|Tokyo|Manila|Cebu|Dubai|Singapore|Toronto|Sydney|Berlin|Paris|Rome|Madrid|Seoul|Taipei|Jakarta|Lagos|Cairo|Riyadh|Bogota|Lima|Santiago|Buenos Aires|Karachi|Mumbai|Delhi|Bangalore|Kolkata)\b/gi;
+    (t.match(KNOWN_CITIES)||[]).forEach(c => geoMatches.push(c));
+    const geoLocations = uniq(geoMatches.map(g=>g.trim()));
+
+    const CARRIER_RE = /\b(Liberty Mobile Puerto Rico|T-Mobile USA|T-Mobile|RadioMovil Dipsa|Telcel|AT&T|Verizon|Sprint|Comcast|Charter|Cox|Rogers|Bell Canada|Telus|Claro|Movistar|Entel|Tigo|Digicel|Flow|Orange|Vodafone|Deutsche Telekom|Telefonica|Telenor|Softbank|NTT|KDDI|Rakuten|Korea Telecom|SK Telecom|Globe|PLDT|Smart|Reliance Jio|Airtel|BSNL)[^\n,;.]{0,30}/gi;
+    const carriers = uniq((t.match(CARRIER_RE)||[]).map(c=>c.trim().replace(/[,;.]+$/, "")));
+
+    // Auth outcomes, risk, threat names, event IDs
+    const failCount  = (t.match(/\bFAILURE\b/gi)||[]).length;
+    const succCount  = (t.match(/\bSUCCESS\b/gi)||[]).length;
+    const blockedCnt = (t.match(/\bblocked\b|\bdenied\b|\bdrop\b/gi)||[]).length;
+    const outcomes = [];
+    if (failCount)    outcomes.push("FAILURE ×" + failCount);
+    if (succCount)    outcomes.push("SUCCESS ×" + succCount);
+    if (blockedCnt)   outcomes.push("BLOCKED/DENIED ×" + blockedCnt);
+    const riskMatch = t.match(/\bRisk score\s+([\w,. ]+?)(?=\s+(?:Classification|Privileged|Department|User|Source|Time))/i) || t.match(/\bSeverity\s*[=:]\s*(\w+)/i);
+    const riskScores = riskMatch ? [riskMatch[1].trim()] : [];
+    const _threatRe = /(?:threatName|DetectDescription|DetectionName|alert_name)\s*[=:"\s]+([^\n"',\s][^\n"',]{2,79}?)(?=\s+\w+=|\s*$|\s+[A-Z][a-zA-Z]+=)/gi;
+    const threats = [];
+    let tm;
+    while ((tm = _threatRe.exec(t)) !== null) { const v=tm[1].trim().replace(/^["']|["']$/g,""); if (v&&v.length>2&&!threats.includes(v)) threats.push(v); }
+    const subjMatch  = t.match(/\bsubject\s*[=:]\s*(.+?)(?=\s+\w+=|\n|$)/i);
+    const logonMatch = t.match(/\bLogonType\s*[=:]\s*(\d+)/i);
+    const failReasonMatch = t.match(/FailureReason\s*[=:]\s*(.+?)(?=\n|$)/i);
+    const cves      = uniq((r.match(/CVE-\d{4}-\d{4,}/gi)||[]).map(c=>c.toUpperCase()));
+    const mitreTTPs = uniq((r.match(/\bT\d{4}(?:\.\d{3})?\b/g)||[]));
+    const eventIDs  = uniq((r.match(/\bEventID?\s*[=:]\s*(\d{3,5})/gi)||[]).map(m=>"EventID "+((m.match(/\d{3,5}/)||[])[0])));
+    const asns      = uniq((r.match(/\bAS\d{4,6}\b|\bASN\s*\d{4,6}\b/gi)||[]).map(a=>a.toUpperCase()));
+
+    // Build output
+    const sections = [];
+    const add = (label, arr, note) => { if (arr.length) sections.push(label + " (" + arr.length + ")" + (note?" ["+note+"]":"") + ":\n" + arr.map(v=>"  "+v).join("\n")); };
+    add("IPv4 Addresses",   ips);
+    add("IPv6 Addresses",   ipv6);
+    add("URLs",             urls);
+    add("Domains",          domains);
+    add("Ports",            ports);
+    add("Email Addresses",  emails);
+    add("User Accounts / Usernames", usernames);
+    add("Display Names",    uniq(displayNames));
+    if (deptM)  sections.push("Departments (1):\n  " + deptM[1].trim());
+    if (titleM) sections.push("Titles / Roles (1):\n  " + titleM[1].trim());
+    add("Hostnames",        uniq(hostnames));
+    const hashLabel = hashes.length===1 ? ({32:"MD5",40:"SHA1",64:"SHA256"}[hashes[0].length]||"") : "";
+    add("File Hashes",      hashes, hashLabel);
+    add("Processes / Files",processes);
+    add("File Paths",       filePaths);
+    add("Registry Keys",    regKeys);
+    add("Command Lines",    uniq(cmdlines), "truncated at 200 chars");
+    add("Threat Names",     uniq(threats));
+    if (subjMatch) sections.push("Email Subjects (1):\n  " + subjMatch[1].trim());
+    add("Auth Outcomes",    outcomes);
+    add("Risk / Severity",  riskScores);
+    if (logonMatch) sections.push("Logon Types (1):\n  LogonType " + logonMatch[1] + " — " + ({"2":"Interactive","3":"Network","4":"Batch","5":"Service","7":"Unlock","8":"NetworkCleartext","9":"NewCredentials","10":"RemoteInteractive","11":"CachedInteractive"}[logonMatch[1]]||"Unknown"));
+    if (failReasonMatch) sections.push("Failure Reasons (1):\n  " + failReasonMatch[1].trim());
+    add("Geographic Locations", geoLocations);
+    add("Carriers / ISPs",  carriers);
+    add("Timestamps",       timestamps.slice(0,10), timestamps.length>10?"first 10 of "+timestamps.length:"");
+    add("CVEs",             cves);
+    add("MITRE ATT&CK TTPs",mitreTTPs);
+    add("Windows Event IDs",eventIDs);
+    add("ASNs",             asns);
+
+    const total = sections.reduce((n, s) => { const m=s.match(/\((\d+)\)/); return n+(m?parseInt(m[1]):1); }, 0);
+    const header = ["SMART IOC EXTRACTOR", "Extracted At (UTC): " + now, "Total observables:  " + total, ""];
+    if (!sections.length) return [...header, "No recognizable observables found."].join("\n");
+    return [...header, ...sections].join("\n\n");
+  }
+
   function buildDiffView(original, modified) {
     const origLines = original.split("\n");
     const modLines = modified.split("\n");
@@ -5858,7 +6004,42 @@ Produce the triage assessment. Be specific to the values above — do not genera
   }
 
   function renderCardMeta() {
-    // Re-render card metadata (called after search)
+    // Called after search — show verdict/assessment banner for the current IOC type
+    const banner = $("verdict-banner");
+    if (!banner) return;
+    const raw = (input?.value || "").trim();
+    if (!raw) { banner.style.display = "none"; return; }
+    const { type, q } = detectType(refangSmart(raw), "");
+    if (!type) { banner.style.display = "none"; return; }
+    const ASSESSMENT = {
+      ip:       { label:"🌐 IP Address", note:"Check reputation across all tools. Look for blocklist hits, hosting type (VPN/TOR/datacenter = higher risk), and ASN context." },
+      domain:   { label:"🏠 Domain",     note:"Check registration age (WHOIS), DNS history, blocklist status, and whether it resolves to a known malicious IP." },
+      url:      { label:"🔗 URL",        note:"Scan the full URL in URLScan and VT. Check the domain separately. Expand shortened URLs before analysis." },
+      hash:     { label:"#️⃣ File Hash",  note:"Submit to sandbox tools for dynamic analysis. Check VT detection count — even 1/70 is noteworthy for targeted malware." },
+      email:    { label:"📧 Email",      note:"Check for breaches (HIBP), verify the domain, and look for historical phishing use. Use Email Header Analyzer for full header review." },
+      cve:      { label:"🔴 CVE",        note:"Check CISA KEV status and EPSS score first — if both are high, treat as actively exploited. Review patch availability." },
+      eventid:  { label:"🪟 Event ID",   note:"Cross-reference with MITRE ATT&CK. Event IDs alone are not IOCs — correlate with user, host, and time context." },
+      username: { label:"👤 Username",   note:"Check for credential exposure across breach databases. Username reuse across platforms is a major pivot point." },
+      phone:    { label:"📞 Phone",      note:"Search breach databases and social media. Phone numbers in phishing headers are TOAD (callback phishing) indicators." },
+      mac:      { label:"🖥 MAC Address",note:"Identify the vendor prefix (OUI). MACs can be spoofed — cross-reference with DHCP logs for the source device." },
+      asn:      { label:"🌐 ASN",        note:"Identify the hosting org. Datacenter/VPN ASNs (DigitalOcean, M247, Mullvad) from internal alerts are high-risk indicators." },
+      btc:      { label:"₿ Bitcoin",     note:"Trace transaction history. Ransomware payments and darknet markets often cluster around specific wallets." },
+      eth:      { label:"⧫ Ethereum",    note:"Check contract interactions and transaction history. DeFi exploits and crypto theft often leave traceable on-chain trails." },
+      header:   { label:"📨 Email Header",note:"Use the Email Header Analyzer tab for full authentication check (SPF/DKIM/DMARC), relay hop analysis, and verdict." },
+    };
+    const info = ASSESSMENT[type];
+    if (!info) { banner.style.display = "none"; return; }
+    banner.style.display = "flex";
+    banner.style.borderColor = "rgba(56,189,248,0.3)";
+    banner.style.background  = "rgba(56,189,248,0.05)";
+    banner.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:4px;width:100%;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;font-weight:800;color:#38bdf8;text-transform:uppercase;letter-spacing:.05em;">${info.label}</span>
+          <span style="font-size:10px;color:var(--muted);">— ${esc(q.slice(0,60))}${q.length>60?"…":""}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6;">💡 ${info.note}</div>
+      </div>`;
   }
 
   function injectCustomTools(typeHint, q) {
@@ -6054,7 +6235,7 @@ Produce the triage assessment. Be specific to the values above — do not genera
     const e = encodeURIComponent;
     setHref("h_vt",          `https://www.virustotal.com/gui/file/${e(hash)}`);
     setHref("h_hybrid",      `https://www.hybrid-analysis.com/search?query=${e(hash)}`);
-    setHref("h_joesandbox",  `https://www.joesandbox.com/search?q=${e(hash)}`);
+    setHref("h_joesandbox",  `https://www.joesandbox.com/analysis/search?searchname=${e(hash)}`);
     setHref("h_triage",      `https://tria.ge/s/?q=${e(hash)}`);
     setHref("h_malshare",    `https://malshare.com/search.php?query=${e(hash)}`);
     setHref("h_malwarebazaar",`https://bazaar.abuse.ch/browse.php?search=sha256_hash:${e(hash)}`);
@@ -6263,7 +6444,53 @@ Produce the triage assessment. Be specific to the values above — do not genera
     else if (type === "btc")    { buildLinksForBTC(q); }
     else if (type === "eth")    { buildLinksForETH(q); }
     else if (type === "header") { buildLinksForHeaders(q); }
+    renderCardMeta();
   }
+
+  // ── Defang / Refang / Extract IOC buttons (Single IOC tab) ───
+  const defangBtn = $("defang-btn");
+  const refangBtn = $("refang-btn");
+  const extractBtn = $("extract-btn");
+  const copyBtn   = $("copy-btn");
+  if (defangBtn) defangBtn.addEventListener("click", () => {
+    const src = (output?.value || "").trim() || (input?.value || "").trim();
+    if (!src) return;
+    if (output) output.value = defangSmart(src);
+    setStatus("Status: defanged");
+  });
+  if (refangBtn) refangBtn.addEventListener("click", () => {
+    const src = (output?.value || "").trim() || (input?.value || "").trim();
+    if (!src) return;
+    if (output) output.value = refangSmart(src);
+    setStatus("Status: refanged");
+  });
+  if (extractBtn) extractBtn.addEventListener("click", () => {
+    const text = (output?.value || "").trim() || (input?.value || "").trim();
+    if (!text) return;
+    if (output) output.value = extractSmartIOCs(text);
+    setStatus("Status: Smart IOC extraction complete");
+  });
+  if (copyBtn) copyBtn.addEventListener("click", async () => {
+    if (!output) return;
+    try { await navigator.clipboard.writeText(output.value || ""); }
+    catch { if (output) { output.focus(); output.select(); document.execCommand("copy"); } }
+    setStatus("Status: copied to clipboard");
+  });
+  const clearAllBtn = $("clear-all");
+  if (clearAllBtn) clearAllBtn.addEventListener("click", () => {
+    if (input)  input.value  = "";
+    if (output) output.value = "";
+    syncSearchboxState(); setSearchMode(false); showRelevantTools([]);
+    setLandingLinks(); renderCardMeta(); setStatus("Status: ready (landing page)");
+    const banner = $("verdict-banner"); if (banner) banner.style.display = "none";
+    hideThreatScore(); hideActorHints();
+    const sp = $("mitre-suggested"); if (sp) sp.style.display = "none";
+    const cvePanel = $("cve-enrichment"); if (cvePanel) cvePanel.style.display = "none";
+  });
+
+  // Stubs for functions that may be referenced
+  function hideThreatScore() { const el = $("threat-score"); if (el) el.style.display = "none"; }
+  function hideActorHints()  { const el = $("actor-hints");  if (el) el.style.display = "none"; }
 
   // Wire up search button and Enter key
   const searchBtn = $("search-btn");
@@ -6688,7 +6915,64 @@ Produce the triage assessment. Be specific to the values above — do not genera
       </div>`;
     }
 
+    // ── AI Explanation button ──────────────────────────────────
+    html += `<div class="sa-section" id="sa-explain-section">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button id="sa-ai-explain-btn" type="button" style="background:linear-gradient(135deg,#7c3aed,#1D9E75);color:#fff;border:none;font-weight:800;padding:8px 18px;border-radius:8px;font-size:11.5px;cursor:pointer;">
+          ⚡ AI Explain — What does this script do?
+        </button>
+        <span style="font-size:11px;color:var(--muted);">Get a plain-English explanation of intent, behavior, and threat level</span>
+      </div>
+      <div id="sa-ai-explanation" style="display:none;margin-top:12px;"></div>
+    </div>`;
+
     saResults.innerHTML = html;
+
+    // Wire up AI explain button
+    const saAIBtn = document.getElementById("sa-ai-explain-btn");
+    if (saAIBtn) {
+      saAIBtn.addEventListener("click", async () => {
+        const explainDiv = document.getElementById("sa-ai-explanation");
+        if (!explainDiv) return;
+        saAIBtn.disabled = true;
+        saAIBtn.textContent = "⟳ Analyzing…";
+        explainDiv.style.display = "block";
+        explainDiv.innerHTML = '<div style="color:var(--muted);font-size:11.5px;padding:8px 0;animation:pulse 1s infinite;">Analyzing script behavior…</div>';
+        const scriptText = saInput?.value?.trim() || "";
+        const hitSummary = hits.map(h => h.label + " (" + h.sev + ")").join(", ");
+        const mitreSummary = mitre.join(", ");
+        const sys = "You are a malware analyst. Given a script and its detected indicators, explain in plain English: 1) What the script does step by step, 2) Its likely intent (malware dropper / C2 beacon / credential theft / persistence / etc.), 3) Specific dangerous behaviors found, 4) Recommended analyst actions. Be direct and accurate. Use short paragraphs, no markdown headers. Max 200 words.";
+        const userMsg = "Script (" + effectiveMode.toUpperCase() + ", " + hits.length + " indicators: " + hitSummary + ", MITRE: " + mitreSummary + "):\n\n" + scriptText.slice(0, 1500);
+
+        try {
+          const resp = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-sonnet-4-20250514",
+              max_tokens: 600,
+              system: sys,
+              messages: [{ role: "user", content: userMsg }],
+            }),
+          });
+          if (!resp.ok) throw new Error("API " + resp.status);
+          const data = await resp.json();
+          const text = (data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();
+          if (text) {
+            explainDiv.innerHTML = '<div style="background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.2);border-radius:8px;padding:14px 16px;">' +
+              '<div style="font-size:10px;font-weight:800;color:#a78bfa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">⚡ AI ANALYSIS</div>' +
+              '<div style="font-size:12px;color:var(--text);line-height:1.75;white-space:pre-wrap;">' + esc(text) + '</div>' +
+              '</div>';
+          } else {
+            throw new Error("Empty response");
+          }
+        } catch(e) {
+          explainDiv.innerHTML = '<div style="font-size:11.5px;color:var(--muted);padding:6px 0;">AI explanation unavailable: ' + esc(e.message) + '. The indicator list above provides the manual analysis.</div>';
+        }
+        saAIBtn.disabled = false;
+        saAIBtn.textContent = "⚡ AI Explain — What does this script do?";
+      });
+    }
 
     mitre.forEach(t => {
       const tid = t.split(".")[0];
