@@ -8019,6 +8019,63 @@ Produce the triage assessment. Be specific to the values above — do not genera
       attackType = "SUSPICIOUS";     attackDetail = "Some signals present — investigate further";
     }
 
+    // ── Confidence + verdict drivers ─────────────────────────
+    // Confidence = how certain we are of the verdict (based on hard vs soft signals)
+    // Hard signals = cryptographic proof (DKIM fail, SPF fail, DMARC fail, brand spoof, AiTM)
+    // Soft signals = behavioral/contextual (subject keywords, free provider, reply mismatch)
+    const hardSignals = [
+      spfResult === "fail", dkimResult === "fail", dmarcResult === "fail",
+      isMalwareDelivery, isAiTM, isPunycode, !!lookalikeBrand,
+      !!(replyEmail && replyEmail !== fromEmail),
+    ].filter(Boolean).length;
+    const warnSignalCount = [
+      spfResult === "softfail",
+      !!(retDomain && fromDomain && retDomain !== fromDomain),
+      !!(dkimDomain && fromDomain && dkimDomain !== fromDomain && !["mailchimp.com","sendgrid.net","amazonses.com","sparkpostmail.com"].includes(dkimDomain)),
+      isQRishing, isTOAD, isVoicemail, isBEC && !lookalikeBrand,
+    ].filter(Boolean).length;
+
+    let confidence, confidenceColor, confidenceReason;
+    if (attackType === "LIKELY CLEAN" && hardSignals === 0) {
+      confidence = "HIGH";  confidenceColor = "#34d399";
+      confidenceReason = "All three email authentication controls (SPF, DKIM, DMARC) passed with correct domain alignment. No structural or behavioral anomalies detected.";
+    } else if (hardSignals >= 2) {
+      confidence = "HIGH";  confidenceColor = "#ef4444";
+      confidenceReason = `${hardSignals} hard cryptographic or structural signal(s) confirmed — the verdict is backed by verifiable technical evidence.`;
+    } else if (hardSignals === 1) {
+      confidence = "HIGH";  confidenceColor = "#ef4444";
+      confidenceReason = "One hard signal confirmed (cryptographic failure or domain structural anomaly) — sufficient for high confidence.";
+    } else if (warnSignalCount >= 2) {
+      confidence = "MEDIUM"; confidenceColor = "#fbbf24";
+      confidenceReason = `${warnSignalCount} corroborating warning signals — no single definitive proof, but the combination is meaningful. Verify manually.`;
+    } else if (warnSignalCount === 1) {
+      confidence = "MEDIUM"; confidenceColor = "#fbbf24";
+      confidenceReason = "One warning-level signal. Could be legitimate misconfiguration or a real threat. Context required.";
+    } else {
+      confidence = "LOW";   confidenceColor = "#9ca3af";
+      confidenceReason = "Soft signals only (subject keywords, sender type). Low-confidence assessment — do not block solely on this.";
+    }
+
+    // Verdict drivers — the key signals that explain WHY this verdict was reached
+    const verdictDrivers = [];
+    const DR = (weight, icon, text) => verdictDrivers.push({ weight, icon, text });
+    if (dkimResult === "fail")   DR("critical","🔐", `DKIM FAIL — cryptographic signature is broken or missing. The message was modified after signing, or the From: domain (${fromDomain||"unknown"}) was spoofed. This is a hard technical proof of tampering.`);
+    if (spfResult === "fail")    DR("critical","📮", `SPF FAIL — the sending IP (${hops[hops.length-1]?.ip||"unknown"}) is NOT authorized to send mail for ${fromDomain||"this domain"}. The domain owner has explicitly forbidden this sender.`);
+    if (dmarcResult === "fail")  DR("critical","🛡", `DMARC FAIL — the From: domain policy rejected this message. Neither SPF nor DKIM aligned with the declared From: domain.${dmarcDisposition ? " Declared action: "+dmarcDisposition.toUpperCase()+"." : ""}`);
+    if (isAiTM)                  DR("critical","🕵", `AiTM proxy detected — a known adversary-in-the-middle phishing relay appeared in the relay chain. These proxies steal session cookies and MFA tokens in real time without requiring the victim's password.`);
+    if (lookalikeBrand)          DR("critical","🎭", `Brand impersonation — domain "${lookalikeDomain}" is spoofing "${lookalikeBrand}". ${isPunycode ? "Punycode homograph attack: Unicode characters make the domain look identical to the real one." : "Typosquat or lookalike domain registered to deceive recipients."}`);
+    if (replyEmail && replyEmail !== fromEmail) DR("critical","📧", `Reply-To hijack — displayed sender is <${fromEmail}> but replies are redirected to <${replyEmail}>. Recipients who click Reply will contact the attacker's address, not the apparent sender.`);
+    if (isMalwareDelivery)       DR("critical","📎", `Malicious attachment type(s): ${maliciousAttach.join(", ")}. These file types are high-risk malware delivery vectors. Do NOT open.`);
+    if (spfResult === "softfail") DR("warning","⚠️", `SPF SOFTFAIL (~all) — the sending IP is technically unauthorized but the domain uses a weak policy. Common in phishing campaigns that abuse domains with poor SPF hygiene.`);
+    if (retDomain && fromDomain && retDomain !== fromDomain) DR("warning","↩️", `Return-Path mismatch — bounce emails go to ${retDomain}, not ${fromDomain}. In legitimate mail, these typically match. Divergence is common in spoofed mail.`);
+    if (isBEC && !lookalikeBrand && !isAiTM) DR("warning","💼", `BEC pattern — combination of display name targeting, reply address divergence, or urgency language consistent with wire fraud or credential harvesting.`);
+    if (isQRishing)              DR("warning","📱", `QRishing — QR code detected in message. QR codes bypass URL-based email security because the malicious link only becomes active on the mobile device scanning the code.`);
+    if (isTOAD)                  DR("warning","📞", `Callback phishing (TOAD) — phone number embedded in email body. The attacker answers calls and socially engineers the victim into installing remote access tools or revealing credentials.`);
+    if (isVoicemail)             DR("warning","🎙", `Voicemail lure — fake voicemail notification template, a standard phishing pre-text to drive clicks on malicious "listen to voicemail" links.`);
+    if (verdictDrivers.length === 0 && attackType === "LIKELY CLEAN") {
+      DR("clean","✅", `SPF: ${(spfResult||"none").toUpperCase()}, DKIM: ${(dkimResult||"none").toUpperCase()}, DMARC: ${(dmarcResult||"none").toUpperCase()} — all email authentication controls passed with correct domain alignment. No structural, behavioral, or content anomalies detected.`);
+    }
+
     // ── Score + flags ────────────────────────────────────────
     let score = 0;
     const flags = [];
@@ -8192,6 +8249,8 @@ Produce the triage assessment. Be specific to the values above — do not genera
       arc: arcResult, compauth: compauthResult,
       lookalikeBrand, lookalikeDomain, isPunycode,
       attackType, attackDetail,
+      confidence, confidenceColor, confidenceReason,
+      verdictDrivers,
       isBEC, isPhishing, isSpam, isQRishing, isVoicemail, isTOAD, isAiTM, isMalwareDelivery,
       isHTMLOnly, hasTrackingPixel, attachmentName, maliciousAttach,
       isBulkHeaders, isBulkPrecedence, spamSubjectHits,
@@ -8242,6 +8301,46 @@ Produce the triage assessment. Be specific to the values above — do not genera
             <span class="eha-auth-check-detail">${esc(c.detail)}</span>
           </div>`).join("")}
       </div>`;
+
+    // ── Verdict explanation panel ────────────────────────────
+    const explainEl = $("eha-verdict-explain");
+    if (explainEl) {
+      if (r.verdictDrivers && r.verdictDrivers.length) {
+        const weightColors = { critical:"#ef4444", warning:"#fbbf24", clean:"#34d399" };
+        const weightLabels = { critical:"CRITICAL SIGNAL", warning:"WARNING SIGNAL", clean:"CLEAN SIGNAL" };
+        const driverRows = r.verdictDrivers.map(d => {
+          const c = weightColors[d.weight] || "#9ca3af";
+          const l = weightLabels[d.weight] || d.weight.toUpperCase();
+          return `<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-left:3px solid ${c};background:${c}08;border-radius:0 6px 6px 0;margin-bottom:6px;">
+            <span style="font-size:15px;flex-shrink:0;margin-top:1px;">${esc(d.icon)}</span>
+            <div style="flex:1;">
+              <div style="font-size:9.5px;font-weight:800;color:${c};text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">${l}</div>
+              <div style="font-size:11.5px;color:var(--text);line-height:1.65;">${esc(d.text)}</div>
+            </div>
+          </div>`;
+        }).join("");
+
+        const confColor = r.confidenceColor || "#9ca3af";
+        explainEl.style.display = "block";
+        explainEl.innerHTML = `
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+            <div style="background:rgba(0,0,0,0.15);padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="font-size:12px;font-weight:800;color:var(--text);">🔍 Why this verdict?</span>
+              <span style="font-size:10px;background:${confColor}18;color:${confColor};border:1px solid ${confColor}44;padding:2px 10px;border-radius:10px;font-weight:700;">${esc(r.confidence)} CONFIDENCE</span>
+              <span style="font-size:11px;color:var(--muted);flex:1;">${esc(r.confidenceReason)}</span>
+            </div>
+            <div style="padding:12px 14px;">
+              ${driverRows}
+            </div>
+          </div>`;
+      } else {
+        explainEl.style.display = "none";
+      }
+    }
+
+    // ── Score banner update — add confidence badge ────────────
+    // (already rendered above, now enhance with confidence)
+    const confBadge = `<span style="font-size:10px;background:${r.confidenceColor||"#9ca3af"}22;color:${r.confidenceColor||"#9ca3af"};border:1px solid ${r.confidenceColor||"#9ca3af"}44;padding:1px 8px;border-radius:8px;font-weight:700;">${esc(r.confidence||"")} CONFIDENCE</span>`;
 
     // ── Summary grid ──────────────────────────────────────────
     const summaryItems = [
