@@ -123,7 +123,6 @@
         <button class="tab-btn" data-tab="defangbulk" type="button">🛡 Defang/Refang</button>
         <button class="tab-btn" data-tab="yara" type="button">📜 YARA/Sigma</button>
         <button class="tab-btn" data-tab="logtriage" type="button">🧾 Log Triage</button>
-        <button class="tab-btn" data-tab="threat" type="button">🕵 Threat Actor</button>
         <button class="tab-btn" data-tab="custom" type="button">⚙ Custom Tools</button>
         <button class="tab-btn" data-tab="utils" type="button">🛠 SOC Utils</button>
         <button class="tab-btn" data-tab="cti" type="button">🌐 CTI Feed</button>
@@ -181,38 +180,61 @@
         <div class="hintline">Tip: Paste full email headers/logs into the Output box then press Search (or Extract IOCs).</div>
       </div>
 
+      <!-- ═══ QUICK ASSESSMENT — shown after search ═══ -->
+      <div id="quick-assessment-panel" class="quick-assessment-panel" style="display:none;"></div>
+
+      <!-- ═══ LANDING GUIDE — shown when no search ═══ -->
+      <div id="landing-guide" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:20px;text-align:center;min-height:280px;">
+        <div style="font-size:36px;">🦅</div>
+        <div style="font-size:18px;font-weight:800;color:var(--text);">HawkEye OSINT Toolkit</div>
+        <div style="font-size:13px;color:var(--muted);max-width:480px;line-height:1.7;">
+          Paste any <strong style="color:var(--text);">IP, domain, URL, hash, email, CVE, username, phone, MAC, ASN, BTC address</strong> or <strong style="color:var(--text);">Windows Event ID</strong> in the search box above, then press <kbd style="background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:11px;">Enter</kbd> to load all OSINT tools for that IOC.
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:500px;">
+          <span style="font-size:10.5px;background:rgba(56,189,248,0.1);color:#38bdf8;border:1px solid rgba(56,189,248,0.2);padding:3px 10px;border-radius:12px;">🌐 IP / IPv6</span>
+          <span style="font-size:10.5px;background:rgba(52,211,153,0.1);color:#34d399;border:1px solid rgba(52,211,153,0.2);padding:3px 10px;border-radius:12px;">🏠 Domain</span>
+          <span style="font-size:10.5px;background:rgba(251,146,60,0.1);color:#fb923c;border:1px solid rgba(251,146,60,0.2);padding:3px 10px;border-radius:12px;">🔗 URL</span>
+          <span style="font-size:10.5px;background:rgba(245,158,11,0.1);color:#f59e0b;border:1px solid rgba(245,158,11,0.2);padding:3px 10px;border-radius:12px;">#️⃣ Hash (MD5/SHA1/SHA256)</span>
+          <span style="font-size:10.5px;background:rgba(167,139,250,0.1);color:#a78bfa;border:1px solid rgba(167,139,250,0.2);padding:3px 10px;border-radius:12px;">📧 Email</span>
+          <span style="font-size:10.5px;background:rgba(248,113,113,0.1);color:#f87171;border:1px solid rgba(248,113,113,0.2);padding:3px 10px;border-radius:12px;">🔴 CVE</span>
+          <span style="font-size:10.5px;background:rgba(232,121,249,0.1);color:#e879f9;border:1px solid rgba(232,121,249,0.2);padding:3px 10px;border-radius:12px;">👤 Username</span>
+          <span style="font-size:10.5px;background:rgba(134,239,172,0.1);color:#86efac;border:1px solid rgba(134,239,172,0.2);padding:3px 10px;border-radius:12px;">🪟 Event ID</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Supports defanged IOCs — hxxps://, [.], [:]</div>
+      </div>
+
       <!-- ===================== IP ===================== -->
       <div class="tool-section" data-type="ip">
         <div class="section-head"><h2>🛡 Threat & Reputation (IP)</h2><div class="pill">IP pivots</div></div>
         <div class="tool-grid">
-          <a id="ip_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="ip_vt"></div></a>
-          <a id="ip_abuseipdb" target="_blank"><div class="title">🚫 AbuseIPDB <span class="lock">🔒</span></div><div class="meta" data-meta="ip_abuseipdb"></div></a>
-          <a id="ip_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="ip_talos"></div></a>
-          <a id="ip_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ibmxf"></div></a>
-          <a id="ip_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="ip_otx"></div></a>
-          <a id="ip_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_anyrun"></div></a>
-          <a id="ip_mxtoolbox" target="_blank"><div class="title">📧 MXToolBox (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_mxtoolbox"></div></a>
-          <a id="ip_blacklistchecker" target="_blank"><div class="title">🧱 Blacklist Checker <span class="lock">🔒</span></div><div class="meta" data-meta="ip_blacklistchecker"></div></a>
-          <a id="ip_cleantalk" target="_blank"><div class="title">🧼 CleanTalk (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_cleantalk"></div></a>
-          <a id="ip_shodan" target="_blank"><div class="title">🛰 Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="ip_shodan"></div></a>
-          <a id="ip_censys" target="_blank"><div class="title">🔭 Censys <span class="lock">🔒</span></div><div class="meta" data-meta="ip_censys"></div></a>
-          <a id="ip_greynoise" target="_blank"><div class="title">🌫 GreyNoise <span class="lock">🔒</span></div><div class="meta" data-meta="ip_greynoise"></div></a>
-          <a id="ip_iplocation" target="_blank"><div class="title">📍 IPLocation <span class="lock">🔒</span></div><div class="meta" data-meta="ip_iplocation"></div></a>
-          <a id="ip_ipinfo" target="_blank"><div class="title">🗺 IPinfo <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ipinfo"></div></a>
-          <a id="ip_whatismyipaddress" target="_blank"><div class="title">🧾 WhatIsMyIPAddress <span class="lock">🔒</span></div><div class="meta" data-meta="ip_whatismyipaddress"></div></a>
-          <a id="ip_myip" target="_blank"><div class="title">🧷 myip.ms <span class="lock">🔒</span></div><div class="meta" data-meta="ip_myip"></div></a>
-          <a id="ip_spur" target="_blank"><div class="title">🕳 SPUR (VPN detect) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_spur"></div></a>
-          <a id="ip_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="ip_clickfix"></div></a>
-          <a id="ip_ripestat" target="_blank"><div class="title">🗃 RIPEstat <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ripestat"></div></a>
-          <a id="ip_bgphe" target="_blank"><div class="title">🌐 BGP.he.net (ASN) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_bgphe"></div></a>
-          <a id="ip_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_nitter"></div></a>
-          <a id="ip_threatminer" target="_blank"><div class="title">⛏ ThreatMiner <span class="lock">🔒</span></div><div class="meta" data-meta="ip_threatminer"></div></a>
-          <a id="ip_urlscan" target="_blank"><div class="title">🔎 urlscan.io <span class="lock">🔒</span></div><div class="meta" data-meta="ip_urlscan"></div></a>
-          <a id="ip_viewdns" target="_blank"><div class="title">🧩 ViewDNS IP History <span class="lock">🔒</span></div><div class="meta" data-meta="ip_viewdns"></div></a>
-          <a id="ip_scamalytics" target="_blank"><div class="title">🎭 Scamalytics <span class="lock">🔒</span></div><div class="meta" data-meta="ip_scamalytics"></div></a>
-          <a id="ip_threatfox" target="_blank"><div class="title">🦊 ThreatFox (C2) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_threatfox"></div></a>
-          <a id="ip_pulsedive" target="_blank"><div class="title">📡 Pulsedive <span class="lock">🔒</span></div><div class="meta" data-meta="ip_pulsedive"></div></a>
-          <a id="ip_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails (rDNS) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_securitytrails"></div></a>
+          <a id="ip_vt" target="_blank"href="#"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="ip_vt"></div></a>
+          <a id="ip_abuseipdb" target="_blank"href="#"><div class="title">🚫 AbuseIPDB <span class="lock">🔒</span></div><div class="meta" data-meta="ip_abuseipdb"></div></a>
+          <a id="ip_talos" target="_blank"href="#"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="ip_talos"></div></a>
+          <a id="ip_ibmxf" target="_blank"href="#"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ibmxf"></div></a>
+          <a id="ip_otx" target="_blank"href="#"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="ip_otx"></div></a>
+          <a id="ip_anyrun" target="_blank"href="#"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_anyrun"></div></a>
+          <a id="ip_mxtoolbox" target="_blank"href="#"><div class="title">📧 MXToolBox (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_mxtoolbox"></div></a>
+          <a id="ip_blacklistchecker" target="_blank"href="#"><div class="title">🧱 Blacklist Checker <span class="lock">🔒</span></div><div class="meta" data-meta="ip_blacklistchecker"></div></a>
+          <a id="ip_cleantalk" target="_blank"href="#"><div class="title">🧼 CleanTalk (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_cleantalk"></div></a>
+          <a id="ip_shodan" target="_blank"href="#"><div class="title">🛰 Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="ip_shodan"></div></a>
+          <a id="ip_censys" target="_blank"href="#"><div class="title">🔭 Censys <span class="lock">🔒</span></div><div class="meta" data-meta="ip_censys"></div></a>
+          <a id="ip_greynoise" target="_blank"href="#"><div class="title">🌫 GreyNoise <span class="lock">🔒</span></div><div class="meta" data-meta="ip_greynoise"></div></a>
+          <a id="ip_iplocation" target="_blank"href="#"><div class="title">📍 IPLocation <span class="lock">🔒</span></div><div class="meta" data-meta="ip_iplocation"></div></a>
+          <a id="ip_ipinfo" target="_blank"href="#"><div class="title">🗺 IPinfo <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ipinfo"></div></a>
+          <a id="ip_whatismyipaddress" target="_blank"href="#"><div class="title">🧾 WhatIsMyIPAddress <span class="lock">🔒</span></div><div class="meta" data-meta="ip_whatismyipaddress"></div></a>
+          <a id="ip_myip" target="_blank"href="#"><div class="title">🧷 myip.ms <span class="lock">🔒</span></div><div class="meta" data-meta="ip_myip"></div></a>
+          <a id="ip_spur" target="_blank"href="#"><div class="title">🕳 SPUR (VPN detect) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_spur"></div></a>
+          <a id="ip_clickfix" target="_blank"href="#"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="ip_clickfix"></div></a>
+          <a id="ip_ripestat" target="_blank"href="#"><div class="title">🗃 RIPEstat <span class="lock">🔒</span></div><div class="meta" data-meta="ip_ripestat"></div></a>
+          <a id="ip_bgphe" target="_blank"href="#"><div class="title">🌐 BGP.he.net (ASN) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_bgphe"></div></a>
+          <a id="ip_nitter" target="_blank"href="#"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_nitter"></div></a>
+          <a id="ip_threatminer" target="_blank"href="#"><div class="title">⛏ ThreatMiner <span class="lock">🔒</span></div><div class="meta" data-meta="ip_threatminer"></div></a>
+          <a id="ip_urlscan" target="_blank"href="#"><div class="title">🔎 urlscan.io <span class="lock">🔒</span></div><div class="meta" data-meta="ip_urlscan"></div></a>
+          <a id="ip_viewdns" target="_blank"href="#"><div class="title">🧩 ViewDNS IP History <span class="lock">🔒</span></div><div class="meta" data-meta="ip_viewdns"></div></a>
+          <a id="ip_scamalytics" target="_blank"href="#"><div class="title">🎭 Scamalytics <span class="lock">🔒</span></div><div class="meta" data-meta="ip_scamalytics"></div></a>
+          <a id="ip_threatfox" target="_blank"href="#"><div class="title">🦊 ThreatFox (C2) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_threatfox"></div></a>
+          <a id="ip_pulsedive" target="_blank"href="#"><div class="title">📡 Pulsedive <span class="lock">🔒</span></div><div class="meta" data-meta="ip_pulsedive"></div></a>
+          <a id="ip_securitytrails" target="_blank"href="#"><div class="title">🧭 SecurityTrails (rDNS) <span class="lock">🔒</span></div><div class="meta" data-meta="ip_securitytrails"></div></a>
         </div>
       </div>
 
@@ -220,44 +242,44 @@
       <div class="tool-section" data-type="domain">
         <div class="section-head"><h2>🌐 Domain & DNS</h2><div class="pill">Domain pivots</div></div>
         <div class="tool-grid">
-          <a id="dom_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="dom_vt"></div></a>
-          <a id="dom_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="dom_talos"></div></a>
-          <a id="dom_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="dom_ibmxf"></div></a>
-          <a id="dom_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="dom_otx"></div></a>
-          <a id="dom_urlscan" target="_blank"><div class="title">🔎 URLScan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlscan"></div></a>
-          <a id="dom_mxtoolbox" target="_blank"><div class="title">📧 MXToolBox (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_mxtoolbox"></div></a>
-          <a id="dom_blacklistchecker" target="_blank"><div class="title">🧱 Blacklist Checker <span class="lock">🔒</span></div><div class="meta" data-meta="dom_blacklistchecker"></div></a>
-          <a id="dom_cleantalk_bl" target="_blank"><div class="title">🧼 CleanTalk (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_cleantalk_bl"></div></a>
-          <a id="dom_cleantalk_malware" target="_blank"><div class="title">🧼 CleanTalk (Malware Scan) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_cleantalk_malware"></div></a>
-          <a id="dom_sucuri" target="_blank"><div class="title">🛡 SUCURI (Malware Scan) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_sucuri"></div></a>
-          <a id="dom_urlvoid" target="_blank"><div class="title">🕸 URLVoid <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlvoid"></div></a>
-          <a id="dom_urlhaus" target="_blank"><div class="title">🏚 URLHaus <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlhaus"></div></a>
-          <a id="dom_whois" target="_blank"><div class="title">📇 WHOIS <span class="lock">🔒</span></div><div class="meta" data-meta="dom_whois"></div></a>
-          <a id="dom_dnslytics" target="_blank"><div class="title">🧬 DNSLytics <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnslytics"></div></a>
-          <a id="dom_netcraft" target="_blank"><div class="title">🏗 Netcraft <span class="lock">🔒</span></div><div class="meta" data-meta="dom_netcraft"></div></a>
-          <a id="dom_webcheck" target="_blank"><div class="title">🧪 Web Check <span class="lock">🔒</span></div><div class="meta" data-meta="dom_webcheck"></div></a>
-          <a id="dom_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails <span class="lock">🔒</span></div><div class="meta" data-meta="dom_securitytrails"></div></a>
-          <a id="dom_hudsonrock_info" target="_blank"><div class="title">🧯 HudsonRock Infostealer <span class="lock">🔒</span></div><div class="meta" data-meta="dom_hudsonrock_info"></div></a>
-          <a id="dom_hudsonrock_urls" target="_blank"><div class="title">🧾 HudsonRock URL Discovery <span class="lock">🔒</span></div><div class="meta" data-meta="dom_hudsonrock_urls"></div></a>
-          <a id="dom_socradar" target="_blank"><div class="title">🕳 SOCRadar DarkWebReport <span class="lock">🔒</span></div><div class="meta" data-meta="dom_socradar"></div></a>
-          <a id="dom_wayback" target="_blank"><div class="title">🕰 Wayback Machine <span class="lock">🔒</span></div><div class="meta" data-meta="dom_wayback"></div></a>
-          <a id="dom_wayback_save" target="_blank"><div class="title">💾 Wayback (Save) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_wayback_save"></div></a>
-          <a id="dom_browserling" target="_blank"><div class="title">🧊 Browserling <span class="lock">🔒</span></div><div class="meta" data-meta="dom_browserling"></div></a>
-          <a id="dom_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_anyrun"></div></a>
-          <a id="dom_anyrun_safe" target="_blank"><div class="title">🧯 AnyRun (Submit) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_anyrun_safe"></div></a>
-          <a id="dom_phishing_checker" target="_blank"><div class="title">🎣 Phishing Checker <span class="lock">🔒</span></div><div class="meta" data-meta="dom_phishing_checker"></div></a>
-          <a id="dom_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="dom_clickfix"></div></a>
-          <a id="dom_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_nitter"></div></a>
-          <a id="dom_netlas" target="_blank"><div class="title">🧿 Netlas <span class="lock">🔒</span></div><div class="meta" data-meta="dom_netlas"></div></a>
-          <a id="dom_censys" target="_blank"><div class="title">🔭 Censys <span class="lock">🔒</span></div><div class="meta" data-meta="dom_censys"></div></a>
-          <a id="dom_shodan" target="_blank"><div class="title">🛰 Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_shodan"></div></a>
-          <a id="dom_dnstools" target="_blank"><div class="title">📇 WHOIS DomainTools <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnstools"></div></a>
-          <a id="dom_crtsh" target="_blank"><div class="title">🔐 crt.sh (Cert Transparency) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_crtsh"></div></a>
-          <a id="dom_dnsdumpster" target="_blank"><div class="title">🗺 DNSDumpster <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnsdumpster"></div></a>
-          <a id="dom_threatfox" target="_blank"><div class="title">🦊 ThreatFox <span class="lock">🔒</span></div><div class="meta" data-meta="dom_threatfox"></div></a>
-          <a id="dom_pulsedive" target="_blank"><div class="title">📡 Pulsedive <span class="lock">🔒</span></div><div class="meta" data-meta="dom_pulsedive"></div></a>
-          <a id="dom_passivedns" target="_blank"><div class="title">🕰 Passive DNS History <span class="lock">🔒</span></div><div class="meta" data-meta="dom_passivedns"></div></a>
-          <a id="dom_rdap" target="_blank"><div class="title">📇 RDAP (Reg Age) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_rdap"></div></a>
+          <a id="dom_vt" target="_blank"href="#"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="dom_vt"></div></a>
+          <a id="dom_talos" target="_blank"href="#"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="dom_talos"></div></a>
+          <a id="dom_ibmxf" target="_blank"href="#"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="dom_ibmxf"></div></a>
+          <a id="dom_otx" target="_blank"href="#"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="dom_otx"></div></a>
+          <a id="dom_urlscan" target="_blank"href="#"><div class="title">🔎 URLScan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlscan"></div></a>
+          <a id="dom_mxtoolbox" target="_blank"href="#"><div class="title">📧 MXToolBox (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_mxtoolbox"></div></a>
+          <a id="dom_blacklistchecker" target="_blank"href="#"><div class="title">🧱 Blacklist Checker <span class="lock">🔒</span></div><div class="meta" data-meta="dom_blacklistchecker"></div></a>
+          <a id="dom_cleantalk_bl" target="_blank"href="#"><div class="title">🧼 CleanTalk (Blacklist) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_cleantalk_bl"></div></a>
+          <a id="dom_cleantalk_malware" target="_blank"href="#"><div class="title">🧼 CleanTalk (Malware Scan) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_cleantalk_malware"></div></a>
+          <a id="dom_sucuri" target="_blank"href="#"><div class="title">🛡 SUCURI (Malware Scan) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_sucuri"></div></a>
+          <a id="dom_urlvoid" target="_blank"href="#"><div class="title">🕸 URLVoid <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlvoid"></div></a>
+          <a id="dom_urlhaus" target="_blank"href="#"><div class="title">🏚 URLHaus <span class="lock">🔒</span></div><div class="meta" data-meta="dom_urlhaus"></div></a>
+          <a id="dom_whois" target="_blank"href="#"><div class="title">📇 WHOIS <span class="lock">🔒</span></div><div class="meta" data-meta="dom_whois"></div></a>
+          <a id="dom_dnslytics" target="_blank"href="#"><div class="title">🧬 DNSLytics <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnslytics"></div></a>
+          <a id="dom_netcraft" target="_blank"href="#"><div class="title">🏗 Netcraft <span class="lock">🔒</span></div><div class="meta" data-meta="dom_netcraft"></div></a>
+          <a id="dom_webcheck" target="_blank"href="#"><div class="title">🧪 Web Check <span class="lock">🔒</span></div><div class="meta" data-meta="dom_webcheck"></div></a>
+          <a id="dom_securitytrails" target="_blank"href="#"><div class="title">🧭 SecurityTrails <span class="lock">🔒</span></div><div class="meta" data-meta="dom_securitytrails"></div></a>
+          <a id="dom_hudsonrock_info" target="_blank"href="#"><div class="title">🧯 HudsonRock Infostealer <span class="lock">🔒</span></div><div class="meta" data-meta="dom_hudsonrock_info"></div></a>
+          <a id="dom_hudsonrock_urls" target="_blank"href="#"><div class="title">🧾 HudsonRock URL Discovery <span class="lock">🔒</span></div><div class="meta" data-meta="dom_hudsonrock_urls"></div></a>
+          <a id="dom_socradar" target="_blank"href="#"><div class="title">🕳 SOCRadar DarkWebReport <span class="lock">🔒</span></div><div class="meta" data-meta="dom_socradar"></div></a>
+          <a id="dom_wayback" target="_blank"href="#"><div class="title">🕰 Wayback Machine <span class="lock">🔒</span></div><div class="meta" data-meta="dom_wayback"></div></a>
+          <a id="dom_wayback_save" target="_blank"href="#"><div class="title">💾 Wayback (Save) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_wayback_save"></div></a>
+          <a id="dom_browserling" target="_blank"href="#"><div class="title">🧊 Browserling <span class="lock">🔒</span></div><div class="meta" data-meta="dom_browserling"></div></a>
+          <a id="dom_anyrun" target="_blank"href="#"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_anyrun"></div></a>
+          <a id="dom_anyrun_safe" target="_blank"href="#"><div class="title">🧯 AnyRun (Submit) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_anyrun_safe"></div></a>
+          <a id="dom_phishing_checker" target="_blank"href="#"><div class="title">🎣 Phishing Checker <span class="lock">🔒</span></div><div class="meta" data-meta="dom_phishing_checker"></div></a>
+          <a id="dom_clickfix" target="_blank"href="#"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="dom_clickfix"></div></a>
+          <a id="dom_nitter" target="_blank"href="#"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_nitter"></div></a>
+          <a id="dom_netlas" target="_blank"href="#"><div class="title">🧿 Netlas <span class="lock">🔒</span></div><div class="meta" data-meta="dom_netlas"></div></a>
+          <a id="dom_censys" target="_blank"href="#"><div class="title">🔭 Censys <span class="lock">🔒</span></div><div class="meta" data-meta="dom_censys"></div></a>
+          <a id="dom_shodan" target="_blank"href="#"><div class="title">🛰 Shodan <span class="lock">🔒</span></div><div class="meta" data-meta="dom_shodan"></div></a>
+          <a id="dom_dnstools" target="_blank"href="#"><div class="title">📇 WHOIS DomainTools <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnstools"></div></a>
+          <a id="dom_crtsh" target="_blank"href="#"><div class="title">🔐 crt.sh (Cert Transparency) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_crtsh"></div></a>
+          <a id="dom_dnsdumpster" target="_blank"href="#"><div class="title">🗺 DNSDumpster <span class="lock">🔒</span></div><div class="meta" data-meta="dom_dnsdumpster"></div></a>
+          <a id="dom_threatfox" target="_blank"href="#"><div class="title">🦊 ThreatFox <span class="lock">🔒</span></div><div class="meta" data-meta="dom_threatfox"></div></a>
+          <a id="dom_pulsedive" target="_blank"href="#"><div class="title">📡 Pulsedive <span class="lock">🔒</span></div><div class="meta" data-meta="dom_pulsedive"></div></a>
+          <a id="dom_passivedns" target="_blank"href="#"><div class="title">🕰 Passive DNS History <span class="lock">🔒</span></div><div class="meta" data-meta="dom_passivedns"></div></a>
+          <a id="dom_rdap" target="_blank"href="#"><div class="title">📇 RDAP (Reg Age) <span class="lock">🔒</span></div><div class="meta" data-meta="dom_rdap"></div></a>
         </div>
       </div>
 
@@ -265,30 +287,30 @@
       <div class="tool-section" data-type="url">
         <div class="section-head"><h2>🔗 URL Analysis</h2><div class="pill">URL / Link pivots</div></div>
         <div class="tool-grid">
-          <a id="url_vt" target="_blank"><div class="title">🧪 VirusTotal URL <span class="lock">🔒</span></div><div class="meta" data-meta="url_vt"></div></a>
-          <a id="url_urlscan" target="_blank"><div class="title">🔎 URLScan.io <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlscan"></div></a>
-          <a id="url_urlvoid" target="_blank"><div class="title">🕸 URLVoid <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlvoid"></div></a>
-          <a id="url_urlhaus" target="_blank"><div class="title">🏚 URLHaus <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlhaus"></div></a>
-          <a id="url_phishtank" target="_blank"><div class="title">🎣 PhishTank <span class="lock">🔒</span></div><div class="meta" data-meta="url_phishtank"></div></a>
-          <a id="url_checkphish" target="_blank"><div class="title">🐟 CheckPhish <span class="lock">🔒</span></div><div class="meta" data-meta="url_checkphish"></div></a>
-          <a id="url_safebrowsing" target="_blank"><div class="title">🛡 Google Safe Browsing <span class="lock">🔒</span></div><div class="meta" data-meta="url_safebrowsing"></div></a>
-          <a id="url_sucuri" target="_blank"><div class="title">🧹 Sucuri SiteCheck <span class="lock">🔒</span></div><div class="meta" data-meta="url_sucuri"></div></a>
-          <a id="url_browserling" target="_blank"><div class="title">🧊 Browserling (Preview) <span class="lock">🔒</span></div><div class="meta" data-meta="url_browserling"></div></a>
-          <a id="url_wayback" target="_blank"><div class="title">🕰 Wayback Machine <span class="lock">🔒</span></div><div class="meta" data-meta="url_wayback"></div></a>
-          <a id="url_anyrun" target="_blank"><div class="title">🏃 AnyRun (Submit) <span class="lock">🔒</span></div><div class="meta" data-meta="url_anyrun"></div></a>
-          <a id="url_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="url_otx"></div></a>
-          <a id="url_threatfox" target="_blank"><div class="title">🦊 ThreatFox <span class="lock">🔒</span></div><div class="meta" data-meta="url_threatfox"></div></a>
-          <a id="url_netcraft" target="_blank"><div class="title">🏗 Netcraft <span class="lock">🔒</span></div><div class="meta" data-meta="url_netcraft"></div></a>
-          <a id="url_webcheck" target="_blank"><div class="title">🧪 Web Check <span class="lock">🔒</span></div><div class="meta" data-meta="url_webcheck"></div></a>
-          <a id="url_securitytrails" target="_blank"><div class="title">🧭 SecurityTrails <span class="lock">🔒</span></div><div class="meta" data-meta="url_securitytrails"></div></a>
-          <a id="url_hudsonrock_info" target="_blank"><div class="title">🧯 HudsonRock Infostealer <span class="lock">🔒</span></div><div class="meta" data-meta="url_hudsonrock_info"></div></a>
-          <a id="url_hudsonrock_urls" target="_blank"><div class="title">🧾 HudsonRock URL Discovery <span class="lock">🔒</span></div><div class="meta" data-meta="url_hudsonrock_urls"></div></a>
-          <a id="url_socradar" target="_blank"><div class="title">🕳 SOCRadar DarkWebReport <span class="lock">🔒</span></div><div class="meta" data-meta="url_socradar"></div></a>
-          <a id="url_wayback_save" target="_blank"><div class="title">💾 Wayback (Save) <span class="lock">🔒</span></div><div class="meta" data-meta="url_wayback_save"></div></a>
-          <a id="url_phishing_checker" target="_blank"><div class="title">🎣 Phishing Checker <span class="lock">🔒</span></div><div class="meta" data-meta="url_phishing_checker"></div></a>
-          <a id="url_clickfix" target="_blank"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="url_clickfix"></div></a>
-          <a id="url_cyberchef" target="_blank"><div class="title">🧪 CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="url_cyberchef"></div></a>
-          <a id="url_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="url_nitter"></div></a>
+          <a id="url_vt" target="_blank"href="#"><div class="title">🧪 VirusTotal URL <span class="lock">🔒</span></div><div class="meta" data-meta="url_vt"></div></a>
+          <a id="url_urlscan" target="_blank"href="#"><div class="title">🔎 URLScan.io <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlscan"></div></a>
+          <a id="url_urlvoid" target="_blank"href="#"><div class="title">🕸 URLVoid <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlvoid"></div></a>
+          <a id="url_urlhaus" target="_blank"href="#"><div class="title">🏚 URLHaus <span class="lock">🔒</span></div><div class="meta" data-meta="url_urlhaus"></div></a>
+          <a id="url_phishtank" target="_blank"href="#"><div class="title">🎣 PhishTank <span class="lock">🔒</span></div><div class="meta" data-meta="url_phishtank"></div></a>
+          <a id="url_checkphish" target="_blank"href="#"><div class="title">🐟 CheckPhish <span class="lock">🔒</span></div><div class="meta" data-meta="url_checkphish"></div></a>
+          <a id="url_safebrowsing" target="_blank"href="#"><div class="title">🛡 Google Safe Browsing <span class="lock">🔒</span></div><div class="meta" data-meta="url_safebrowsing"></div></a>
+          <a id="url_sucuri" target="_blank"href="#"><div class="title">🧹 Sucuri SiteCheck <span class="lock">🔒</span></div><div class="meta" data-meta="url_sucuri"></div></a>
+          <a id="url_browserling" target="_blank"href="#"><div class="title">🧊 Browserling (Preview) <span class="lock">🔒</span></div><div class="meta" data-meta="url_browserling"></div></a>
+          <a id="url_wayback" target="_blank"href="#"><div class="title">🕰 Wayback Machine <span class="lock">🔒</span></div><div class="meta" data-meta="url_wayback"></div></a>
+          <a id="url_anyrun" target="_blank"href="#"><div class="title">🏃 AnyRun (Submit) <span class="lock">🔒</span></div><div class="meta" data-meta="url_anyrun"></div></a>
+          <a id="url_otx" target="_blank"href="#"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="url_otx"></div></a>
+          <a id="url_threatfox" target="_blank"href="#"><div class="title">🦊 ThreatFox <span class="lock">🔒</span></div><div class="meta" data-meta="url_threatfox"></div></a>
+          <a id="url_netcraft" target="_blank"href="#"><div class="title">🏗 Netcraft <span class="lock">🔒</span></div><div class="meta" data-meta="url_netcraft"></div></a>
+          <a id="url_webcheck" target="_blank"href="#"><div class="title">🧪 Web Check <span class="lock">🔒</span></div><div class="meta" data-meta="url_webcheck"></div></a>
+          <a id="url_securitytrails" target="_blank"href="#"><div class="title">🧭 SecurityTrails <span class="lock">🔒</span></div><div class="meta" data-meta="url_securitytrails"></div></a>
+          <a id="url_hudsonrock_info" target="_blank"href="#"><div class="title">🧯 HudsonRock Infostealer <span class="lock">🔒</span></div><div class="meta" data-meta="url_hudsonrock_info"></div></a>
+          <a id="url_hudsonrock_urls" target="_blank"href="#"><div class="title">🧾 HudsonRock URL Discovery <span class="lock">🔒</span></div><div class="meta" data-meta="url_hudsonrock_urls"></div></a>
+          <a id="url_socradar" target="_blank"href="#"><div class="title">🕳 SOCRadar DarkWebReport <span class="lock">🔒</span></div><div class="meta" data-meta="url_socradar"></div></a>
+          <a id="url_wayback_save" target="_blank"href="#"><div class="title">💾 Wayback (Save) <span class="lock">🔒</span></div><div class="meta" data-meta="url_wayback_save"></div></a>
+          <a id="url_phishing_checker" target="_blank"href="#"><div class="title">🎣 Phishing Checker <span class="lock">🔒</span></div><div class="meta" data-meta="url_phishing_checker"></div></a>
+          <a id="url_clickfix" target="_blank"href="#"><div class="title">🧲 ClickFix Hunter <span class="lock">🔒</span></div><div class="meta" data-meta="url_clickfix"></div></a>
+          <a id="url_cyberchef" target="_blank"href="#"><div class="title">🧪 CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="url_cyberchef"></div></a>
+          <a id="url_nitter" target="_blank"href="#"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="url_nitter"></div></a>
         </div>
       </div>
 
@@ -296,14 +318,14 @@
       <div class="tool-section" data-type="email">
         <div class="section-head"><h2>📧 Email & Breach</h2><div class="pill">Email pivots</div></div>
         <div class="tool-grid">
-          <a id="em_hunter" target="_blank"><div class="title">🧾 Hunter.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_hunter"></div></a>
-          <a id="em_hibp" target="_blank"><div class="title">🧨 HaveIBeenPwned <span class="lock">🔒</span></div><div class="meta" data-meta="em_hibp"></div></a>
-          <a id="em_intelbase" target="_blank"><div class="title">🕵️ IntelBase <span class="lock">🔒</span></div><div class="meta" data-meta="em_intelbase"></div></a>
-          <a id="em_emailrep" target="_blank"><div class="title">📊 EmailRep.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_emailrep"></div></a>
-          <a id="em_epieos" target="_blank"><div class="title">🔬 Epieos (OSINT) <span class="lock">🔒</span></div><div class="meta" data-meta="em_epieos"></div></a>
-          <a id="em_intelx" target="_blank"><div class="title">📡 IntelX <span class="lock">🔒</span></div><div class="meta" data-meta="em_intelx"></div></a>
-          <a id="em_phonebook" target="_blank"><div class="title">📒 Phonebook.cz <span class="lock">🔒</span></div><div class="meta" data-meta="em_phonebook"></div></a>
-          <a id="em_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="em_dehashed"></div></a>
+          <a id="em_hunter" target="_blank"href="#"><div class="title">🧾 Hunter.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_hunter"></div></a>
+          <a id="em_hibp" target="_blank"href="#"><div class="title">🧨 HaveIBeenPwned <span class="lock">🔒</span></div><div class="meta" data-meta="em_hibp"></div></a>
+          <a id="em_intelbase" target="_blank"href="#"><div class="title">🕵️ IntelBase <span class="lock">🔒</span></div><div class="meta" data-meta="em_intelbase"></div></a>
+          <a id="em_emailrep" target="_blank"href="#"><div class="title">📊 EmailRep.io <span class="lock">🔒</span></div><div class="meta" data-meta="em_emailrep"></div></a>
+          <a id="em_epieos" target="_blank"href="#"><div class="title">🔬 Epieos (OSINT) <span class="lock">🔒</span></div><div class="meta" data-meta="em_epieos"></div></a>
+          <a id="em_intelx" target="_blank"href="#"><div class="title">📡 IntelX <span class="lock">🔒</span></div><div class="meta" data-meta="em_intelx"></div></a>
+          <a id="em_phonebook" target="_blank"href="#"><div class="title">📒 Phonebook.cz <span class="lock">🔒</span></div><div class="meta" data-meta="em_phonebook"></div></a>
+          <a id="em_dehashed" target="_blank"href="#"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="em_dehashed"></div></a>
         </div>
       </div>
 
@@ -322,6 +344,8 @@
           <div id="eha-results" style="display:none">
             <!-- Score banner -->
             <div id="eha-score-banner" class="eha-score-banner"></div>
+            <!-- Verdict explanation -->
+            <div id="eha-verdict-explain" style="display:none"></div>
             <!-- Summary grid -->
             <div id="eha-summary" class="eha-summary-grid"></div>
             <!-- Auth results -->
@@ -338,11 +362,11 @@
         <!-- External tools -->
         <div class="eha-ext-label">External Analyzers</div>
         <div class="tool-grid">
-          <a id="hdr_mha" target="_blank"><div class="title">🧩 Microsoft Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mha"></div></a>
-          <a id="hdr_google" target="_blank"><div class="title">🧰 Google Messageheader <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_google"></div></a>
-          <a id="hdr_mxtoolbox" target="_blank"><div class="title">📧 MXToolbox Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mxtoolbox"></div></a>
-          <a id="hdr_traceemail" target="_blank"><div class="title">🧵 Trace Email <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_traceemail"></div></a>
-          <a id="hdr_dnschecker" target="_blank"><div class="title">🧪 DNSChecker Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_dnschecker"></div></a>
+          <a id="hdr_mha" target="_blank"href="#"><div class="title">🧩 Microsoft Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mha"></div></a>
+          <a id="hdr_google" target="_blank"href="#"><div class="title">🧰 Google Messageheader <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_google"></div></a>
+          <a id="hdr_mxtoolbox" target="_blank"href="#"><div class="title">📧 MXToolbox Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_mxtoolbox"></div></a>
+          <a id="hdr_traceemail" target="_blank"href="#"><div class="title">🧵 Trace Email <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_traceemail"></div></a>
+          <a id="hdr_dnschecker" target="_blank"href="#"><div class="title">🧪 DNSChecker Header Analyzer <span class="lock">🔒</span></div><div class="meta" data-meta="hdr_dnschecker"></div></a>
         </div>
       </div>
 
@@ -350,20 +374,20 @@
       <div class="tool-section" data-type="hash">
         <div class="section-head"><h2>🔒 Hash Lookup</h2><div class="pill">File pivots</div></div>
         <div class="tool-grid">
-          <a id="h_vt" target="_blank"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="h_vt"></div></a>
-          <a id="h_hybrid" target="_blank"><div class="title">🧫 Hybrid-Analysis <span class="lock">🔒</span></div><div class="meta" data-meta="h_hybrid"></div></a>
-          <a id="h_joesandbox" target="_blank"><div class="title">🧪 JOE Sandbox <span class="lock">🔒</span></div><div class="meta" data-meta="h_joesandbox"></div></a>
-          <a id="h_triage" target="_blank"><div class="title">🧯 Triage <span class="lock">🔒</span></div><div class="meta" data-meta="h_triage"></div></a>
-          <a id="h_malshare" target="_blank"><div class="title">📦 MalShare <span class="lock">🔒</span></div><div class="meta" data-meta="h_malshare"></div></a>
-          <a id="h_malwarebazaar" target="_blank"><div class="title">🦠 MalwareBazaar <span class="lock">🔒</span></div><div class="meta" data-meta="h_malwarebazaar"></div></a>
-          <a id="h_ibmxf" target="_blank"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="h_ibmxf"></div></a>
-          <a id="h_talos" target="_blank"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="h_talos"></div></a>
-          <a id="h_otx" target="_blank"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="h_otx"></div></a>
-          <a id="h_anyrun" target="_blank"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="h_anyrun"></div></a>
-          <a id="h_threatminer" target="_blank"><div class="title">⛏ ThreatMiner <span class="lock">🔒</span></div><div class="meta" data-meta="h_threatminer"></div></a>
-          <a id="h_intezer" target="_blank"><div class="title">🧬 Intezer Analyze <span class="lock">🔒</span></div><div class="meta" data-meta="h_intezer"></div></a>
-          <a id="h_cyberchef" target="_blank"><div class="title">🧪 CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="h_cyberchef"></div></a>
-          <a id="h_nitter" target="_blank"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="h_nitter"></div></a>
+          <a id="h_vt" target="_blank"href="#"><div class="title">🧪 VirusTotal <span class="lock">🔒</span></div><div class="meta" data-meta="h_vt"></div></a>
+          <a id="h_hybrid" target="_blank"href="#"><div class="title">🧫 Hybrid-Analysis <span class="lock">🔒</span></div><div class="meta" data-meta="h_hybrid"></div></a>
+          <a id="h_joesandbox" target="_blank"href="#"><div class="title">🧪 JOE Sandbox <span class="lock">🔒</span></div><div class="meta" data-meta="h_joesandbox"></div></a>
+          <a id="h_triage" target="_blank"href="#"><div class="title">🧯 Triage <span class="lock">🔒</span></div><div class="meta" data-meta="h_triage"></div></a>
+          <a id="h_malshare" target="_blank"href="#"><div class="title">📦 MalShare <span class="lock">🔒</span></div><div class="meta" data-meta="h_malshare"></div></a>
+          <a id="h_malwarebazaar" target="_blank"href="#"><div class="title">🦠 MalwareBazaar <span class="lock">🔒</span></div><div class="meta" data-meta="h_malwarebazaar"></div></a>
+          <a id="h_ibmxf" target="_blank"href="#"><div class="title">🧠 IBM X-Force <span class="lock">🔒</span></div><div class="meta" data-meta="h_ibmxf"></div></a>
+          <a id="h_talos" target="_blank"href="#"><div class="title">🕵️ Talos <span class="lock">🔒</span></div><div class="meta" data-meta="h_talos"></div></a>
+          <a id="h_otx" target="_blank"href="#"><div class="title">👽 AlienVault OTX <span class="lock">🔒</span></div><div class="meta" data-meta="h_otx"></div></a>
+          <a id="h_anyrun" target="_blank"href="#"><div class="title">🏃 AnyRun (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="h_anyrun"></div></a>
+          <a id="h_threatminer" target="_blank"href="#"><div class="title">⛏ ThreatMiner <span class="lock">🔒</span></div><div class="meta" data-meta="h_threatminer"></div></a>
+          <a id="h_intezer" target="_blank"href="#"><div class="title">🧬 Intezer Analyze <span class="lock">🔒</span></div><div class="meta" data-meta="h_intezer"></div></a>
+          <a id="h_cyberchef" target="_blank"href="#"><div class="title">🧪 CyberChef <span class="lock">🔒</span></div><div class="meta" data-meta="h_cyberchef"></div></a>
+          <a id="h_nitter" target="_blank"href="#"><div class="title">🐦 Nitter (Tweets) <span class="lock">🔒</span></div><div class="meta" data-meta="h_nitter"></div></a>
         </div>
       </div>
 
@@ -371,27 +395,27 @@
       <div class="tool-section" data-type="username">
         <div class="section-head"><h2>👤 Username / Account OSINT</h2><div class="pill">Account pivots</div></div>
         <div class="tool-grid">
-          <a id="usr_namechk" target="_blank"><div class="title">🧾 Namechk <span class="lock">🔒</span></div><div class="meta" data-meta="usr_namechk"></div></a>
-          <a id="usr_whatsmyname" target="_blank"><div class="title">🕵️ WhatsMyName <span class="lock">🔒</span></div><div class="meta" data-meta="usr_whatsmyname"></div></a>
-          <a id="usr_maigret" target="_blank"><div class="title">🔭 Maigret (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="usr_maigret"></div></a>
-          <a id="usr_sherlock" target="_blank"><div class="title">🔍 Sherlock (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="usr_sherlock"></div></a>
-          <a id="usr_socialsearcher" target="_blank"><div class="title">📡 Social Searcher <span class="lock">🔒</span></div><div class="meta" data-meta="usr_socialsearcher"></div></a>
-          <a id="usr_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="usr_dehashed"></div></a>
-          <a id="usr_intelx" target="_blank"><div class="title">📡 IntelX <span class="lock">🔒</span></div><div class="meta" data-meta="usr_intelx"></div></a>
-          <a id="usr_breachdir" target="_blank"><div class="title">🧯 Breach Directory <span class="lock">🔒</span></div><div class="meta" data-meta="usr_breachdir"></div></a>
-          <a id="usr_leakcheck" target="_blank"><div class="title">💧 LeakCheck <span class="lock">🔒</span></div><div class="meta" data-meta="usr_leakcheck"></div></a>
-          <a id="usr_spiderfoot" target="_blank"><div class="title">🕷 SpiderFoot HX <span class="lock">🔒</span></div><div class="meta" data-meta="usr_spiderfoot"></div></a>
-          <a id="usr_github" target="_blank"><div class="title">🐙 GitHub Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_github"></div></a>
-          <a id="usr_twitter" target="_blank"><div class="title">🐦 Twitter / X <span class="lock">🔒</span></div><div class="meta" data-meta="usr_twitter"></div></a>
-          <a id="usr_reddit" target="_blank"><div class="title">🔴 Reddit Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_reddit"></div></a>
-          <a id="usr_tiktok" target="_blank"><div class="title">🎵 TikTok Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_tiktok"></div></a>
-          <a id="usr_instagram" target="_blank"><div class="title">📸 Instagram <span class="lock">🔒</span></div><div class="meta" data-meta="usr_instagram"></div></a>
-          <a id="usr_linkedin" target="_blank"><div class="title">💼 LinkedIn Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_linkedin"></div></a>
-          <a id="usr_snapchat" target="_blank"><div class="title">👻 Snapchat <span class="lock">🔒</span></div><div class="meta" data-meta="usr_snapchat"></div></a>
-          <a id="usr_telegram" target="_blank"><div class="title">✈️ Telegram <span class="lock">🔒</span></div><div class="meta" data-meta="usr_telegram"></div></a>
-          <a id="usr_discord" target="_blank"><div class="title">🎮 Discord Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="usr_discord"></div></a>
-          <a id="usr_pastebin" target="_blank"><div class="title">📋 Pastebin Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_pastebin"></div></a>
-          <a id="usr_nitter" target="_blank"><div class="title">🐦 Nitter Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_nitter"></div></a>
+          <a id="usr_namechk" target="_blank"href="#"><div class="title">🧾 Namechk <span class="lock">🔒</span></div><div class="meta" data-meta="usr_namechk"></div></a>
+          <a id="usr_whatsmyname" target="_blank"href="#"><div class="title">🕵️ WhatsMyName <span class="lock">🔒</span></div><div class="meta" data-meta="usr_whatsmyname"></div></a>
+          <a id="usr_maigret" target="_blank"href="#"><div class="title">🔭 Maigret (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="usr_maigret"></div></a>
+          <a id="usr_sherlock" target="_blank"href="#"><div class="title">🔍 Sherlock (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="usr_sherlock"></div></a>
+          <a id="usr_socialsearcher" target="_blank"href="#"><div class="title">📡 Social Searcher <span class="lock">🔒</span></div><div class="meta" data-meta="usr_socialsearcher"></div></a>
+          <a id="usr_dehashed" target="_blank"href="#"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="usr_dehashed"></div></a>
+          <a id="usr_intelx" target="_blank"href="#"><div class="title">📡 IntelX <span class="lock">🔒</span></div><div class="meta" data-meta="usr_intelx"></div></a>
+          <a id="usr_breachdir" target="_blank"href="#"><div class="title">🧯 Breach Directory <span class="lock">🔒</span></div><div class="meta" data-meta="usr_breachdir"></div></a>
+          <a id="usr_leakcheck" target="_blank"href="#"><div class="title">💧 LeakCheck <span class="lock">🔒</span></div><div class="meta" data-meta="usr_leakcheck"></div></a>
+          <a id="usr_spiderfoot" target="_blank"href="#"><div class="title">🕷 SpiderFoot HX <span class="lock">🔒</span></div><div class="meta" data-meta="usr_spiderfoot"></div></a>
+          <a id="usr_github" target="_blank"href="#"><div class="title">🐙 GitHub Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_github"></div></a>
+          <a id="usr_twitter" target="_blank"href="#"><div class="title">🐦 Twitter / X <span class="lock">🔒</span></div><div class="meta" data-meta="usr_twitter"></div></a>
+          <a id="usr_reddit" target="_blank"href="#"><div class="title">🔴 Reddit Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_reddit"></div></a>
+          <a id="usr_tiktok" target="_blank"href="#"><div class="title">🎵 TikTok Profile <span class="lock">🔒</span></div><div class="meta" data-meta="usr_tiktok"></div></a>
+          <a id="usr_instagram" target="_blank"href="#"><div class="title">📸 Instagram <span class="lock">🔒</span></div><div class="meta" data-meta="usr_instagram"></div></a>
+          <a id="usr_linkedin" target="_blank"href="#"><div class="title">💼 LinkedIn Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_linkedin"></div></a>
+          <a id="usr_snapchat" target="_blank"href="#"><div class="title">👻 Snapchat <span class="lock">🔒</span></div><div class="meta" data-meta="usr_snapchat"></div></a>
+          <a id="usr_telegram" target="_blank"href="#"><div class="title">✈️ Telegram <span class="lock">🔒</span></div><div class="meta" data-meta="usr_telegram"></div></a>
+          <a id="usr_discord" target="_blank"href="#"><div class="title">🎮 Discord Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="usr_discord"></div></a>
+          <a id="usr_pastebin" target="_blank"href="#"><div class="title">📋 Pastebin Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_pastebin"></div></a>
+          <a id="usr_nitter" target="_blank"href="#"><div class="title">🐦 Nitter Search <span class="lock">🔒</span></div><div class="meta" data-meta="usr_nitter"></div></a>
         </div>
       </div>
 
@@ -399,14 +423,14 @@
       <div class="tool-section" data-type="phone">
         <div class="section-head"><h2>📞 Phone Number OSINT</h2><div class="pill">Phone pivots</div></div>
         <div class="tool-grid">
-          <a id="ph_truecaller" target="_blank"><div class="title">📞 Truecaller <span class="lock">🔒</span></div><div class="meta" data-meta="ph_truecaller"></div></a>
-          <a id="ph_numverify" target="_blank"><div class="title">🔢 NumVerify <span class="lock">🔒</span></div><div class="meta" data-meta="ph_numverify"></div></a>
-          <a id="ph_phoneinfoga" target="_blank"><div class="title">🕵️ PhoneInfoga (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="ph_phoneinfoga"></div></a>
-          <a id="ph_eyecon" target="_blank"><div class="title">👁 Eyecon Caller ID <span class="lock">🔒</span></div><div class="meta" data-meta="ph_eyecon"></div></a>
-          <a id="ph_calleridtest" target="_blank"><div class="title">🆔 CallerID Test <span class="lock">🔒</span></div><div class="meta" data-meta="ph_calleridtest"></div></a>
-          <a id="ph_intelx" target="_blank"><div class="title">📡 IntelX Search <span class="lock">🔒</span></div><div class="meta" data-meta="ph_intelx"></div></a>
-          <a id="ph_dehashed" target="_blank"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="ph_dehashed"></div></a>
-          <a id="ph_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="ph_google"></div></a>
+          <a id="ph_truecaller" target="_blank"href="#"><div class="title">📞 Truecaller <span class="lock">🔒</span></div><div class="meta" data-meta="ph_truecaller"></div></a>
+          <a id="ph_numverify" target="_blank"href="#"><div class="title">🔢 NumVerify <span class="lock">🔒</span></div><div class="meta" data-meta="ph_numverify"></div></a>
+          <a id="ph_phoneinfoga" target="_blank"href="#"><div class="title">🕵️ PhoneInfoga (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="ph_phoneinfoga"></div></a>
+          <a id="ph_eyecon" target="_blank"href="#"><div class="title">👁 Eyecon Caller ID <span class="lock">🔒</span></div><div class="meta" data-meta="ph_eyecon"></div></a>
+          <a id="ph_calleridtest" target="_blank"href="#"><div class="title">🆔 CallerID Test <span class="lock">🔒</span></div><div class="meta" data-meta="ph_calleridtest"></div></a>
+          <a id="ph_intelx" target="_blank"href="#"><div class="title">📡 IntelX Search <span class="lock">🔒</span></div><div class="meta" data-meta="ph_intelx"></div></a>
+          <a id="ph_dehashed" target="_blank"href="#"><div class="title">🗝 Dehashed <span class="lock">🔒</span></div><div class="meta" data-meta="ph_dehashed"></div></a>
+          <a id="ph_google" target="_blank"href="#"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="ph_google"></div></a>
         </div>
       </div>
 
@@ -414,10 +438,10 @@
       <div class="tool-section" data-type="mac">
         <div class="section-head"><h2>🖧 MAC Address Lookup</h2><div class="pill">Hardware pivots</div></div>
         <div class="tool-grid">
-          <a id="mac_macvendors" target="_blank"><div class="title">🏭 MAC Vendors <span class="lock">🔒</span></div><div class="meta" data-meta="mac_macvendors"></div></a>
-          <a id="mac_maclookup" target="_blank"><div class="title">🔍 MAC Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="mac_maclookup"></div></a>
-          <a id="mac_wireshark_oui" target="_blank"><div class="title">🦈 Wireshark OUI DB <span class="lock">🔒</span></div><div class="meta" data-meta="mac_wireshark_oui"></div></a>
-          <a id="mac_google" target="_blank"><div class="title">🔎 Google OUI Search <span class="lock">🔒</span></div><div class="meta" data-meta="mac_google"></div></a>
+          <a id="mac_macvendors" target="_blank"href="#"><div class="title">🏭 MAC Vendors <span class="lock">🔒</span></div><div class="meta" data-meta="mac_macvendors"></div></a>
+          <a id="mac_maclookup" target="_blank"href="#"><div class="title">🔍 MAC Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="mac_maclookup"></div></a>
+          <a id="mac_wireshark_oui" target="_blank"href="#"><div class="title">🦈 Wireshark OUI DB <span class="lock">🔒</span></div><div class="meta" data-meta="mac_wireshark_oui"></div></a>
+          <a id="mac_google" target="_blank"href="#"><div class="title">🔎 Google OUI Search <span class="lock">🔒</span></div><div class="meta" data-meta="mac_google"></div></a>
         </div>
       </div>
 
@@ -425,12 +449,12 @@
       <div class="tool-section" data-type="asn">
         <div class="section-head"><h2>🌐 ASN / BGP Lookup</h2><div class="pill">Network pivots</div></div>
         <div class="tool-grid">
-          <a id="asn_bgphe" target="_blank"><div class="title">🌐 BGP.he.net <span class="lock">🔒</span></div><div class="meta" data-meta="asn_bgphe"></div></a>
-          <a id="asn_ripestat" target="_blank"><div class="title">🗃 RIPEstat <span class="lock">🔒</span></div><div class="meta" data-meta="asn_ripestat"></div></a>
-          <a id="asn_asnlookup" target="_blank"><div class="title">🔭 ASN Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="asn_asnlookup"></div></a>
-          <a id="asn_ipinfo" target="_blank"><div class="title">🗺 IPinfo ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_ipinfo"></div></a>
-          <a id="asn_shodan" target="_blank"><div class="title">🛰 Shodan ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_shodan"></div></a>
-          <a id="asn_greynoise" target="_blank"><div class="title">🌫 GreyNoise ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_greynoise"></div></a>
+          <a id="asn_bgphe" target="_blank"href="#"><div class="title">🌐 BGP.he.net <span class="lock">🔒</span></div><div class="meta" data-meta="asn_bgphe"></div></a>
+          <a id="asn_ripestat" target="_blank"href="#"><div class="title">🗃 RIPEstat <span class="lock">🔒</span></div><div class="meta" data-meta="asn_ripestat"></div></a>
+          <a id="asn_asnlookup" target="_blank"href="#"><div class="title">🔭 ASN Lookup <span class="lock">🔒</span></div><div class="meta" data-meta="asn_asnlookup"></div></a>
+          <a id="asn_ipinfo" target="_blank"href="#"><div class="title">🗺 IPinfo ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_ipinfo"></div></a>
+          <a id="asn_shodan" target="_blank"href="#"><div class="title">🛰 Shodan ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_shodan"></div></a>
+          <a id="asn_greynoise" target="_blank"href="#"><div class="title">🌫 GreyNoise ASN <span class="lock">🔒</span></div><div class="meta" data-meta="asn_greynoise"></div></a>
         </div>
       </div>
 
@@ -438,19 +462,19 @@
       <div class="tool-section" data-type="btc">
         <div class="section-head"><h2>₿ Crypto Wallet Lookup</h2><div class="pill">Blockchain pivots</div></div>
         <div class="tool-grid">
-          <a id="btc_blockchain" target="_blank"><div class="title">⛓ Blockchain.com <span class="lock">🔒</span></div><div class="meta" data-meta="btc_blockchain"></div></a>
-          <a id="btc_blockchair" target="_blank"><div class="title">🪑 Blockchair <span class="lock">🔒</span></div><div class="meta" data-meta="btc_blockchair"></div></a>
-          <a id="btc_walletexplorer" target="_blank"><div class="title">🔍 WalletExplorer <span class="lock">🔒</span></div><div class="meta" data-meta="btc_walletexplorer"></div></a>
-          <a id="btc_otx" target="_blank"><div class="title">👽 OTX Search <span class="lock">🔒</span></div><div class="meta" data-meta="btc_otx"></div></a>
-          <a id="btc_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="btc_google"></div></a>
+          <a id="btc_blockchain" target="_blank"href="#"><div class="title">⛓ Blockchain.com <span class="lock">🔒</span></div><div class="meta" data-meta="btc_blockchain"></div></a>
+          <a id="btc_blockchair" target="_blank"href="#"><div class="title">🪑 Blockchair <span class="lock">🔒</span></div><div class="meta" data-meta="btc_blockchair"></div></a>
+          <a id="btc_walletexplorer" target="_blank"href="#"><div class="title">🔍 WalletExplorer <span class="lock">🔒</span></div><div class="meta" data-meta="btc_walletexplorer"></div></a>
+          <a id="btc_otx" target="_blank"href="#"><div class="title">👽 OTX Search <span class="lock">🔒</span></div><div class="meta" data-meta="btc_otx"></div></a>
+          <a id="btc_google" target="_blank"href="#"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="btc_google"></div></a>
         </div>
       </div>
       <div class="tool-section" data-type="eth">
         <div class="section-head"><h2>Ξ ETH Wallet Lookup</h2><div class="pill">Ethereum pivots</div></div>
         <div class="tool-grid">
-          <a id="eth_etherscan" target="_blank"><div class="title">🔬 Etherscan <span class="lock">🔒</span></div><div class="meta" data-meta="eth_etherscan"></div></a>
-          <a id="eth_blockchair" target="_blank"><div class="title">🪑 Blockchair ETH <span class="lock">🔒</span></div><div class="meta" data-meta="eth_blockchair"></div></a>
-          <a id="eth_google" target="_blank"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="eth_google"></div></a>
+          <a id="eth_etherscan" target="_blank"href="#"><div class="title">🔬 Etherscan <span class="lock">🔒</span></div><div class="meta" data-meta="eth_etherscan"></div></a>
+          <a id="eth_blockchair" target="_blank"href="#"><div class="title">🪑 Blockchair ETH <span class="lock">🔒</span></div><div class="meta" data-meta="eth_blockchair"></div></a>
+          <a id="eth_google" target="_blank"href="#"><div class="title">🔎 Google Dork <span class="lock">🔒</span></div><div class="meta" data-meta="eth_google"></div></a>
         </div>
       </div>
 
@@ -458,16 +482,16 @@
       <div class="tool-section" data-type="cve">
         <div class="section-head"><h2>🧷 CVE Lookup</h2><div class="pill">Vulnerability pivots</div></div>
         <div class="tool-grid">
-          <a id="cve_nvd" target="_blank"><div class="title">📄 NVD (NIST) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_nvd"></div></a>
-          <a id="cve_cveorg" target="_blank"><div class="title">🧾 CVE.org Record <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cveorg"></div></a>
-          <a id="cve_cisa" target="_blank"><div class="title">🧨 CISA KEV (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cisa"></div></a>
-          <a id="cve_exploitdb" target="_blank"><div class="title">💥 Exploit-DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_exploitdb"></div></a>
-          <a id="cve_vulners" target="_blank"><div class="title">🧠 Vulners <span class="lock">🔒</span></div><div class="meta" data-meta="cve_vulners"></div></a>
-          <a id="cve_github" target="_blank"><div class="title">🧑‍💻 GitHub PoC Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_github"></div></a>
-          <a id="cve_socradar" target="_blank"><div class="title">📡 SOCRadar CVE Intel <span class="lock">🔒</span></div><div class="meta" data-meta="cve_socradar"></div></a>
-          <a id="cve_rapid7" target="_blank"><div class="title">⚡ Rapid7 AttackerKB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_rapid7"></div></a>
-          <a id="cve_snyk" target="_blank"><div class="title">🔬 Snyk Vuln DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_snyk"></div></a>
-          <a id="cve_assetnote" target="_blank"><div class="title">🎯 Nuclei Templates Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_assetnote"></div></a>
+          <a id="cve_nvd" target="_blank"href="#"><div class="title">📄 NVD (NIST) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_nvd"></div></a>
+          <a id="cve_cveorg" target="_blank"href="#"><div class="title">🧾 CVE.org Record <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cveorg"></div></a>
+          <a id="cve_cisa" target="_blank"href="#"><div class="title">🧨 CISA KEV (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="cve_cisa"></div></a>
+          <a id="cve_exploitdb" target="_blank"href="#"><div class="title">💥 Exploit-DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_exploitdb"></div></a>
+          <a id="cve_vulners" target="_blank"href="#"><div class="title">🧠 Vulners <span class="lock">🔒</span></div><div class="meta" data-meta="cve_vulners"></div></a>
+          <a id="cve_github" target="_blank"href="#"><div class="title">🧑‍💻 GitHub PoC Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_github"></div></a>
+          <a id="cve_socradar" target="_blank"href="#"><div class="title">📡 SOCRadar CVE Intel <span class="lock">🔒</span></div><div class="meta" data-meta="cve_socradar"></div></a>
+          <a id="cve_rapid7" target="_blank"href="#"><div class="title">⚡ Rapid7 AttackerKB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_rapid7"></div></a>
+          <a id="cve_snyk" target="_blank"href="#"><div class="title">🔬 Snyk Vuln DB <span class="lock">🔒</span></div><div class="meta" data-meta="cve_snyk"></div></a>
+          <a id="cve_assetnote" target="_blank"href="#"><div class="title">🎯 Nuclei Templates Search <span class="lock">🔒</span></div><div class="meta" data-meta="cve_assetnote"></div></a>
         </div>
       </div>
 
@@ -501,12 +525,12 @@
       <div class="tool-section" data-type="cveplus">
         <div class="section-head"><h2>📊 CVE ↔ KEV / EPSS / Threat Intel</h2><div class="pill">Exploitability pivots</div></div>
         <div class="tool-grid">
-          <a id="cvep_cisa_kev" target="_blank"><div class="title">🧨 CISA KEV Search <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_cisa_kev"></div></a>
-          <a id="cvep_epss" target="_blank"><div class="title">📈 EPSS Score (FIRST.org) <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_epss"></div></a>
-          <a id="cvep_socradar" target="_blank"><div class="title">📡 SOCRadar Threat Intel <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_socradar"></div></a>
-          <a id="cvep_greynoise" target="_blank"><div class="title">🌫 GreyNoise CVE Trends <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_greynoise"></div></a>
-          <a id="cvep_shodan" target="_blank"><div class="title">🛰 Shodan CVE Exposure <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_shodan"></div></a>
-          <a id="cvep_vulncheck" target="_blank"><div class="title">✅ VulnCheck KEV <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_vulncheck"></div></a>
+          <a id="cvep_cisa_kev" target="_blank"href="#"><div class="title">🧨 CISA KEV Search <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_cisa_kev"></div></a>
+          <a id="cvep_epss" target="_blank"href="#"><div class="title">📈 EPSS Score (FIRST.org) <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_epss"></div></a>
+          <a id="cvep_socradar" target="_blank"href="#"><div class="title">📡 SOCRadar Threat Intel <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_socradar"></div></a>
+          <a id="cvep_greynoise" target="_blank"href="#"><div class="title">🌫 GreyNoise CVE Trends <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_greynoise"></div></a>
+          <a id="cvep_shodan" target="_blank"href="#"><div class="title">🛰 Shodan CVE Exposure <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_shodan"></div></a>
+          <a id="cvep_vulncheck" target="_blank"href="#"><div class="title">✅ VulnCheck KEV <span class="lock">🔒</span></div><div class="meta" data-meta="cvep_vulncheck"></div></a>
         </div>
       </div>
 
@@ -514,9 +538,9 @@
       <div class="tool-section" data-type="emailartifacts">
         <div class="section-head"><h2>✉️ Email Artifacts</h2><div class="pill">Message-ID / DKIM / SPF pivots</div></div>
         <div class="tool-grid">
-          <a id="emart_msgid_search" target="_blank"><div class="title">🔎 Message-ID Search <span class="lock">🔒</span></div><div class="meta" data-meta="emart_msgid_search"></div></a>
-          <a id="emart_dkim_domain" target="_blank"><div class="title">🔐 DKIM Domain Pivot <span class="lock">🔒</span></div><div class="meta" data-meta="emart_dkim_domain"></div></a>
-          <a id="emart_spf_domain" target="_blank"><div class="title">🧾 SPF mailfrom Pivot <span class="lock">🔒</span></div><div class="meta" data-meta="emart_spf_domain"></div></a>
+          <a id="emart_msgid_search" target="_blank"href="#"><div class="title">🔎 Message-ID Search <span class="lock">🔒</span></div><div class="meta" data-meta="emart_msgid_search"></div></a>
+          <a id="emart_dkim_domain" target="_blank"href="#"><div class="title">🔐 DKIM Domain Pivot <span class="lock">🔒</span></div><div class="meta" data-meta="emart_dkim_domain"></div></a>
+          <a id="emart_spf_domain" target="_blank"href="#"><div class="title">🧾 SPF mailfrom Pivot <span class="lock">🔒</span></div><div class="meta" data-meta="emart_spf_domain"></div></a>
         </div>
       </div>
 
@@ -524,9 +548,9 @@
       <div class="tool-section" data-type="lolbins">
         <div class="section-head"><h2>🧨 LOLBINS / Living-off-the-land</h2><div class="pill">Binary / command pivots</div></div>
         <div class="tool-grid">
-          <a id="lb_lolbas" target="_blank"><div class="title">🧰 LOLBAS (Windows) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas"></div></a>
-          <a id="lb_gtfobins" target="_blank"><div class="title">🧰 GTFOBins (Linux) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_gtfobins"></div></a>
-          <a id="lb_hijacklibs" target="_blank"><div class="title">🧩 HijackLibs <span class="lock">🔒</span></div><div class="meta" data-meta="lb_hijacklibs"></div></a>
+          <a id="lb_lolbas" target="_blank"href="#"><div class="title">🧰 LOLBAS (Windows) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_lolbas"></div></a>
+          <a id="lb_gtfobins" target="_blank"href="#"><div class="title">🧰 GTFOBins (Linux) <span class="lock">🔒</span></div><div class="meta" data-meta="lb_gtfobins"></div></a>
+          <a id="lb_hijacklibs" target="_blank"href="#"><div class="title">🧩 HijackLibs <span class="lock">🔒</span></div><div class="meta" data-meta="lb_hijacklibs"></div></a>
         </div>
       </div>
 
@@ -534,9 +558,9 @@
       <div class="tool-section" data-type="eventid">
         <div class="section-head"><h2>🪟 Windows Event ID Lookup</h2><div class="pill">Event pivots</div></div>
         <div class="tool-grid">
-          <a id="ev_eventidnet" target="_blank"><div class="title">📚 EventID.net <span class="lock">🔒</span></div><div class="meta" data-meta="ev_eventidnet"></div></a>
-          <a id="ev_mslearn" target="_blank"><div class="title">📘 Microsoft Learn (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_mslearn"></div></a>
-          <a id="ev_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="ev_hackthelogs"></div></a>
+          <a id="ev_eventidnet" target="_blank"href="#"><div class="title">📚 EventID.net <span class="lock">🔒</span></div><div class="meta" data-meta="ev_eventidnet"></div></a>
+          <a id="ev_mslearn" target="_blank"href="#"><div class="title">📘 Microsoft Learn (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="ev_mslearn"></div></a>
+          <a id="ev_hackthelogs" target="_blank"href="#"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="ev_hackthelogs"></div></a>
         </div>
       </div>
 
@@ -544,9 +568,9 @@
       <div class="tool-section" data-type="sysmon">
         <div class="section-head"><h2>🧾 Windows Logs / Sysmon</h2><div class="pill">Sysmon IDs + docs</div></div>
         <div class="tool-grid">
-          <a id="sysmon_mslearn" target="_blank"><div class="title">📘 Sysmon Docs (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_mslearn"></div></a>
-          <a id="sysmon_swift" target="_blank"><div class="title">🧩 SwiftOnSecurity Sysmon Config <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_swift"></div></a>
-          <a id="sysmon_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_hackthelogs"></div></a>
+          <a id="sysmon_mslearn" target="_blank"href="#"><div class="title">📘 Sysmon Docs (Search) <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_mslearn"></div></a>
+          <a id="sysmon_swift" target="_blank"href="#"><div class="title">🧩 SwiftOnSecurity Sysmon Config <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_swift"></div></a>
+          <a id="sysmon_hackthelogs" target="_blank"href="#"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="sysmon_hackthelogs"></div></a>
         </div>
       </div>
 
@@ -554,11 +578,11 @@
       <div class="tool-section" data-type="soc">
         <div class="section-head"><h2>🚨 SOC Quick Pivots</h2><div class="pill">Hunt helpers</div></div>
         <div class="tool-grid">
-          <a id="soc_ruler" target="_blank"><div class="title">🧿 RULER Project <span class="lock">🔒</span></div><div class="meta" data-meta="soc_ruler"></div></a>
-          <a id="soc_hackthelogs" target="_blank"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="soc_hackthelogs"></div></a>
-          <a id="soc_explainshell" target="_blank"><div class="title">🧾 ExplainShell <span class="lock">🔒</span></div><div class="meta" data-meta="soc_explainshell"></div></a>
-          <a id="soc_sigma" target="_blank"><div class="title">📜 Sigma Rules (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_sigma"></div></a>
-          <a id="soc_uncoder" target="_blank"><div class="title">⚙️ Uncoder.io (Sigma → SIEM) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_uncoder"></div></a>
+          <a id="soc_ruler" target="_blank"href="#"><div class="title">🧿 RULER Project <span class="lock">🔒</span></div><div class="meta" data-meta="soc_ruler"></div></a>
+          <a id="soc_hackthelogs" target="_blank"href="#"><div class="title">🧠 HackTheLogs <span class="lock">🔒</span></div><div class="meta" data-meta="soc_hackthelogs"></div></a>
+          <a id="soc_explainshell" target="_blank"href="#"><div class="title">🧾 ExplainShell <span class="lock">🔒</span></div><div class="meta" data-meta="soc_explainshell"></div></a>
+          <a id="soc_sigma" target="_blank"href="#"><div class="title">📜 Sigma Rules (GitHub) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_sigma"></div></a>
+          <a id="soc_uncoder" target="_blank"href="#"><div class="title">⚙️ Uncoder.io (Sigma → SIEM) <span class="lock">🔒</span></div><div class="meta" data-meta="soc_uncoder"></div></a>
         </div>
       </div>
 
@@ -888,6 +912,7 @@
         <textarea id="lt-input" spellcheck="false" placeholder="Paste raw SIEM alert, Windows Event Log, firewall log, email header, or any security event here...&#10;&#10;Examples:&#10;  EventID: 4688 — A new process has been created...&#10;  SRC=192.168.1.5 DST=10.0.0.1 PROTO=TCP DPT=443...&#10;  Authentication-Results: spf=fail; dkim=pass..."></textarea>
         <div class="tools" style="margin-top:10px;">
           <button id="lt-analyze-btn" type="button">🔍 Auto-Triage</button>
+          <button id="lt-deep-triage-btn" type="button" title="Enhanced triage — deeper contextual analysis" style="background:linear-gradient(135deg,#7c3aed,#1D9E75);color:#fff;border:none;font-weight:800;">⚡ Deep Triage</button>
           <button id="lt-prefill-btn" type="button">📝 Pre-fill Write-up</button>
           <button id="lt-copy-btn" type="button">📋 Copy Results</button>
           <button id="lt-casenotes-btn" type="button" title="Copy structured case notes">📝 Copy Case Notes</button>
@@ -939,28 +964,28 @@
           <div id="lt-soc-note-body" style="padding:16px;font-size:12px;line-height:1.9;color:var(--text);white-space:pre-wrap;font-family:inherit;"></div>
         </div>
       </div>
+      <!-- Deep Triage Output Panel -->
+      <div id="lt-deep-triage-panel" style="display:none;margin-top:14px;">
+        <div style="background:var(--bg2);border:1px solid rgba(124,58,237,0.35);border-radius:12px;overflow:hidden;">
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 16px 10px;border-bottom:1px solid var(--border);background:rgba(124,58,237,0.06);">
+            <span style="font-size:14px;">⚡</span>
+            <span style="font-size:12px;font-weight:800;color:var(--text);">Enhanced Triage Analysis</span>
+            <span style="font-size:10px;color:var(--muted);flex:1;">Deep contextual analysis — not for external sharing</span>
+            <button id="lt-deep-copy-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📋 Copy</button>
+            <button id="lt-deep-addcase-btn" type="button" style="font-size:10px;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;">📁 Add to Case</button>
+          </div>
+          <div id="lt-deep-triage-body" style="padding:16px;font-size:12px;line-height:1.9;color:var(--text);font-family:inherit;"></div>
+        </div>
+      </div>
     </div>
 
     <!-- ===== THREAT ACTOR TAB ===== -->
-    <div id="tab-threat" class="tab-panel">
-      <div class="input-panel">
-        <div class="bulk-header">
-          <h3>🕵 Threat Actor / Campaign Lookup</h3>
-          <p class="sub">Search by actor name (APT29, Lazarus, etc.) or campaign keyword. Get MITRE ATT&amp;CK group page, known TTPs, tools used, and external intelligence pivot links.</p>
-        </div>
-        <div class="input-row">
-          <input id="ta-input" type="text" class="aw-input" placeholder="Actor name, alias, or campaign (e.g. APT29, Lazarus, Cozy Bear, FIN7)" style="flex:1" />
-          <button id="ta-search-btn" type="button">🔍 Search</button>
-        </div>
-        <div id="ta-status" class="status" style="margin-top:10px;">
-          <span>Enter an actor or campaign name above</span><span class="badge">THREAT INTEL</span>
-        </div>
-      </div>
-      <div id="ta-results" class="ta-results"></div>
-    </div>
-
     <!-- ===== CUSTOM TOOLS TAB ===== -->
     <div id="tab-custom" class="tab-panel">
+      <div class="tab-back-bar">
+        <button class="tab-back-btn" type="button">← Back</button>
+      </div>
+
       <div class="input-panel">
         <div class="bulk-header">
           <h3>⚙ Custom Tool Slot Builder</h3>
@@ -989,6 +1014,10 @@
 
     <!-- ===== SOC UTILITIES TAB ===== -->
     <div id="tab-utils" class="tab-panel">
+      <div class="tab-back-bar">
+        <button class="tab-back-btn" type="button">← Back</button>
+      </div>
+
       <div class="utils-grid">
 
         <!-- Quick Base64 Encode/Decode -->
@@ -1362,6 +1391,10 @@
 
     <!-- ===== CTI FEED TAB ===== -->
     <div id="tab-cti" class="tab-panel">
+      <div class="tab-back-bar">
+        <button class="tab-back-btn" type="button">← Back</button>
+      </div>
+
       <div class="input-panel">
         <div class="bulk-header">
           <h3>🌐 CTI — Cyber Threat Intelligence</h3>
@@ -1377,6 +1410,8 @@
         <button class="cti-sub-btn" data-ctitab="ioc-check" type="button">🎯 IOC Intel Check</button>
         <button class="cti-sub-btn" data-ctitab="campaigns" type="button">📊 Campaign Tracker</button>
         <button class="cti-sub-btn" data-ctitab="hunt" type="button">🏹 Hunt Queries</button>
+        <button class="cti-sub-btn" data-ctitab="trending" type="button">🔥 Trending CVEs</button>
+        <button class="cti-sub-btn" data-ctitab="ttp" type="button">🧩 TTP Analyzer</button>
         <button class="cti-sub-btn" data-ctitab="resources" type="button">📚 Intel Resources</button>
       </div>
 
@@ -1436,9 +1471,14 @@
       <!-- ACTOR INTEL PANEL -->
       <div id="cti-panel-actors" class="cti-panel">
         <div class="cti-search-row">
-          <input id="cti-actor-input" class="aw-input" type="text" placeholder="Actor name, alias, or group (e.g. APT29, Lazarus, FIN7, Scattered Spider)" />
+          <input id="cti-actor-input" class="aw-input" type="text" placeholder="Actor name, alias, or campaign (e.g. APT29, APT73, Lazarus, FIN7, Scattered Spider, Salt Typhoon)" />
           <button id="cti-actor-search-btn" type="button">🔍 Search</button>
           <button id="cti-actor-random" type="button" title="Show a random known threat actor">🎲 Random Actor</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:4px 0 8px;font-size:10.5px;color:var(--muted);">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 6px #34d399;flex-shrink:0;"></span>
+          <span>Local KB + Live CTI — unknown actors are looked up in real-time via threat intelligence feeds</span>
+          <span id="cti-actor-live-badge" style="display:none;margin-left:auto;background:rgba(167,139,250,0.12);color:#a78bfa;border:1px solid rgba(167,139,250,0.3);padding:1px 8px;border-radius:10px;font-size:10px;font-weight:700;">⚡ LIVE LOOKUP</span>
         </div>
         <div id="cti-actor-results" class="cti-actor-results"></div>
       </div>
@@ -1481,6 +1521,40 @@
           <button id="cti-camp-export" type="button">📤 Export Campaigns</button>
           <button id="cti-camp-clear" type="button">🗑 Clear All</button>
         </div>
+      </div>
+
+      <!-- TRENDING CVEs PANEL -->
+      <div id="cti-panel-trending" class="cti-panel">
+        <div style="display:flex;align-items:center;gap:10px;padding:0 0 12px;flex-wrap:wrap;">
+          <span style="font-size:13px;font-weight:800;color:var(--text);">🔥 Trending & Actively Exploited CVEs</span>
+          <span style="font-size:10.5px;color:var(--muted);flex:1;">Real-time — top CVEs by EPSS score, KEV status, and active exploitation signals</span>
+          <button id="cti-trending-refresh" type="button" class="cti-news-btn">🔄 Refresh</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+          <button class="cti-trend-filter active" data-filter="all">All</button>
+          <button class="cti-trend-filter" data-filter="kev">🔴 CISA KEV</button>
+          <button class="cti-trend-filter" data-filter="ransomware">💀 Ransomware</button>
+          <button class="cti-trend-filter" data-filter="critical">🟠 Critical CVSS</button>
+          <button class="cti-trend-filter" data-filter="network">🌐 Network</button>
+        </div>
+        <div id="cti-trending-status" style="font-size:11px;color:var(--muted);padding:8px 0 4px;"></div>
+        <div id="cti-trending-grid" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <!-- TTP ANALYZER PANEL -->
+      <div id="cti-panel-ttp" class="cti-panel">
+        <div style="padding:0 0 12px;">
+          <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:4px;">🧩 TTP Analyzer — Paste TTPs, Get Actor Attribution</div>
+          <div style="font-size:11px;color:var(--muted);">Paste MITRE ATT&CK technique IDs (T1566, T1078.004...) or a raw alert/log. Get likely actor attribution, attack phase mapping, and detection guidance.</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;align-items:flex-start;flex-wrap:wrap;">
+          <textarea id="cti-ttp-input" spellcheck="false" rows="4" placeholder="Paste TTPs (e.g. T1566.001, T1078.004, T1059.001, T1071.001)&#10;or paste a raw alert/log and let the analyzer extract the TTPs automatically" style="flex:1;min-width:200px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:monospace;font-size:11.5px;resize:vertical;"></textarea>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button id="cti-ttp-analyze-btn" type="button" style="background:linear-gradient(135deg,#7c3aed,#1D9E75);color:#fff;border:none;font-weight:800;padding:8px 16px;border-radius:8px;font-size:11px;cursor:pointer;white-space:nowrap;">⚡ Analyze TTPs</button>
+            <button id="cti-ttp-clear-btn" type="button" class="cti-news-btn">🗑 Clear</button>
+          </div>
+        </div>
+        <div id="cti-ttp-result" style=""></div>
       </div>
 
       <!-- RESOURCES PANEL -->
