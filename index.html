@@ -123,6 +123,7 @@
         <button class="tab-btn" data-tab="defangbulk" type="button">🛡 Defang/Refang</button>
         <button class="tab-btn" data-tab="yara" type="button">📜 YARA/Sigma</button>
         <button class="tab-btn" data-tab="logtriage" type="button">🧾 Log Triage</button>
+        <button class="tab-btn" data-tab="devtimeline" type="button">🖥 Device Timeline</button>
         <button class="tab-btn" data-tab="custom" type="button">⚙ Custom Tools</button>
         <button class="tab-btn" data-tab="utils" type="button">🛠 SOC Utils</button>
         <button class="tab-btn" data-tab="cti" type="button">🌐 CTI Feed</button>
@@ -978,6 +979,69 @@
         </div>
       </div>
     </div>
+
+    <!-- ===== DEVICE TIMELINE TAB ===== -->
+    <div id="tab-devtimeline" class="tab-panel">
+      <div class="bulk-header" style="padding:16px 20px 12px;">
+        <h3>🖥 Device Timeline Analyzer</h3>
+        <p class="sub">Paste CSV, raw logs, JSON, or Windows Event Log exports. Builds a chronological event timeline, identifies malicious processes, and maps to MITRE ATT&amp;CK — fully offline.</p>
+      </div>
+
+      <!-- Input area -->
+      <div class="input-panel" style="margin:0 0 0;border-radius:0;border-bottom:none;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+          <div style="display:flex;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:3px;">
+            <button class="dt-fmt-btn active" data-fmt="auto" type="button">🔍 Auto-detect</button>
+            <button class="dt-fmt-btn" data-fmt="csv" type="button">📊 CSV</button>
+            <button class="dt-fmt-btn" data-fmt="evtx" type="button">🪟 Event Log</button>
+            <button class="dt-fmt-btn" data-fmt="syslog" type="button">🐧 Syslog</button>
+            <button class="dt-fmt-btn" data-fmt="json" type="button">{ } JSON</button>
+            <button class="dt-fmt-btn" data-fmt="raw" type="button">📄 Raw</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-left:auto;">
+            <button id="dt-load-sample-btn" type="button" class="dt-action-btn" style="font-size:10.5px;">📋 Load Sample</button>
+            <button id="dt-clear-btn" type="button" class="dt-action-btn" style="font-size:10.5px;">✕ Clear</button>
+          </div>
+        </div>
+        <textarea id="dt-input" spellcheck="false" rows="8"
+          placeholder="Paste device logs here — CSV exports, Windows Event Logs, Syslog, JSON, or raw text.&#10;&#10;Supported: EventID, timestamps, process names, command lines, users, IPs, file paths.&#10;Example: 2026-03-21 09:14:22, EventID=4688, ProcessName=powershell.exe, CommandLine=-enc SQBFAFgA, User=CORP\jdoe, ParentProcess=cmd.exe"
+          style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:12px;font-family:monospace;font-size:11.5px;resize:vertical;"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">
+          <button id="dt-analyze-btn" type="button" style="background:linear-gradient(135deg,#0ea5e9,#1D9E75);color:#fff;border:none;font-weight:800;padding:9px 22px;border-radius:8px;font-size:12px;cursor:pointer;">⚡ Analyze Timeline</button>
+          <div id="dt-status" class="status" style="flex:1;">Status: paste logs above and click Analyze</div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="dt-results" style="display:none;padding:0 0 24px;">
+
+        <!-- Summary bar -->
+        <div id="dt-summary-bar" style="display:flex;gap:10px;padding:12px 20px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;"></div>
+
+        <!-- Filter toolbar -->
+        <div id="dt-filter-bar" style="display:flex;gap:6px;padding:10px 16px;background:var(--bg);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;">
+          <span style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Filter:</span>
+          <button class="dt-filter-btn active" data-filter="all" type="button">All</button>
+          <button class="dt-filter-btn" data-filter="malicious" type="button">🚨 Malicious</button>
+          <button class="dt-filter-btn" data-filter="suspicious" type="button">⚠️ Suspicious</button>
+          <button class="dt-filter-btn" data-filter="process" type="button">⚙️ Process</button>
+          <button class="dt-filter-btn" data-filter="network" type="button">🌐 Network</button>
+          <button class="dt-filter-btn" data-filter="auth" type="button">🔐 Auth</button>
+          <button class="dt-filter-btn" data-filter="file" type="button">📁 File</button>
+          <button class="dt-filter-btn" data-filter="registry" type="button">🗝 Registry</button>
+          <div style="margin-left:auto;display:flex;gap:6px;">
+            <button id="dt-export-btn" type="button" class="dt-action-btn">📋 Copy Report</button>
+          </div>
+        </div>
+
+        <!-- Timeline events -->
+        <div id="dt-timeline" style="padding:12px 16px;display:flex;flex-direction:column;gap:4px;"></div>
+
+        <!-- Attack chain summary -->
+        <div id="dt-attack-chain" style="display:none;margin:8px 16px 0;"></div>
+
+      </div>
+    </div><!-- end tab-devtimeline -->
 
     <!-- ===== THREAT ACTOR TAB ===== -->
     <!-- ===== CUSTOM TOOLS TAB ===== -->
