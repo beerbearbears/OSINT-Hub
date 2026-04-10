@@ -6356,7 +6356,7 @@ Produce the triage assessment. Be specific to the values above — do not genera
     const e = encodeURIComponent;
     setHref("h_vt",          `https://www.virustotal.com/gui/file/${e(hash)}`);
     setHref("h_hybrid",      `https://www.hybrid-analysis.com/search?query=${e(hash)}`);
-    setHref("h_joesandbox",  `https://www.joesandbox.com/analysis/search?searchname=${e(hash)}`);
+    setHref("h_joesandbox",  `https://www.joesandbox.com/analysis/search?q=${e(hash)}`);
     setHref("h_triage",      `https://tria.ge/s/?q=${e(hash)}`);
     setHref("h_malshare",    `https://malshare.com/search.php?query=${e(hash)}`);
     setHref("h_malwarebazaar",`https://bazaar.abuse.ch/browse.php?search=sha256_hash:${e(hash)}`);
@@ -6615,7 +6615,7 @@ Produce the triage assessment. Be specific to the values above — do not genera
       tools: [
         { name:"VirusTotal",      desc:"Multi-engine AV scan result",        hint:"Even 1/70 = investigate",        hintColor:"#f87171", url: q => `https://www.virustotal.com/gui/file/${encodeURIComponent(q)}` },
         { name:"Hybrid Analysis", desc:"Dynamic behavior sandbox",           hint:"Network + file activity",         hintColor:"#38bdf8", url: q => `https://www.hybrid-analysis.com/search?query=${encodeURIComponent(q)}` },
-        { name:"Joe Sandbox",     desc:"Deep behavioral analysis",           hint:"C2, persistence, evasion",        hintColor:"#a78bfa", url: q => `https://www.joesandbox.com/analysis/search?searchname=${encodeURIComponent(q)}` },
+        { name:"Joe Sandbox",     desc:"Deep behavioral analysis",           hint:"C2, persistence, evasion",        hintColor:"#a78bfa", url: q => `https://www.joesandbox.com/analysis/search?q=${encodeURIComponent(q)}` },
         { name:"MalwareBazaar",   desc:"Known malware hash database",        hint:"Present = confirmed malware",     hintColor:"#f87171", url: q => `https://bazaar.abuse.ch/browse.php?search=sha256_hash:${encodeURIComponent(q)}` },
         { name:"Triage",          desc:"Interactive malware sandbox",        hint:"Network IOCs & dropped files",    hintColor:"#fb923c", url: q => `https://tria.ge/s/?q=${encodeURIComponent(q)}` },
         { name:"AlienVault OTX",  desc:"Threat intel community feed",        hint:"Related indicators & pulses",     hintColor:"#34d399", url: q => `https://otx.alienvault.com/indicator/file/${encodeURIComponent(q)}` },
@@ -6859,9 +6859,9 @@ Note: external OSINT may not return results for private IPs.</div>`;
   const THREAT_INDICATORS = {
     powershell: [
       // ── Download & execution ──────────────────────────────────
-      { pattern:/\bDownloadString\b/gi,                                        sev:"critical", label:"Downloads & executes remote string (IEX+DownloadString)",          mitre:["T1059.001","T1105"] },
+      { pattern:/\bDownloadString\b/gi, sev:"critical", label:"DownloadString — downloads and executes remote code in-memory", mitre:["T1059.001","T1105"] },
       { pattern:/\bDownloadFile\b/gi,                                          sev:"critical", label:"Downloads file from remote URL",                                    mitre:["T1105"] },
-      { pattern:/\bInvoke-WebRequest\b/gi,                                     sev:"high",     label:"Invoke-WebRequest — HTTP fetch from remote host",                   mitre:["T1105","T1071.001"] },
+      { pattern:/\bInvoke-WebRequest\b.*(?:\|\s*(?:IEX|Invoke-Expression)|https?:\/\/(?:\d{1,3}\.){3}\d{1,3}|https?:\/\/[^\s"']+\.(?:xyz|top|click|tk|pw|cc|ru|onion))/gi, sev:"high", label:"Invoke-WebRequest piped to exec or targeting suspicious URL", mitre:["T1105","T1059.001"] },
       { pattern:/\bStart-BitsTransfer\b/gi,                                    sev:"high",     label:"BITS transfer — background file download (LOLBin)",                 mitre:["T1197"] },
       { pattern:/\bInvoke-Expression\b|\bIEX\b/gi,                             sev:"critical", label:"Invoke-Expression / IEX — dynamic code execution",                  mitre:["T1059.001"] },
       // ── Obfuscation & encoding ────────────────────────────────
@@ -6974,6 +6974,8 @@ Note: external OSINT may not return results for private IPs.</div>`;
       // ── ClickFix / CAPTCHA phishing (2024-2025) ───────────────────────
       { pattern:/navigator\.clipboard\.writeText\s*\(/gi,                         sev:"critical", label:"Clipboard write — ClickFix fake CAPTCHA injects malicious command",mitre:["T1059","T1204.002"] },
       { pattern:/(?:Win|CAPTCHA|verify|human|robot|press|click).*clipboard|clipboard.*(?:Win|CAPTCHA|verify)/gi, sev:"critical", label:"ClickFix lure — clipboard payload with social engineering", mitre:["T1204.002"] },
+      { pattern:/\birm\b.*\|\s*(?:iex\b|invoke-expression\b)/gi,              sev:"critical", label:"ClickFix: IRM piped to IEX — downloads and executes script in-memory (top 2024-2025 vector)", mitre:["T1059.001","T1204.002","T1105"] },
+      { pattern:/(?:irm|Invoke-RestMethod)\s+https?:\/\/(?:\d{1,3}\.){3}\d{1,3}/gi, sev:"critical", label:"Invoke-RestMethod to raw IP address — suspicious remote code pull", mitre:["T1105","T1059.001"] },
       { pattern:/execCommand\s*\(\s*['"]copy['"]/gi,                              sev:"high",     label:"execCommand copy — legacy clipboard injection",                    mitre:["T1059","T1204.002"] },
       { pattern:/window\.location\s*=\s*['"](?:javascript:|data:)/gi,             sev:"critical", label:"JavaScript/data URI — code execution via URL",                    mitre:["T1059.007"] },
       // ── Cookie/session theft ──────────────────────────────────────────
@@ -7047,6 +7049,35 @@ Note: external OSINT may not return results for private IPs.</div>`;
       { pattern:/\bShell\b.*\bCreateObject\b|CreateObject.*Wscript\.Shell/gi,  sev:"critical", label:"VBA Shell execution via WScript",                                   mitre:["T1059.005"] },
       // ── Browser debugging / session theft (2024) ──────────────
       { pattern:/\bChrome.*(?:--disable-web-security|--remote-debugging)/gi,   sev:"high",     label:"Browser debugging flag — cookie/session theft setup",               mitre:["T1185","T1539"] },
+      // ── Missing LOLBins (2024 active exploitation) ─────────────────────────
+      { pattern:/desktopimgdownldr(?:\.exe)?.*(?:lockscreenurl|http)/gi,          sev:"critical", label:"DesktopImgDownldr LOLBin — downloads file via wallpaper URL parameter",          mitre:["T1218","T1105"] },
+      { pattern:/msiexec.*(?:\/i|\/q).*https?:\/\//gi,                        sev:"critical", label:"MSIExec remote install — downloads and installs MSI from internet",               mitre:["T1218.007","T1105"] },
+      { pattern:/rundll32\.exe.*(?:javascript:|shell32|comsvcs|\\\\temp\\\\|appdata)/gi, sev:"critical", label:"Rundll32 LOLBin abuse — executing suspicious DLL or scripted content", mitre:["T1218.011"] },
+      { pattern:/esentutl\.exe.*(?:\/[ymsd]|\/vss|shadow)/gi,                 sev:"high",     label:"Esentutl LOLBin — database/shadow copy manipulation or file copy",                mitre:["T1218","T1003"] },
+      { pattern:/mavinject\.exe|\/injectrunning/gi,                            sev:"critical", label:"Mavinject LOLBin — process injection via signed Microsoft binary",                mitre:["T1218","T1055"] },
+      { pattern:/cmstp\.exe.*(?:\/s|\/ni|http)/gi,                            sev:"critical", label:"CMSTP LOLBin — UAC bypass and remote code execution via INF file",               mitre:["T1218.003"] },
+      { pattern:/pcalua\.exe.*-a\s+http/gi,                                   sev:"critical", label:"PcaLua LOLBin — Program Compatibility Assistant executes remote file",           mitre:["T1218"] },
+      { pattern:/xwizard\.exe\s+RunWizard/gi,                                 sev:"high",     label:"XWizard LOLBin — UAC bypass via trusted binary",                                 mitre:["T1218"] },
+      { pattern:/syncappvpublishingserver\.exe\s+["'].*http/gi,               sev:"critical", label:"SyncAppvPublishingServer LOLBin — PowerShell execution via App-V",               mitre:["T1218"] },
+      // ── JNDI / Log4Shell / server-side injection ─────────────────────────
+      { pattern:/\$\{jndi\s*:/gi,                                              sev:"critical", label:"JNDI injection (Log4Shell CVE-2021-44228 / Log4j) — RCE via logging framework",  mitre:["T1190","T1059"] },
+      { pattern:/\$\{(?:env|sys|java|lower|upper|date):/gi,                   sev:"high",     label:"Log4j lookup expression — possible injection/exploitation attempt",               mitre:["T1190"] },
+      // ── C2 framework signatures (Cobalt Strike, Sliver, Havoc, Brute Ratel) ─
+      { pattern:/GzipStream.*Decompress.*FromBase64|FromBase64.*GzipStream/gi, sev:"critical", label:"Gzip+Base64 in-memory loader — Cobalt Strike/Sliver stager pattern",             mitre:["T1027","T1059.001"] },
+      { pattern:/[A-Za-z0-9+\/]{200,}={0,2}/g,                                sev:"high",     label:"Very long Base64 string — likely embedded shellcode or in-memory payload",        mitre:["T1027"] },
+      { pattern:/\bpipename\b.*\bcobaltstrike|\bcs_beac|\b\.exe.*beacon/gi,   sev:"critical", label:"Cobalt Strike beacon artifact detected",                                          mitre:["T1071","T1095"] },
+      { pattern:/NtQueueApcThread|NtAllocateVirtualMemory|ZwUnmapViewOfSection/gi, sev:"critical", label:"Native Windows API shellcode injection (process hollowing/APC injection)",  mitre:["T1055.012","T1055.004"] },
+      // ── RMM tool abuse (2024-2025 top vector) ──────────────────────────────
+      { pattern:/screenconnect\.com|connectwise.*control|anydesk.*\/silent|teamviewer.*\/silent|atera.*agent|kaseya.*agent/gi, sev:"high", label:"Remote monitoring tool silently installed — common RAT delivery (Black Basta, Scattered Spider)", mitre:["T1219"] },
+      { pattern:/anydesk\s+--install\b|anydesk\s+--password|anydesk\s+--accept-license/gi, sev:"critical", label:"AnyDesk silent install with password — attacker-controlled remote access", mitre:["T1219"] },
+      // ── Supply chain / package manager abuse ─────────────────────────────
+      { pattern:/(?:child_process|exec|spawn).*(?:curl|wget|nc|bash|powershell)/gi, sev:"critical", label:"Node.js spawning shell command — possible malicious npm package",           mitre:["T1059.004","T1195.002"] },
+      { pattern:/preinstall|postinstall.*(?:curl|wget|bash|sh|python)/gi,     sev:"critical", label:"npm lifecycle hook executing shell — supply chain attack pattern",               mitre:["T1195.002","T1059"] },
+      // ── Microsoft Teams / Vishing (2024-2025 Black Basta) ────────────────
+      { pattern:/teams.*external.*chat|externalaccess.*teams|msteams.*invite/gi, sev:"high",  label:"Microsoft Teams external chat — Black Basta IT helpdesk impersonation vector",  mitre:["T1566.004","T1204.002"] },
+      // ── Fast flux / EDR killer patterns ──────────────────────────────────
+      { pattern:/AuKill|Terminator\.exe|POORTRY|STONESTOP|spyboy/gi,          sev:"critical", label:"EDR killer tool detected (AuKill/Terminator/POORTRY) — used by RansomHub, BlackCat", mitre:["T1562.001"] },
+      { pattern:/bring.*your.*own.*(?:driver|vuln)|byovd/gi,                  sev:"critical", label:"BYOVD attack pattern — bring your own vulnerable driver to disable EDR",         mitre:["T1562.001","T1068"] },
     ],
   };;
 
@@ -12099,6 +12130,16 @@ Generated by HawkEye v${TOOLKIT_VERSION}`;
       "ping.exe","tracert.exe","nslookup.exe","netstat.exe","ipconfig.exe",
       "whoami.exe","hostname.exe","systeminfo.exe","gpupdate.exe","gpresult.exe",
       "shutdown.exe","logoff.exe","lock.exe","runas.exe",
+      // Legitimate software update/deployment agents
+      "winget.exe","msixpackagingmanager.exe","appinstaller.exe",
+      "ccmexec.exe","ccmsetup.exe","ccmupdateshandler.exe",  // SCCM/ConfigMgr
+      "wuauclt.exe","wusa.exe","windowsupdatebox.exe",        // Windows Update
+      "msiexec.exe",                                          // Windows Installer
+      "trustedinstaller.exe",                                 // Windows modules
+      "svchost.exe",                                          // Already there but confirm
+      "gpupdate.exe","msiexec.exe","wusa.exe",
+      // Common legitimate auto-updaters (expected to run in their own folders)
+      "updater.exe","update.exe",                             // Generic - context-dependent
     ]),
     // Expected paths for system processes (wrong path = suspicious)
     expectedPaths: {
@@ -12183,6 +12224,33 @@ Generated by HawkEye v${TOOLKIT_VERSION}`;
     { pattern:/\bnltest\b/i,                                       sev:"medium",   label:"Nltest — domain trust enumeration",                  mitre:["T1482"] },
     { pattern:/taskkill.*(?:defender|av|antivirus|malware|endpoint)/i, sev:"critical", label:"Security tool terminated",                       mitre:["T1562.001"] },
     { pattern:/cipher\s+\/w|format\s+.*\/q/i,                     sev:"high",     label:"Disk wiping command — anti-forensics",               mitre:["T1485","T1561"] },
+
+    // ── File download LOLBins ─────────────────────────────────────────────────
+    { pattern:/bitsadmin\s+\/transfer|bitsadmin.*\/download/i,    sev:"critical", label:"BITSAdmin LOLBin — background file download (evades network monitoring)", mitre:["T1197","T1105"] },
+    { pattern:/bitsadmin.*https?:\/\//i,                             sev:"critical", label:"BITSAdmin downloading from internet URL",                 mitre:["T1197","T1105"] },
+    { pattern:/desktopimgdownldr.*(?:lockscreenurl|http)/i,          sev:"critical", label:"DesktopImgDownldr LOLBin — file download via wallpaper URL", mitre:["T1218","T1105"] },
+    { pattern:/esentutl.*\/y.*https?:|esentutl.*\/cp/i,            sev:"critical", label:"Esentutl LOLBin — database tool used as file downloader", mitre:["T1218","T1105"] },
+    { pattern:/\bwget\b.*-[qO].*https?:\/\/|\bcurl\b.*-[sfo].*https?:\/\//i, sev:"high", label:"File downloaded via curl/wget to disk",           mitre:["T1105"] },
+    { pattern:/\bcurl\b.*https?:\/\/.*&&|\bwget\b.*&&.*\.exe/i, sev:"critical", label:"Download-and-execute chain: curl/wget followed by execution", mitre:["T1105","T1059"] },
+    { pattern:/Start-BitsTransfer.*https?:\/\//i,                    sev:"critical", label:"PowerShell BITS transfer from internet — download LOLBin", mitre:["T1197","T1105"] },
+
+    // ── Direct download+execute in single command ─────────────────────────────
+    { pattern:/OutFile.*\.exe[^;]*;[^;]*Start-Process|DownloadFile.*\.exe[^;]*;.*\.exe/i, sev:"critical", label:"Download then immediate execution — dropper pattern",   mitre:["T1105","T1204.002"] },
+    { pattern:/curl.*-o\s+[^&]+\.exe.*&&.*\.exe|wget.*-O\s+[^&]+\.exe.*&&.*\.exe/i,   sev:"critical", label:"curl/wget download then execute — stager chain",         mitre:["T1105","T1059.003"] },
+    { pattern:/irm\s+https?:\/\/.*\|\s*iex|Invoke-RestMethod.*\|.*Invoke-Expression/i,   sev:"critical", label:"Download and execute in-memory (IRM|IEX) — fileless dropper", mitre:["T1059.001","T1105"] },
+
+    // ── Suspicious file characteristics at execution ──────────────────────────
+    { pattern:/\.pdf\.exe|\.doc\.exe|\.jpg\.exe|\.png\.exe|\.txt\.exe|\.zip\.exe/i, sev:"critical", label:"Double extension masquerading — executable disguised as document/image (T1036.007)", mitre:["T1036.007"] },
+    { pattern:/\.xls\.exe|\.docx\.exe|\.xlsx\.exe|\.pptx\.exe|\.js\.exe/i,           sev:"critical", label:"Double extension masquerading — Office/script file with hidden .exe", mitre:["T1036.007"] },
+    { pattern:/\bInvoice[_-]?\d*\.exe|\bPO[_-]?\d*\.exe|\bReceipt\.exe|\bStatement\.exe/i, sev:"critical", label:"Filename masquerading as financial document — common phishing lure", mitre:["T1036.007"] },
+    { pattern:/\bsetup\.exe|\binstall\.exe|\bupdate\.exe|\bupdater\.exe/i,              sev:"medium",   label:"Generic installer name — verify digital signature and source",       mitre:["T1036"] },
+
+    // ── Execution from suspicious paths ──────────────────────────────────────
+    { pattern:/C:\\Users\\[^\\]+\\Downloads\\.*\.exe|C:\/Users\/[^/]+\/Downloads\/.*\.exe/i, sev:"high", label:"Executable launched from user Downloads folder — verify user intent", mitre:["T1204.002"] },
+    { pattern:/C:\\Users\\[^\\]+\\AppData\\Local\\Temp\\.*\.exe/i,               sev:"critical", label:"Execution from %TEMP% — common dropper/stager staging location",       mitre:["T1204.002","T1105"] },
+    { pattern:/C:\\Users\\Public\\.*\.exe/i,                                              sev:"critical", label:"Execution from C:\Users\Public — accessible by all users, commonly abused by malware", mitre:["T1204.002"] },
+    { pattern:/C:\\ProgramData\\.*\.exe/i,                                                  sev:"high",     label:"Execution from ProgramData — verify this is an expected application",   mitre:["T1204.002"] },
+    { pattern:/C:\\Windows\\Temp\\.*\.exe/i,                                              sev:"critical", label:"Execution from Windows Temp — malware staging or post-exploitation tool", mitre:["T1204.002","T1105"] },
   ];
 
   // ── Suspicious path patterns ──────────────────────────────────────────────
@@ -12199,10 +12267,42 @@ Generated by HawkEye v${TOOLKIT_VERSION}`;
   // ── Known C2/malware network indicators ──────────────────────────────────
   const DT_SUSPICIOUS_PORTS = new Set([4444,4445,1234,8888,9999,31337,50050,4447,55555,8443,8080,2222]);
   const DT_C2_PATTERNS = [
-    /\b(?:185|91|194|45|194)\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/,  // High-risk ASN ranges (Tor exits, bulletproof)
-    /https?:\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/,          // HTTP to raw IP
-    /\.(?:xyz|top|click|gq|cf|tk|pw|cc|su|ru|onion)\b/i,       // High-risk TLDs
+    /https?:\/\/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/,           // HTTP to raw IP (always suspicious)
+    /\.(?:xyz|top|click|gq|cf|tk|pw|cc|su|ru|onion)/i,        // High-risk TLDs
+    /https?:\/\/[a-z0-9-]{6,}\.(tk|ml|ga|cf|gq)\//i,            // Free domain TLDs
   ];
+
+  // ── Trusted software vendors — downloads from these are lower risk ────────
+  const DT_TRUSTED_VENDORS = new Set([
+    "microsoft.com","windows.net","windowsupdate.com","microsoft.net",
+    "office.com","microsoftonline.com","azureedge.net","visualstudio.com",
+    "google.com","googleapis.com","gstatic.com","googleusercontent.com",
+    "apple.com","icloud.com","mzstatic.com",
+    "adobe.com","adobecc.com","adobecs.com",
+    "mozilla.org","firefox.com",
+    "github.com","githubusercontent.com","github.io",
+    "amazonaws.com","cloudfront.net","s3.amazonaws.com",
+    "dropbox.com","box.com","onedrive.com","sharepoint.com",
+    "slack.com","slack-edge.com","zoom.us","zoomgov.com",
+    "symantec.com","broadcom.com","crowdstrike.com","sentinelone.com",
+    "mcafee.com","trendmicro.com","sophos.com","eset.com",
+    "vmware.com","citrix.com","cisco.com","paloaltonetworks.com",
+  ]);
+
+  // ── Known legitimate installer patterns ──────────────────────────────────
+  // These paths / process names are expected for software management
+  const DT_LEGIT_INSTALLER_PATTERNS = [
+    /^C:\\Program Files/i,
+    /^C:\\Windows\\System32\\msiexec\.exe$/i,
+    /^C:\\Windows\\System32\\wusa\.exe$/i,
+    /^C:\\Windows\\ccm\\/i,
+    /\\AppData\\Local\\Microsoft\\WindowsApps\\/i,
+    /\\AppData\\Local\\Programs\\/i,
+  ];
+
+  // ── File extension risk assessment ────────────────────────────────────────
+  const DT_HIGH_RISK_EXTENSIONS = /\.(exe|dll|bat|cmd|vbs|js|jse|wsf|wsh|ps1|psm1|hta|scr|pif|msi|msp|com|cpl|inf|reg|lnk)$/i;
+  const DT_DOUBLE_EXT_PATTERN   = /\.(pdf|doc|docx|xls|xlsx|jpg|png|gif|zip|txt|csv|xml|json)\.(exe|dll|bat|cmd|vbs|js|scr|pif|hta)$/i;
 
   // ── Windows EventID reference ─────────────────────────────────────────────
   const DT_EVENT_IDS = {
@@ -12449,18 +12549,61 @@ Generated by HawkEye v${TOOLKIT_VERSION}`;
     };
 
     const procName = (ev.process||"").toLowerCase().replace(/.*[\\\/]/,"");
+    const procNameLower = procName.toLowerCase();
     const parentName = (ev.parent||"").toLowerCase().replace(/.*[\\\/]/,"");
     const cmdline = (ev.cmdline||"").toLowerCase();
     const path = (ev.path||"").toLowerCase();
 
+    // ── File context analysis ────────────────────────────────────────────────
+    const fullCmdPath = ev.path || cmdline || "";
+
+    // Double extension check (highest priority — always malicious)
+    if (procName && DT_DOUBLE_EXT_PATTERN.test(procName)) {
+      addFinding("critical", `Double extension masquerade: "${procName}" appears to be a document but is an executable. Classic phishing delivery technique (T1036.007).`, ["T1036.007","T1204.002"]);
+    }
+
+    // Execution from suspicious location — expanded with context
+    const suspiciousPathContext = [
+      { pattern:/\\Users\\[^\\]+\\Downloads\\.*\.exe/i,         sev:"high",     detail:"user Downloads folder — verify user downloaded this intentionally" },
+      { pattern:/\\Users\\[^\\]+\\AppData\\Local\\Temp\\.*\.exe/i, sev:"critical", detail:"AppData\Temp — primary malware staging path, rarely legitimate" },
+      { pattern:/\\Windows\\Temp\\.*\.exe/i,                        sev:"critical", detail:"Windows\Temp — post-exploitation staging, extremely suspicious" },
+      { pattern:/\\Users\\Public\\.*\.exe/i,                        sev:"critical", detail:"C:\Users\Public — writable by all accounts, commonly abused" },
+      { pattern:/\\ProgramData\\(?!Microsoft|Package Cache|chocolatey).*\.exe/i, sev:"high", detail:"ProgramData — verify this is a known software component" },
+      { pattern:/^[A-Za-z]:\\[^\\]+\.exe$/i,                         sev:"critical", detail:"filesystem root — executables should not run from root of a drive" },
+      { pattern:/\\Recycle/i,                                             sev:"critical", detail:"Recycle Bin — anti-forensic execution from deleted file location" },
+    ];
+    for (const rule of suspiciousPathContext) {
+      if (fullCmdPath && rule.pattern.test(fullCmdPath) && !DT_PROCESS_DB.legitimate.has(procNameLower)) {
+        // Check if this is a legitimate installer
+        const isLegitInstaller = DT_LEGIT_INSTALLER_PATTERNS.some(p => p.test(fullCmdPath));
+        if (!isLegitInstaller) {
+          addFinding(rule.sev, `Execution from ${rule.detail}`, ["T1204.002"]);
+        }
+        break;
+      }
+    }
+
     // 1. Known malicious process name (case-insensitive)
-    if (DT_PROCESS_DB.malicious.has(procName) || DT_PROCESS_DB.malicious.has(procName.toLowerCase())) {
+    if (DT_PROCESS_DB.malicious.has(procName) || DT_PROCESS_DB.malicious.has(procNameLower)) {
       addFinding("critical", `Known malicious tool: ${procName}`, ["T1588","T1036"]);
     }
-    // 2. LOLBin in use (case-insensitive)
-    if ((DT_PROCESS_DB.lolbins.has(procName) || DT_PROCESS_DB.lolbins.has(procName.toLowerCase())) && (cmdline || ev.eventId === "4688")) {
-      const isLegitUse = !cmdline || (!/(urlcache|decode|http|script|javascript|vbscript|bypass)/i.test(cmdline));
-      if (!isLegitUse) addFinding("high", `LOLBin abuse: ${procName}`, ["T1218"]);
+    // 2. LOLBin in use — with context-aware verdict
+    if ((DT_PROCESS_DB.lolbins.has(procName) || DT_PROCESS_DB.lolbins.has(procNameLower)) && (cmdline || ev.eventId === "4688")) {
+      const isLegitUse = !cmdline || !/(urlcache|decode|https?:\/\/|javascript:|vbscript:|bypass|bitstransfer)/i.test(cmdline);
+      if (!isLegitUse) {
+        const lolDetails = {
+          "certutil.exe":   "Certutil abused to download or decode files — primary Microsoft-signed downloader LOLBin",
+          "bitsadmin.exe":  "BITSAdmin abused to download files via Background Intelligent Transfer — evades firewall monitoring",
+          "mshta.exe":      "MSHTA executing HTA/script content — commonly used for fileless initial access",
+          "regsvr32.exe":   "Regsvr32 executing COM scriptlet — 'Squiblydoo' technique, no disk artifact",
+          "rundll32.exe":   "Rundll32 LOLBin — executing DLL or javascript via trusted Windows binary",
+          "msiexec.exe":    "MSIExec downloading remote MSI — abused for malware delivery without EDR detection",
+          "wmic.exe":       "WMIC process creation — command execution via WMI, often used by C2 frameworks",
+          "desktopimgdownldr.exe": "DesktopImgDownldr abused to download files via wallpaper URL parameter",
+        };
+        const detail = lolDetails[procNameLower] || `${procName} LOLBin abused for malicious purposes`;
+        addFinding("critical", detail, ["T1218"]);
+      }
     }
     // 3. Wrong path for system process
     if (path && DT_PROCESS_DB.expectedPaths[procName]) {
@@ -12518,7 +12661,7 @@ Generated by HawkEye v${TOOLKIT_VERSION}`;
 
     // Determine verdict
     let verdict, verdictIcon, verdictColor;
-    const procNameLower = procName.toLowerCase();
+    // procNameLower declared above
     const isKnownLegit  = DT_PROCESS_DB.legitimate.has(procNameLower) || DT_PROCESS_DB.legitimate.has(procName);
     if (findings.filter(f=>f.sev==="critical").length > 0) {
       verdict = "MALICIOUS";  verdictIcon = "🚨"; verdictColor = "#ef4444";
@@ -12554,6 +12697,9 @@ Generated by HawkEye v${TOOLKIT_VERSION}`;
     }
     const cmd = (ev.cmdline||"").toLowerCase();
     const proc = (ev.process||"").toLowerCase();
+    // Download activity
+    if (/certutil|bitsadmin|invoke-webrequest|downloadfile|downloadstring|curl|wget|bits.*transfer/i.test(proc+cmd) &&
+        /https?:\/\//i.test(cmd)) return "download";
     if (ev.ip || ev.port || /network|connect|listen|dns/i.test(ev.category)) return "network";
     if (/reg\b|registry|regedit/i.test(proc+cmd)) return "registry";
     if (/copy|move|del\b|create.*file|write.*file/i.test(cmd)) return "file";
@@ -12856,11 +13002,85 @@ Generated by HawkEye v${TOOLKIT_VERSION}`;
       dtChain.style.display = "none";
     }
 
+    // ── Cross-event correlation: Download → Execute chains ──────────────────
+    const downloadEvents = events.filter(e =>
+      /certutil|bitsadmin|bits.*transfer|curl|wget|invoke-webrequest|downloadfile|downloadstring|bits/i.test(e.cmdline||"") &&
+      /https?:\/\/|http:\/\//i.test(e.cmdline||"")
+    );
+    const fileDropEvents = events.filter(e =>
+      e.eventId === "11" || // Sysmon FileCreate
+      /OutFile|DownloadFile|-o\s+\S+\.exe|-O\s+\S+\.exe|bitsadmin.*\.exe/i.test(e.cmdline||"")
+    );
+    // Find executions from suspicious paths that could be the payload
+    const payloadExecEvents = events.filter(e =>
+      e._analysis.verdict === "MALICIOUS" || e._analysis.verdict === "SUSPICIOUS"
+    );
+
+    // Cross-correlate: if download event + subsequent execution from same path → mark chain
+    downloadEvents.forEach(dlEv => {
+      // Extract the download destination from cmdline
+      const destMatch = (dlEv.cmdline||"").match(/(?:-OutFile|-o\s+|-O\s+|split\s+-f\s+[^\s]+\s+)([A-Za-z]:\[^\s,;"']+|\/tmp\/[^\s,;"']+)/i);
+      if (!destMatch) return;
+      const destFile = destMatch[1].toLowerCase().replace(/["']/g,"");
+      const destFilename = destFile.split(/[\\/]/).pop();
+      // Find subsequent execution of this file
+      const execEv = events.find(e =>
+        e !== dlEv &&
+        e._ts >= dlEv._ts &&
+        ((e.process||"").toLowerCase().includes(destFilename) ||
+         (e.path||"").toLowerCase().includes(destFilename) ||
+         (e.cmdline||"").toLowerCase().includes(destFilename))
+      );
+      if (execEv) {
+        dlEv._chainRole  = "downloader";
+        dlEv._chainLink  = execEv;
+        execEv._chainRole = "executor";
+        execEv._chainFrom = dlEv;
+        // Upgrade severity of the executor if not already critical
+        if (execEv._analysis.verdict !== "MALICIOUS") {
+          execEv._analysis.findings.unshift({
+            sev: "critical",
+            label: `Downloaded-and-executed: This file was downloaded${dlEv.timestamp?" at "+dlEv.timestamp:""} by ${(dlEv.process||"unknown").replace(/.*[\\/]/,"")} and immediately executed — confirmed dropper chain.`
+          });
+          execEv._analysis.verdict     = "MALICIOUS";
+          execEv._analysis.verdictIcon  = "🚨";
+          execEv._analysis.verdictColor = "#ef4444";
+          execEv._analysis.maxSev      = "critical";
+        }
+        if (dlEv._analysis.verdict !== "MALICIOUS") {
+          dlEv._analysis.findings.unshift({
+            sev: "critical",
+            label: `Downloader: Retrieved malicious file to ${destFile} which was subsequently executed — confirmed download-and-execute chain.`
+          });
+          dlEv._analysis.verdict     = "MALICIOUS";
+          dlEv._analysis.verdictIcon  = "🚨";
+          dlEv._analysis.verdictColor = "#ef4444";
+        }
+      }
+    });
+
+    // ── File reputation assessment for each event ────────────────────────────
+    events.forEach(ev => {
+      if (!ev.cmdline && !ev.path) return;
+      const cmdLower = (ev.cmdline||ev.path||"").toLowerCase();
+      // Check if downloading from trusted vendor
+      const isTrustedSource = [...DT_TRUSTED_VENDORS].some(v => cmdLower.includes(v));
+      if (isTrustedSource && (ev._analysis.verdict === "SUSPICIOUS" || ev._analysis.verdict === "REVIEW")) {
+        // Downgrade: trusted source download is lower risk
+        ev._analysis._trustedSource = true;
+        ev._analysis._trustedNote = "Download source appears to be a trusted software vendor — verify digital signature of downloaded file.";
+      }
+      // Flag unsigned executables in user paths (heuristic)
+      if (/\users\.*\.exe/i.test(cmdLower) && !isTrustedSource) {
+        ev._analysis._fileNote = "Executable in user directory — verify file is digitally signed by a trusted publisher (right-click → Properties → Digital Signatures).";
+      }
+    });
+
     // Build event cards
     dtTimeline.innerHTML = events.map((ev, idx) => {
       const a = ev._analysis;
       const catCls = `dt-cat-${ev._category}`;
-      const catLabel = { process:"⚙️ Process", network:"🌐 Network", auth:"🔐 Auth",
+      const catLabel = { process:"⚙️ Process", download:"📥 Download", network:"🌐 Network", auth:"🔐 Auth",
                          file:"📁 File", registry:"🗝 Registry", system:"🖥 System", lateral:"🔀 Lateral" }[ev._category] || ev._category;
       const eidLabel = ev._eidInfo ? ` — ${ev._eidInfo.label}` : "";
       const filterTags = [
@@ -12883,7 +13103,11 @@ Generated by HawkEye v${TOOLKIT_VERSION}`;
                     f.sev === "high"     ? "dt-finding-malicious" : "dt-finding-suspicious";
         const icon = f.sev === "critical" ? "🚨" : f.sev === "high" ? "⚠️" : "🔵";
         return `<div class="dt-event-finding ${cls}">${icon} ${esc(f.label)}</div>`;
-      }).join("");
+      }).join("") +
+      (ev._chainRole === "downloader" ? `<div class="dt-event-finding dt-finding-malicious">🔗 CHAIN: This process downloaded the payload that was subsequently executed (confirmed download-execute chain)</div>` : "") +
+      (ev._chainRole === "executor" ? `<div class="dt-event-finding dt-finding-malicious">💣 CHAIN: Downloaded payload — retrieved by ${((ev._chainFrom||{}).process||"").replace(/.*[\\/]/,"") || "another process"} then executed here</div>` : "") +
+      (a._trustedNote ? `<div class="dt-event-finding dt-finding-suspicious">ℹ️ ${esc(a._trustedNote)}</div>` : "") +
+      (a._fileNote && a.verdict !== "BENIGN" ? `<div class="dt-event-finding" style="background:rgba(56,189,248,0.07);color:#93c5fd;border:1px solid rgba(56,189,248,0.2);">🔏 ${esc(a._fileNote)}</div>` : "");
       const mitreHtml = a.mitre.slice(0,4).map(t =>
         `<a href="https://attack.mitre.org/techniques/${t.replace(".","/")}" target="_blank" class="dt-mitre-tag">${esc(t)}</a>`
       ).join("");
