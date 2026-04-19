@@ -6012,7 +6012,12 @@ Produce the triage assessment. Be specific to the values above — do not genera
     ip_nitter:"https://nitter.net/",                    ip_threatminer:"https://www.threatminer.org/",
     ip_urlscan:"https://urlscan.io/",                   ip_viewdns:"https://viewdns.info/",
     ip_scamalytics:"https://scamalytics.com/",          ip_threatfox:"https://threatfox.abuse.ch/",
-    ip_pulsedive:"https://pulsedive.com/",              ip_securitytrails:"https://securitytrails.com/",
+    ip_pulsedive:"https://pulsedive.com/",              ip_securitytrails:"https://securitytrails.com/",    ip_criminalip:"https://www.criminalip.io/",
+    ip_ipqualityscore:"https://www.ipqualityscore.com/",ip_robtex:"https://www.robtex.com/",
+    ip_onyphe:"https://search.onyphe.io/",              ip_fofa:"https://en.fofa.info/",
+    ip_zoomeye:"https://www.zoomeye.hk/",               ip_arinwhois:"https://search.arin.net/",
+    ip_ipvoid:"https://www.ipvoid.com/",                ip_threatbook:"https://threatbook.io/",
+    ip_whoisxml:"https://main.whoisxmlapi.com/",
     ip_myip:"https://myip.ms/",
     // Domain tools
     dom_vt:"https://www.virustotal.com/",              dom_talos:"https://talosintelligence.com/",
@@ -6023,17 +6028,23 @@ Produce the triage assessment. Be specific to the values above — do not genera
     dom_urlvoid:"https://www.urlvoid.com/",             dom_urlhaus:"https://urlhaus.abuse.ch/",
     dom_whois:"https://www.whois.com/",                 dom_dnslytics:"https://dnslytics.com/",
     dom_netcraft:"https://searchdns.netcraft.com/",     dom_webcheck:"https://web-check.xyz/",
-    dom_securitytrails:"https://securitytrails.com/",  dom_hudsonrock_info:"https://intel.hudsonrock.com/",
+    dom_securitytrails:"https://securitytrails.com/",  dom_hudsonrock_info:"https://cavalier.hudsonrock.com/",
     dom_hudsonrock_urls:"https://cavalier.hudsonrock.com/", dom_wayback:"https://web.archive.org/",
     dom_wayback_save:"https://web.archive.org/",        dom_browserling:"https://www.browserling.com/",
     dom_anyrun:"https://any.run/",                      dom_anyrun_safe:"https://any.run/submit/",
-    dom_phishing_checker:"https://phishing.finsin.cl/", dom_clickfix:"https://clickfix.carsonww.com/",
-    dom_nitter:"https://nitter.net/",                   dom_netlas:"https://app.netlas.io/",
+    dom_phishing_checker:"https://transparencyreport.google.com/", dom_clickfix:"https://www.phishtank.com/",
+    dom_nitter:"https://x.com/",                   dom_netlas:"https://app.netlas.io/",
     dom_censys:"https://search.censys.io/",             dom_shodan:"https://www.shodan.io/",
     dom_dnstools:"https://whois.domaintools.com/",      dom_crtsh:"https://crt.sh/",
     dom_dnsdumpster:"https://dnsdumpster.com/",         dom_socradar:"https://socradar.io/",
     dom_rdap:"https://lookup.icann.org/",               dom_passivedns:"https://passivedns.mnemonic.no/",
-    dom_pulsedive:"https://pulsedive.com/",             dom_threatfox:"https://threatfox.abuse.ch/",
+    dom_pulsedive:"https://pulsedive.com/",             dom_criminalip:"https://www.criminalip.io/",
+    dom_threatbook:"https://threatbook.io/",             dom_robtex:"https://www.robtex.com/",
+    dom_subfinder:"https://crt.sh/",                    dom_intelx:"https://intelx.io/",
+    dom_fofa:"https://en.fofa.info/",                   dom_zoomeye:"https://www.zoomeye.hk/",
+    dom_onyphe:"https://search.onyphe.io/",             dom_ipqualityscore:"https://www.ipqualityscore.com/",
+    dom_phishtank:"https://www.phishtank.com/",         dom_ipvoid:"https://www.ipvoid.com/",
+    dom_rapiddns:"https://rapiddns.io/",             dom_threatfox:"https://threatfox.abuse.ch/",
     // URL tools
     url_vt:"https://www.virustotal.com/",              url_urlscan:"https://urlscan.io/",
     url_urlvoid:"https://www.urlvoid.com/",             url_urlhaus:"https://urlhaus.abuse.ch/",
@@ -6047,7 +6058,11 @@ Produce the triage assessment. Be specific to the values above — do not genera
     url_clickfix:"https://clickfix.carsonww.com/",      url_nitter:"https://nitter.net/",
     url_socradar:"https://socradar.io/labs/app/link-analysis/", url_hudsonrock_info:"https://intel.hudsonrock.com/",
     url_hudsonrock_urls:"https://cavalier.hudsonrock.com/", url_securitytrails:"https://securitytrails.com/",
-    url_cyberchef:"https://gchq.github.io/CyberChef/",
+    url_cyberchef:"https://gchq.github.io/CyberChef/",           url_intelx:"https://intelx.io/",
+    url_redirect_checker:"https://www.redirect-checker.org/", url_unshorten:"https://unshorten.me/",
+    url_criminalip:"https://www.criminalip.io/",       url_ipqualityscore:"https://www.ipqualityscore.com/",
+    url_google_cache:"https://webcache.googleusercontent.com/", url_urlquery:"https://urlquery.net/",
+    url_joesandbox:"https://www.joesandbox.com/",
     // Hash tools
     h_vt:"https://www.virustotal.com/",                h_hybrid:"https://www.hybrid-analysis.com/",
     h_joesandbox:"https://www.joesandbox.com/",         h_triage:"https://tria.ge/",
@@ -6055,19 +6070,29 @@ Produce the triage assessment. Be specific to the values above — do not genera
     h_ibmxf:"https://exchange.xforce.ibmcloud.com/",   h_talos:"https://talosintelligence.com/",
     h_otx:"https://otx.alienvault.com/",                h_anyrun:"https://any.run/",
     h_threatminer:"https://www.threatminer.org/",       h_intezer:"https://analyze.intezer.com/",
-    h_cyberchef:"https://gchq.github.io/CyberChef/",   h_nitter:"https://nitter.net/",
+    h_cyberchef:"https://gchq.github.io/CyberChef/",   h_nitter:"https://x.com/",              h_filescan:"https://www.filescan.io/",
+    h_unpac_me:"https://www.unpac.me/",                h_capesandbox:"https://capesandbox.com/",
+    h_malpedia:"https://malpedia.caad.fkie.fraunhofer.de/", h_vxunderground:"https://github.com/",
+    h_docguard:"https://app.docguard.io/",             h_malware_traffic:"https://www.malware-traffic-analysis.net/",
+    h_risiq:"https://community.riskiq.com/",
     // Email tools
     em_hunter:"https://hunter.io/",                    em_hibp:"https://haveibeenpwned.com/",
     em_intelbase:"https://intelbase.is/",               em_emailrep:"https://emailrep.io/",
     em_epieos:"https://epieos.com/",                    em_intelx:"https://intelx.io/",
-    em_phonebook:"https://phonebook.cz/",               em_dehashed:"https://dehashed.com/",
+    em_phonebook:"https://phonebook.cz/",               em_dehashed:"https://dehashed.com/",              em_breach_dir:"https://breachdirectory.org/",
+    em_tomba:"https://tomba.io/",                      em_mxtoolbox:"https://mxtoolbox.com/",
+    em_google:"https://www.google.com/",               em_intelx:"https://intelx.io/",
     // CVE tools
     cve_nvd:"https://nvd.nist.gov/",                   cve_cveorg:"https://www.cve.org/",
     cve_cisa:"https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
     cve_exploitdb:"https://www.exploit-db.com/",        cve_vulners:"https://vulners.com/",
     cve_github:"https://github.com/",                   cve_socradar:"https://socradar.io/labs/app/cve-radar/",
     cve_rapid7:"https://www.rapid7.com/db/",            cve_snyk:"https://security.snyk.io/",
-    cve_assetnote:"https://searchcve.com/",
+    cve_assetnote:"https://searchcve.com/",            cve_circl:"https://cve.circl.lu/",
+    cve_attackerkb:"https://attackerkb.com/",          cve_packetstorm:"https://packetstormsecurity.com/",
+    cve_shodancve:"https://www.shodan.io/",            cve_greynoise:"https://viz.greynoise.io/",
+    cve_nuclei:"https://github.com/projectdiscovery/nuclei-templates/", cve_osv:"https://osv.dev/",
+    cve_metasploit:"https://www.rapid7.com/",
     cvep_cisa_kev:"https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
     cvep_epss:"https://www.first.org/epss/",            cvep_socradar:"https://socradar.io/labs/app/cve-radar/",
     cvep_greynoise:"https://viz.greynoise.io/trends/",  cvep_shodan:"https://www.shodan.io/",
@@ -6254,7 +6279,7 @@ Produce the triage assessment. Be specific to the values above — do not genera
     setHref("ip_talos",          `https://talosintelligence.com/reputation_center/lookup?search=${e(ip)}`);
     setHref("ip_ibmxf",          `https://exchange.xforce.ibmcloud.com/ip/${e(ip)}`);
     setHref("ip_otx",            `https://otx.alienvault.com/indicator/ip/${e(ip)}`);
-    setHref("ip_anyrun",         anyrunLookupGeneral(ip));
+    setHref("ip_anyrun",         `https://intelligence.any.run/analysis/lookup/#ip/${e(ip)}`);
     setHref("ip_mxtoolbox",      `https://mxtoolbox.com/SuperTool.aspx?action=blacklist%3a${e(ip)}&run=toolpage`);
     setHref("ip_blacklistchecker",`https://blacklistchecker.com/ip/${e(ip)}`);
     setHref("ip_cleantalk",      `https://cleantalk.org/blacklists/${e(ip)}`);
@@ -6264,10 +6289,10 @@ Produce the triage assessment. Be specific to the values above — do not genera
     setHref("ip_iplocation",     `https://iplocation.io/ip/${e(ip)}`);
     setHref("ip_ipinfo",         `https://ipinfo.io/${e(ip)}`);
     setHref("ip_spur",           `https://spur.us/context/${e(ip)}`);
-    setHref("ip_clickfix",       `https://clickfix.carsonww.com/?q=${e(ip)}`);
+    setHref("ip_clickfix",       `https://www.phishtank.com/phish_search.php?valid=y&active=y&Search=Search&search_phish=${e(ip)}&targeting=0`);
     setHref("ip_ripestat",       `https://stat.ripe.net/${e(ip)}`);
     setHref("ip_bgphe",          `https://bgp.he.net/ip/${e(ip)}`);
-    setHref("ip_nitter",         `https://nitter.net/search?q=${e(ip)}`);
+    setHref("ip_nitter",         `https://x.com/search?q=${e(ip)}&src=typed_query`);
     setHref("ip_threatminer",    `https://www.threatminer.org/host.php?q=${e(ip)}`);
     setHref("ip_urlscan",        `https://urlscan.io/search/#ip:${e(ip)}`);
     setHref("ip_viewdns",        `https://viewdns.info/reverseip/?host=${e(ip)}&t=1`);
@@ -6276,6 +6301,16 @@ Produce the triage assessment. Be specific to the values above — do not genera
     setHref("ip_pulsedive",      `https://pulsedive.com/indicator/?ioc=${e(ip)}`);
     setHref("ip_securitytrails", `https://securitytrails.com/list/ip/${e(ip)}`);
     setHref("ip_myip",           `https://myip.ms/info/whois/${e(ip)}`);
+    setHref("ip_criminalip",    `https://www.criminalip.io/asset/report/${e(ip)}`);
+    setHref("ip_ipqualityscore",`https://www.ipqualityscore.com/threat-feeds/lookup/${e(ip)}`);
+    setHref("ip_robtex",        `https://www.robtex.com/ip-lookup/${e(ip)}`);
+    setHref("ip_onyphe",        `https://search.onyphe.io/ip/${e(ip)}`);
+    setHref("ip_fofa",          `https://en.fofa.info/result?qbase64=${btoa('ip="'+ip+'"')}`);
+    setHref("ip_zoomeye",       `https://www.zoomeye.hk/searchResult?q=${e("ip:"+ip)}`);
+    setHref("ip_arinwhois",     `https://search.arin.net/rdap/entity?name=${e(ip)}`);
+    setHref("ip_ipvoid",        `https://www.ipvoid.com/ip-blacklist-check/?ip=${e(ip)}`);
+    setHref("ip_threatbook",    `https://threatbook.io/ip/${e(ip)}`);
+    setHref("ip_whoisxml",      `https://main.whoisxmlapi.com/ip-netblocks-lookup?ip=${e(ip)}`);
     injectCustomTools("ip", ip);
   }
 
@@ -6296,29 +6331,41 @@ Produce the triage assessment. Be specific to the values above — do not genera
     setHref("dom_whois",         `https://www.whois.com/whois/${e(domain)}`);
     setHref("dom_dnslytics",     `https://dnslytics.com/domain/${e(domain)}`);
     setHref("dom_netcraft",      `https://searchdns.netcraft.com/?host=${e(domain)}`);
-    setHref("dom_webcheck",      `https://webcheck.spiderlabs.io/?q=${e(domain)}`);
+    setHref("dom_webcheck",      `https://web-check.xyz/results/${e(domain)}`);
     setHref("dom_securitytrails",`https://securitytrails.com/domain/${e(domain)}`);
-    setHref("dom_hudsonrock_info",`https://intel.hudsonrock.com/?q=${e(domain)}`);
-    setHref("dom_hudsonrock_urls",`https://cavalier.hudsonrock.com/?q=${e(domain)}`);
+    setHref("dom_hudsonrock_info",`https://cavalier.hudsonrock.com/api/json/v2/osint-tools/urls-by-domain?domain=${e(domain)}`);
+    setHref("dom_hudsonrock_urls",`https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain?domain=${e(domain)}`);
     setHref("dom_wayback",       `https://web.archive.org/web/*/${e(domain)}`);
     setHref("dom_wayback_save",  `https://web.archive.org/save/${e(domain)}`);
     setHref("dom_browserling",   `https://www.browserling.com/browse/${e(domain)}`);
-    setHref("dom_anyrun",        anyrunLookupGeneral(domain));
+    setHref("dom_anyrun",        `https://intelligence.any.run/analysis/lookup/#domain/${e(domain)}`);
     setHref("dom_anyrun_safe",   `https://any.run/submit/?url=${e("http://"+domain)}`);
-    setHref("dom_phishing_checker",`https://phishing.finsin.cl/list.php?search=${e(domain)}`);
-    setHref("dom_clickfix",      `https://clickfix.carsonww.com/?q=${e(domain)}`);
-    setHref("dom_nitter",        `https://nitter.net/search?q=${e(domain)}`);
+    setHref("dom_phishing_checker",`https://transparencyreport.google.com/safe-browsing/search?url=${e(domain)}&hl=en`);
+    setHref("dom_clickfix",      `https://www.phishtank.com/phish_search.php?valid=y&active=y&Search=Search&search_phish=${e(domain)}&targeting=0`);
+    setHref("dom_nitter",        `https://x.com/search?q=${e(domain)}&src=typed_query`);
     setHref("dom_netlas",        `https://app.netlas.io/domains/?q=${e(domain)}`);
     setHref("dom_censys",        `https://search.censys.io/search?resource=hosts&q=${e(domain)}`);
     setHref("dom_shodan",        `https://www.shodan.io/search?query=${e(domain)}`);
     setHref("dom_dnstools",      `https://whois.domaintools.com/${e(domain)}`);
     setHref("dom_crtsh",         `https://crt.sh/?q=${e(domain)}`);
-    setHref("dom_dnsdumpster",   `https://dnsdumpster.com/`);
-    setHref("dom_socradar",      `https://www.google.com/search?q=${e("SOCRadar dark web report "+domain)}`);
+    setHref("dom_dnsdumpster",   `https://dnsdumpster.com/?search=${e(domain)}`);
+    setHref("dom_socradar",      `https://socradar.io/threat-intelligence/domain/${e(domain)}`);
     setHref("dom_rdap",          `https://lookup.icann.org/lookup?name=${e(domain)}`);
     setHref("dom_passivedns",    `https://passivedns.mnemonic.no/?q=${e(domain)}`);
     setHref("dom_pulsedive",     `https://pulsedive.com/indicator/?ioc=${e(domain)}`);
     setHref("dom_threatfox",     `https://threatfox.abuse.ch/browse.php?search=ioc%3A${e(domain)}`);
+    setHref("dom_criminalip",    `https://www.criminalip.io/domain/report/${e(domain)}`);
+    setHref("dom_threatbook",    `https://threatbook.io/domain/${e(domain)}`);
+    setHref("dom_robtex",        `https://www.robtex.com/dns-lookup/${e(domain)}`);
+    setHref("dom_subfinder",     `https://crt.sh/?q=%25.${e(domain)}`);
+    setHref("dom_intelx",        `https://intelx.io/?s=${e(domain)}`);
+    setHref("dom_fofa",          `https://en.fofa.info/result?qbase64=${btoa('domain="'+domain+'"')}`);
+    setHref("dom_zoomeye",       `https://www.zoomeye.hk/searchResult?q=${e("site:"+domain)}`);
+    setHref("dom_onyphe",        `https://search.onyphe.io/domain/${e(domain)}`);
+    setHref("dom_ipqualityscore",`https://www.ipqualityscore.com/domain-reputation-check/lookup/${e(domain)}`);
+    setHref("dom_phishtank",     `https://www.phishtank.com/phish_search.php?valid=y&active=y&Search=Search&search_phish=${e(domain)}&targeting=0`);
+    setHref("dom_ipvoid",        `https://www.ipvoid.com/domain-blacklist/?domain=${e(domain)}`);
+    setHref("dom_rapiddns",      `https://rapiddns.io/subdomain/${e(domain)}?full=1`);
     injectCustomTools("domain", domain);
   }
 
@@ -6333,7 +6380,7 @@ Produce the triage assessment. Be specific to the values above — do not genera
     setHref("url_checkphish",    `https://checkphish.ai/domain/${e(domain || url)}`);
     setHref("url_safebrowsing",  `https://transparencyreport.google.com/safe-browsing/search?url=${e(url)}`);
     setHref("url_sucuri",        `https://sitecheck.sucuri.net/results/${e(url)}`);
-    setHref("url_webcheck",      `https://webcheck.spiderlabs.io/?q=${e(url)}`);
+    setHref("url_webcheck",      `https://web-check.xyz/results/${e(url)}`);
     setHref("url_otx",           `https://otx.alienvault.com/indicator/url/${e(url)}`);
     setHref("url_threatfox",     `https://threatfox.abuse.ch/browse.php?search=ioc%3A${e(url)}`);
     setHref("url_wayback",       `https://web.archive.org/web/*/${e(url)}`);
@@ -6341,14 +6388,22 @@ Produce the triage assessment. Be specific to the values above — do not genera
     setHref("url_browserling",   `https://www.browserling.com/browse/${e(url)}`);
     setHref("url_anyrun",        `https://any.run/submit/?url=${e(url)}`);
     setHref("url_netcraft",      `https://sitereport.netcraft.com/?url=${e(url)}`);
-    setHref("url_phishing_checker",`https://phishing.finsin.cl/list.php?search=${e(domain||url)}`);
-    setHref("url_clickfix",      `https://clickfix.carsonww.com/?q=${e(url)}`);
-    setHref("url_nitter",        `https://nitter.net/search?q=${e(url)}`);
+    setHref("url_phishing_checker",`https://transparencyreport.google.com/safe-browsing/search?url=${e(url)}&hl=en`);
+    setHref("url_clickfix",      `https://www.phishtank.com/phish_search.php?valid=y&active=y&Search=Search&search_phish=${e(url)}&targeting=0`);
+    setHref("url_nitter",        `https://x.com/search?q=${e(url)}&src=typed_query`);
     setHref("url_socradar",      `https://socradar.io/labs/app/link-analysis/?url=${e(url)}`);
-    setHref("url_hudsonrock_info",`https://intel.hudsonrock.com/?q=${e(domain||url)}`);
-    setHref("url_hudsonrock_urls",`https://cavalier.hudsonrock.com/?q=${e(domain||url)}`);
+    setHref("url_hudsonrock_info",`https://cavalier.hudsonrock.com/api/json/v2/osint-tools/urls-by-domain?domain=${e(domain||url)}`);
+    setHref("url_hudsonrock_urls",`https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-domain?domain=${e(domain||url)}`);
     setHref("url_securitytrails",`https://securitytrails.com/domain/${e(domain||url)}`);
     setHref("url_cyberchef",     `https://gchq.github.io/CyberChef/#input=${e(btoa(url))}`);
+    setHref("url_intelx",           `https://intelx.io/?s=${e(url)}`);
+    setHref("url_redirect_checker", `https://www.redirect-checker.org/?url=${e(url)}`);
+    setHref("url_unshorten",        `https://unshorten.me/${e(url)}`);
+    setHref("url_criminalip",       `https://www.criminalip.io/domain/report/${e(domain||url)}`);
+    setHref("url_ipqualityscore",   `https://www.ipqualityscore.com/threat-feeds/lookup/${e(url)}`);
+    setHref("url_google_cache",     `https://webcache.googleusercontent.com/search?q=cache:${e(url)}`);
+    setHref("url_urlquery",         `https://urlquery.net/search?q=${e(url)}`);
+    setHref("url_joesandbox",       `https://www.joesandbox.com/analysis/search?q=${e(domain||url)}`);
     injectCustomTools("url", url);
   }
 
@@ -6357,31 +6412,46 @@ Produce the triage assessment. Be specific to the values above — do not genera
     setHref("h_vt",          `https://www.virustotal.com/gui/file/${e(hash)}`);
     setHref("h_hybrid",      `https://www.hybrid-analysis.com/search?query=${e(hash)}`);
     setHref("h_joesandbox",  `https://www.joesandbox.com/analysis/search?q=${e(hash)}`);
-    setHref("h_triage",      `https://tria.ge/s/?q=${e(hash)}`);
+    setHref("h_triage",      `https://tria.ge/s?q=${e(hash)}`);
     setHref("h_malshare",    `https://malshare.com/search.php?query=${e(hash)}`);
     setHref("h_malwarebazaar",`https://bazaar.abuse.ch/browse.php?search=sha256_hash:${e(hash)}`);
     setHref("h_ibmxf",       `https://exchange.xforce.ibmcloud.com/malware/${e(hash)}`);
     setHref("h_talos",       `https://www.talosintelligence.com/talos_file_reputation?disposition=N&sort=0&sha256=${e(hash)}`);
     setHref("h_otx",         `https://otx.alienvault.com/indicator/file/${e(hash)}`);
-    setHref("h_anyrun",      `https://any.run/malware-trends/?md5=${e(hash)}`);
+    setHref("h_anyrun",      `https://any.run/cybersecurity-blog/page/malware-trends/?hash=${e(hash)}`);
     setHref("h_threatminer", `https://www.threatminer.org/sample.php?q=${e(hash)}`);
-    setHref("h_intezer",     `https://analyze.intezer.com/`);
+    setHref("h_intezer",     `https://analyze.intezer.com/files/${e(hash)}`);
     setHref("h_cyberchef",   `https://gchq.github.io/CyberChef/#input=${e(btoa(hash))}`);
-    setHref("h_nitter",      `https://nitter.net/search?q=${e(hash)}`);
+    setHref("h_nitter",      `https://x.com/search?q=${e(hash)}&src=typed_query`);
+    setHref("h_filescan",     `https://www.filescan.io/search?q=${e(hash)}`);
+    setHref("h_unpac_me",     `https://www.unpac.me/search?q=${e(hash)}`);
+    setHref("h_capesandbox",  `https://capesandbox.com/analysis/search/?search_term=${e(hash)}`);
+    setHref("h_malpedia",     `https://malpedia.caad.fkie.fraunhofer.de/find?search=${e(hash)}`);
+    setHref("h_vxunderground",`https://github.com/search?q=${e(hash)}&type=code`);
+    setHref("h_docguard",     `https://app.docguard.io/search?hash=${e(hash)}`);
+    setHref("h_malware_traffic",`https://www.malware-traffic-analysis.net/search.html?q=${e(hash)}`);
+    setHref("h_risiq",        `https://community.riskiq.com/search/${e(hash)}`);
     injectCustomTools("hash", hash);
   }
 
   function buildLinksForEmail(email) {
+    // For email tools: @ must be preserved in path-based URLs; use encodeURIComponent only for query params
     const e  = encodeURIComponent;
+    const er = s => encodeURIComponent(s).replace(/%40/g, "@");  // email-safe encoder: keeps @
     const dom = (email.split("@")[1] || "").toLowerCase();
-    setHref("em_hunter",     `https://hunter.io/email-verifier/${e(email)}`);
-    setHref("em_hibp",       `https://haveibeenpwned.com/account/${e(email)}`);
-    setHref("em_intelbase",  `https://intelbase.is/search?q=${e(email)}`);
-    setHref("em_emailrep",   `https://emailrep.io/${e(email)}`);
-    setHref("em_epieos",     `https://epieos.com/?q=${e(email)}&t=email`);
-    setHref("em_intelx",     `https://intelx.io/?s=${e(email)}`);
-    setHref("em_phonebook",  `https://phonebook.cz/email/?q=${e(email)}`);
-    setHref("em_dehashed",   `https://dehashed.com/search?query=${e(email)}`);
+    setHref("em_hunter",     `https://hunter.io/email-verifier/${er(email)}`);
+    setHref("em_hibp",       `https://haveibeenpwned.com/account/${er(email)}`);
+    setHref("em_intelbase",  `https://intelbase.is/search?q=${er(email)}`);
+    setHref("em_emailrep",   `https://emailrep.io/${er(email)}`);
+    setHref("em_epieos",     `https://epieos.com/?q=${er(email)}&t=email`);
+    setHref("em_intelx",     `https://intelx.io/?s=${er(email)}`);
+    setHref("em_phonebook",  `https://phonebook.cz/email/?q=${er(email)}`);
+    setHref("em_dehashed",   `https://dehashed.com/search?query=${er(email)}`);
+    setHref("em_breach_dir",  `https://breachdirectory.org/email/${er(email)}`);
+    setHref("em_tomba",       `https://tomba.io/email-finder?email=${er(email)}`);
+    setHref("em_mxtoolbox",   `https://mxtoolbox.com/SuperTool.aspx?action=mx%3a${e(dom)}&run=toolpage`);
+    setHref("em_google",      `https://www.google.com/search?q=${e('"'+email+'"')}`);
+    setHref("em_intelx",      `https://intelx.io/?s=${er(email)}`);
     injectCustomTools("email", email);
   }
 
@@ -6404,6 +6474,14 @@ Produce the triage assessment. Be specific to the values above — do not genera
     setHref("cvep_greynoise",`https://viz.greynoise.io/trends/`);
     setHref("cvep_shodan",   `https://www.shodan.io/search?query=vuln:${e(cve)}`);
     setHref("cvep_vulncheck",`https://vulncheck.com/browse/cve`);
+    setHref("cve_circl",      `https://cve.circl.lu/cve/${e(cve)}`);
+    setHref("cve_attackerkb", `https://attackerkb.com/search?q=${e(cve)}`);
+    setHref("cve_packetstorm",`https://packetstormsecurity.com/search/?q=${e(cve)}`);
+    setHref("cve_shodancve",  `https://www.shodan.io/search?query=vuln:${e(cve)}`);
+    setHref("cve_greynoise",  `https://viz.greynoise.io/trends/?query=${e(cve)}`);
+    setHref("cve_nuclei",     `https://github.com/projectdiscovery/nuclei-templates/search?q=${e(cve)}`);
+    setHref("cve_osv",        `https://osv.dev/list?q=${e(cve)}`);
+    setHref("cve_metasploit", `https://www.rapid7.com/db/search?q=${e(cve)}&type=metasploit`);
     injectCustomTools("cve", cve);
   }
 
