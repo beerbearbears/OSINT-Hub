@@ -2077,3 +2077,8 @@ body.light .qa-tool-row td { border-bottom: 1px solid rgba(0,0,0,0.05); }
 .dt-stat-label{ font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
 body.light .dt-event { background: #f8fafc; }
 body.light .dt-fmt-btn.active { background: rgba(14,165,233,0.1); }
+
+/* ── Device Timeline: download category ───────────────────────── */
+.dt-cat-download { background:rgba(251,146,60,0.15); color:#fb923c; }
+.dt-event.dt-chain-download { border-left-color: #f59e0b !important; }
+.dt-event.dt-chain-execute  { border-left-color: #ef4444 !important; }
